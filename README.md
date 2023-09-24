@@ -7,7 +7,7 @@ Features:
 * Watch recording while transcode is still taking place (just don't seek too far ahead)
 * Implements live, hls, dash, mp4, and vod streaming
 * Use commercial cut info from mythtv database to cut commercials
-* Can transcode videos to multiple bitrates/resolutions for adaptive playback over less reliable networks (e.g. cell phone browser).
+* Can transcode videos to configurable multiple bitrates/resolutions for adaptive playback over less reliable networks (e.g. cell phone browser).
 * Allows watching recordings that are currently being recorded (live recordings)
 * Allows live hdhomerun streams
 

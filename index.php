@@ -111,6 +111,7 @@ for ($i = 0; $i < count($file_list); $i++)
     }
 }
 
+// todo: when the user does removes the file in mythtv, the name in the dropdown list is Unknown
 $query_parts_string=implode(" OR ", $query_parts);
 $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
 mysqli_select_db($dbconn,$dbname);
@@ -228,6 +229,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
     }
     else if (isset($_REQUEST['action']) && $_REQUEST["action"] == "clean")
     {
+        // todo: when the user does not press clean after live streaming, the data in the ramdisk may be cleared without clearing the meta data in the hls folder.
         // clean HLS files only, if available VOD files remain on disk and can still be played
         if (file_exists($hls_path."/".$filename))
         {
@@ -385,6 +387,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             }
             if (isset($_REQUEST["checkbox_subtitles"]))
             {
+                // todo: subtitles does not work with a live recording, check if code from hdhomerunstream.php would help here
                 $create_live_dir = "";
                 $create_vod_dir = "";
                 // todo: think about this, hls dir contains the meta data, should always exist
@@ -398,22 +401,23 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                     $hls_playlist_type = $_REQUEST["hls_playlist_type"][0];
                     if ($hls_playlist_type == "live")
                     {
+                        // todo: find out whether mythtv is still recording as of v34.0 RecStatus can be used, see https://www.mythtv.org/wiki/Recording_Status
                         $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/live/".$BASE.";";
                         $option_live = "[f=segment:segment_time=6:segment_list_size=0:segment_format=webvtt:segment_list=../live/".$BASE."/sub.m3u8]../live/".$BASE."/sub-%d.vtt";
                     }
                     if ($hls_playlist_type == "event")
                     {
-                        $option_hls  = "[f=segment:segment_time=6:segment_list_size=0:segment_format=webvtt:segment_list=".$BASE."/sub.m3u8]".$BASE."/sub-%d.vtt";
+                        $option_hls = "[f=segment:segment_time=6:segment_list_size=0:segment_format=webvtt:segment_list=".$BASE."/sub.m3u8]".$BASE."/sub-%d.vtt";
                     }
                 }
                 if (isset($_REQUEST["vod"]))
                 {
                     $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
-                    $option_vod  = "[f=segment:segment_time=6:segment_list_size=0:segment_format=webvtt:segment_list=../".$VODDIR."/".$BASE."/sub.m3u8]../".$VODDIR."/".$BASE."/sub-%d.vtt";
+                    $option_vod = "[f=segment:segment_time=6:segment_list_size=0:segment_format=webvtt:segment_list=../".$VODDIR."/".$BASE."/sub.m3u8]../".$VODDIR."/".$BASE."/sub-%d.vtt";
                 }
                 if (isset($_REQUEST["mp4"]))
                 {
-                    $option_mp4  = "[select=\'s:0,sgroup:subtitle\']".$BASE."/subtitles.vtt";
+                    $option_mp4 = "[select=\'s:0,sgroup:subtitle\']".$BASE."/subtitles.vtt";
                 }
                 // Due to bugs in ffmpeg subtitles need to be processed first (cannot be done in a singe tee together with audio and video scaling).
                 fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract start >> ".$hls_path."/".$filename."/status.txt'; ".$create_live_dir." ".$create_vod_dir." ".$create_hls_dir." cd /var/www/html/".$HLSDIR."/; /usr/bin/sudo -uapache /usr/bin/ffmpeg -fix_sub_duration -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi -txt_format text -txt_page 888 ".$fileinput." -map 0:s:0 -c:s webvtt ".$STARTTIME." -f tee \"".$option_live."|".$option_hls."|".$option_mp4."|".$option_vod."\" 2>>/tmp/ffmpeg-subtitle-extract-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract failed >> ".$hls_path."/".$filename."/status.txt'\n");
@@ -426,7 +430,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                     {
                         $dir = "/var/www/html/live/".$BASE."/master_live.m3u8";
                         // This command need to be delayed, till the master file is created by ffmpeg!!!
-                        fwrite($fp, "(while [ ! -f \"".$dir."\" ] ; do /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/../live/".$BASE."; done;/usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub.m3u8\",LANGUAGE=\"dut\"/' ".$dir."; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$dir."; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e '\$d;N;2,6ba' -e 'P;D' -i ".$dir.";) & ");
+                        fwrite($fp, "(while [ ! -f \"".$dir."\" ] ; do /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/../live/".$BASE."; done;/usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub.m3u8\",LANGUAGE=\"dut\"/' ".$dir."; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$dir."; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e '\$d;N;2,6ba' -e 'P;D' -i ".$dir.";) & ");
                     }
                     else
                     {
@@ -437,6 +441,14 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                     }
                 }
             }
+            if (isset($_REQUEST["vod"]))
+            {
+                $dir = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
+                // correct for ffmpeg bug: $option_vod uses -metadata:s:a:0 language=dut (note: there can be only one language per adaptation_sets), for master_vod.m3u8 the metadata language is ignored
+                // todo: make language configurable
+                // This command need to be delayed, till the master file is created by ffmpeg!!!
+                fwrite($fp, "(while [ ! -f \"".$dir."\" ] ; do /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE."; done; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"dut\"/' ".$dir.";) & ");
+            }
             $lowbitrate = get_key_second_adaptive_bitrate($settings, array_search($_REQUEST["quality"], $keys));
             $read_rate = "";
             $create_live_dir = "";
@@ -444,6 +456,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             $create_hls_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/".$BASE.";";
             $option_live = "/dev/null";
             $option_hls  = "/dev/null";
+            $option_mp4  = "/dev/null";
             if (isset($_REQUEST["hls_playlist_type"]))
             {
                 $hls_playlist_type = $_REQUEST["hls_playlist_type"][0];
@@ -451,28 +464,35 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 // todo: make live an option
                 if ($hls_playlist_type == "live")
                 {
+                    // todo: make language configurable
                     // read input at native frame rate
                     $read_rate = "-re";
                     $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/../live/".$BASE.";";
-                    $option_live = "[select=\'a:0,a:1,v:0,v:1\':f=hls:hls_time=6:hls_list_size=10:hls_flags=+independent_segments+iframes_only+delete_segments:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,name:".$settings[$_REQUEST["quality"]]["height"]."p v:1,agroup:aac,name:".$settings[$lowbitrate]["height"]."p a:0,agroup:aac,language:dut,name:aac_1_96k a:1,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K\':master_pl_name=master_live.m3u8:hls_segment_filename=../live/".$BASE."/stream_live_%v_data%02d.m4s]../live/".$BASE."/stream_live_%v.m3u8";
+                    $option_live = "[select=\'a:0,a:1,v:0,v:1\':f=hls:hls_time=6:hls_list_size=10:hls_flags=+independent_segments+iframes_only+delete_segments:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p v:1,agroup:aac,language:dut,name:".$settings[$lowbitrate]["height"]."p a:0,agroup:aac,language:dut,name:aac_1_96k a:1,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K\':master_pl_name=master_live.m3u8:hls_segment_filename=../live/".$BASE."/stream_live_%v_data%02d.m4s]../live/".$BASE."/stream_live_%v.m3u8";
                 }
                 else if ($hls_playlist_type == "event")
                 {
-                    $option_hls = "[select=\'a:0,a:1,v:0,v:1\':f=hls:hls_time=6:hls_playlist_type=event:hls_flags=+independent_segments+iframes_only:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,name:".$settings[$_REQUEST["quality"]]["height"]."p v:1,agroup:aac,name:".$settings[$lowbitrate]["height"]."p a:0,agroup:aac,language:dut,name:aac_1_96k a:1,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K\':master_pl_name=master_event.m3u8:hls_segment_filename=".$BASE."/stream_event_%v_data%02d.m4s]".$BASE."/stream_event_%v.m3u8";
+                    $option_hls = "[select=\'a:0,a:1,v:0,v:1\':f=hls:hls_time=6:hls_playlist_type=event:hls_flags=+independent_segments+iframes_only:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p v:1,agroup:aac,language:dut,name:".$settings[$lowbitrate]["height"]."p a:0,agroup:aac,language:dut,name:aac_1_96k a:1,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K\':master_pl_name=master_event.m3u8:hls_segment_filename=".$BASE."/stream_event_%v_data%02d.m4s]".$BASE."/stream_event_%v.m3u8";
                 }
             }
-            $create_vod_dir  = "";
-            $option_vod  = "/dev/null";
+            $create_vod_dir = "";
+            $option_vod = "/dev/null";
             if (isset($_REQUEST["vod"]))
             {
-                $create_vod_dir  = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
+                $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
                 $option_vod = "[select=\'a:0,a:1,v:0,v:1\':f=dash:seg_duration=6:hls_playlist=true:single_file=true:adaptation_sets=\'id=0,streams=0,1 id=1,streams=2,3\':media_seg_name=\'stream_vod_\$RepresentationID\$-\$Number%05d\$.\$ext\$\':hls_master_name=master_vod.m3u8]../".$VODDIR."/".$BASE."/manifest_vod.mpd";
             }
-            $option_mp4  = "/dev/null";
+            //$sub = "-map -0:4?";
             if(isset($_REQUEST["mp4"]))
             {
                 // todo: think about this hls dir contains meta data, thus should always exist
                 $option_mp4 = "[select=\'v:0,a:1\':f=mp4:movflags=+faststart]".$BASE."/".$BASE.".mp4";
+                // todo: do NOT understand why this does NOT work? It does WORK when no complex filter is used?
+                // if (isset($_REQUEST["checkbox_subtitles"]) && $hls_playlist_type == "live")
+                // {
+                //     $option_mp4 .= "|[select=\'s:0,sgroup:subtitle\']".$BASE."/subtitles.vtt";
+                //     $sub = "-map 0:s:0? -c:s webvtt";
+                // }
             }
             if ($extension == "avi")
             {
@@ -489,7 +509,8 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 $library = "h264_vaapi";
             }
             // todo: make second audio parameter configurable as well, its a constant now 96K, requires some thinking
-            fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt'; ".$create_vod_dir." ".$create_live_dir." ".$create_hls_dir." cd /var/www/html/".$HLSDIR."/; /usr/bin/sudo -uapache /usr/bin/ffmpeg ".$hwaccel." ".$STARTTIME." ".$read_rate." ".$fileinput." -live_start_index 0 -progress ".$BASE."/progress-log.txt -force_key_frames \"expr:gte(t,n_forced*2)\" -filter_complex \"[0:v]split=2[v1][v2];[v1]".$scale."=w=".$settings[$_REQUEST["quality"]]["width"].":h=".$settings[$_REQUEST["quality"]]["height"]."[v1out];[v2]".$scale."=w=".$settings[$lowbitrate]["width"].":h=".$settings[$lowbitrate]["height"]."[v2out]\" -map [v1out] -c:v:0 ".$library." -b:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -maxrate:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -minrate:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -bufsize:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map [v2out] -c:v:1 ".$library." -b:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -maxrate:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -minrate:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -bufsize:v:1 ".$settings[$lowbitrate]["vbitrate"]."K  -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map a:0 -ac 2 -c:a:0 aac -b:a:0 96k -map a:0 -ac 2 -c:a:1 aac -b:a:1 ".$settings[$_REQUEST["quality"]]["abitrate"]."K -map -0:4? -map -0:5? -map -0:6? -map -0:7? -map -0:8? -map -0:9? -f tee \"".$option_vod."|".$option_mp4."|".$option_live."|".$option_hls."\" 2>>/tmp/ffmpeg-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
+            // ffmpeg bug: $option_vod uses -metadata:s:a:0 language=dut (note: there can be only one language per adaptation_sets), for master_vod.m3u8 the metadata language is ignored
+            fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt'; ".$create_vod_dir." ".$create_live_dir." ".$create_hls_dir." cd /var/www/html/".$HLSDIR."/; /usr/bin/sudo -uapache /usr/bin/ffmpeg ".$hwaccel." ".$STARTTIME." ".$read_rate." ".$fileinput." -live_start_index 0 -progress ".$BASE."/progress-log.txt -force_key_frames \"expr:gte(t,n_forced*2)\" -filter_complex \"[0:v]split=2[v1][v2];[v1]".$scale."=w=".$settings[$_REQUEST["quality"]]["width"].":h=".$settings[$_REQUEST["quality"]]["height"]."[v1out];[v2]".$scale."=w=".$settings[$lowbitrate]["width"].":h=".$settings[$lowbitrate]["height"]."[v2out]\" -map [v1out] -c:v:0 ".$library." -b:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -maxrate:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -minrate:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -bufsize:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map [v2out] -c:v:1 ".$library." -b:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -maxrate:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -minrate:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -bufsize:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map a:0 -ac 2 -c:a:0 aac -b:a:0 96k -metadata:s:a:0 language=dut -map a:0 -ac 2 -c:a:1 aac -b:a:1 ".$settings[$_REQUEST["quality"]]["abitrate"]."K -metadata:s:a:1 language=dut -map -0:4? -map -0:5? -map -0:6? -map -0:7? -map -0:8? -map -0:9? -f tee \"".$option_vod."|".$option_mp4."|".$option_live."|".$option_hls."\" 2>>/tmp/ffmpeg-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
             if (isset($_REQUEST["checkbox_subtitles"]))
             {
                 if (isset($_REQUEST["vod"]))
@@ -541,7 +562,9 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
         <!-- Shaka Player ui compiled library: -->
         <script src="shaka-player.ui.js"></script>
         <!-- Shaka Player ui compiled library default CSS: -->
-        <link rel="stylesheet" type="text/css" href="controls.css"><script>
+        <link rel="stylesheet" type="text/css" href="controls.css">
+        <script defer src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
+        <script>
         var manifestUri = '';
         var statusInterval = null;
         var filename = "<?php echo $filename; ?>";
@@ -556,7 +579,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             var tem;
             var M= ua.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
             if(/trident/i.test(M[1])){
-                tem=  /\brv[ :]+(\d+)/g.exec(ua) || [];
+                tem= /\brv[ :]+(\d+)/g.exec(ua) || [];
                 return 'IE '+(tem[1] || '');
             }
             if(M[1]=== 'Chrome'){
@@ -617,7 +640,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             var str = "" + num;
             var pad = "00";
             return pad.substring(0, pad.length - str.length) + str;
-       }
+        }
 
         function checkStatusListener()
         {
@@ -660,8 +683,8 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                     message = message + pad(Math.floor(secs));
 
                     message = message + " available";
-                    // todo: 9 seconds is just an empirical guess
-                    if (!playerInitDone && Math.ceil(status["available"] >= 9))
+                    // todo: 20 seconds is just an empirical guess
+                    if (!playerInitDone && Math.ceil(status["available"] >= 20))
                     {
                         playerInitDone = true;
                         initPlayer();
@@ -708,43 +731,81 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
           }
         }
 
+        // async does not work on Edge
+        //async function initPlayer() {
         function initPlayer() {
-          // Create a Player instance.
-          const video = document.getElementById('video');
-          const player = new shaka.Player(video);
+            // When using the UI, the player is made automatically by the UI object.
+            const video = document.getElementById('video');
+            const ui = video['ui'];
+            const controls = ui.getControls();
+            const player = controls.getPlayer();
 
-          // Attach player to the window to make it easy to access in the JS console.
-          window.player = player;
+            player.configure('streaming.useNativeHlsOnSafari', true);
 
-          // Listen for error events.
-          player.addEventListener('error', onErrorEvent);
+            // Attach player and ui to the window to make it easy to access in the JS console.
+            window.player = player;
+            window.ui = ui;
+            ui.configure('castReceiverAppId', '930DEB06');
 
-          // Try to load a manifest.
-          // This is an asynchronous process.
-          player.load(manifestUri).then(function() {
-              // This runs if the asynchronous load is successful.
-              console.log('The video has now been loaded!');
-              // todo: still needs to be checked of this does anything at all?
-              video.requestFullscreen().catch(err => {
-                      console.log(err)
-                             });
-              video.play().catch(err => {
-                      console.log(err)
-                             });
-          }).catch(onError);  // onError is executed if the asynchronous load fails.
+            // Listen for error events.
+            player.addEventListener('error', onPlayerErrorEvent);
+            controls.addEventListener('error', onUIErrorEvent);
+
+            // Try to load a manifest.
+            // This is an asynchronous process.
+            try {
+                // await does not work on Edge
+                // await player.load(manifestUri);
+                player.load(manifestUri);
+                // This runs if the asynchronous load is successful.
+                console.log('The video has now been loaded!');
+                //         video.requestFullscreen().catch(err => {
+                //                      console.log(err)
+                //                             });
+            } catch (error) {
+                onPlayerError(error);
+            }
         }
 
-        function onErrorEvent(event) {
-          // Extract the shaka.util.Error object from the event.
-          onError(event.detail);
+        function onCastStatusChanged(event) {
+            const newCastStatus = event['newStatus'];
+            // Handle cast status change
+            console.log('The new cast status is: ' + newCastStatus);
         }
 
-        function onError(error) {
-          // Log the error.
-          console.error('Error code', error.code, 'object', error);
+        function onPlayerErrorEvent(errorEvent) {
+            // Extract the shaka.util.Error object from the event.
+            onPlayerError(event.detail);
+        }
+
+        function onPlayerError(error) {
+            // Handle player error
+            console.error('Error code', error.code, 'object', error);
+        }
+
+        function onUIErrorEvent(errorEvent) {
+            // Extract the shaka.util.Error object from the event.
+            onPlayerError(event.detail);
+        }
+
+        function initFailed(errorEvent) {
+            // Handle the failure to load; errorEvent.detail.reasonCode has a
+            // shaka.ui.FailReasonCode describing why.
+            console.error('Unable to load the UI library!');
+        }
+
+        function onCastStatusChanged(event) {
+            const newCastStatus = event['newStatus'];
+            // Handle cast status change
+            console.log('The new cast status is: ' + newCastStatus);
         }
 
         document.addEventListener('DOMContentLoaded', initApp);
+        // Listen to the custom shaka-ui-loaded event, to wait until the UI is loaded.
+        document.addEventListener('shaka-ui-loaded', initPlayer);
+        // Listen to the custom shaka-ui-load-failed event, in case Shaka Player fails
+        // to load (e.g. due to lack of browser support).
+        document.addEventListener('shaka-ui-load-failed', initFailed);
           </script>
           </head>
         <body>
@@ -818,16 +879,17 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
         }
        echo "</td></tr>";
 ?>
-        </table>
-          <video id="video"
-              width="100%"
-              height="100%"
-                   controls autoplay>
-              Your browser does not support HTML5 video.
-           </video>
+           </table>
+           <!-- The data-shaka-player-container tag will make the UI library place the controls in this div.
+                The data-shaka-player-cast-receiver-id tag allows you to provide a Cast Application ID that
+                the cast button will cast to; the value provided here is the sample cast receiver. -->
+             <div data-shaka-player-container style="max-width:40em"
+                  data-shaka-player-cast-receiver-id="930DEB06">
+               <video autoplay data-shaka-player id="video" style="width:100%;height:100%">
+                  Your browser does not support HTML5 video.
+               </video>
+             </div>
          </body>
-        </html>
-        </body>
         </html>
         <?php
     }
@@ -859,7 +921,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             $videoheight = ((int) str_replace(" ", "", $heightdetails[1][0]));
             preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
             if(isset($ratedetails[1][0])) {
-               $framerate = ((double)  $ratedetails[1][0]);
+               $framerate = ((double) $ratedetails[1][0]);
             }
             // Fetch any cut marks
             preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/',$filename,$filedetails);
@@ -929,7 +991,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             <head><title>Select Video Settings</title></head>
             <body>
 <?php echo $select_box; ?>
-                                   <form action="index.php" method="GET">
+            <form action="index.php" method="GET">
             <input type="hidden" name="filename" value="<?php echo $filename; ?>">
 <?php
             if (file_exists($hls_path."/../vod/".$filename."/master_vod.m3u8") ||
@@ -984,7 +1046,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             <input type="hidden" name="length" value="<?php echo $length; ?>">
             <input type="hidden" name="clippedlength" value="<?php echo (int)$clippedlength; ?>">
             <input type="hidden" name="cutcount" value="<?php echo (int)$cutcount/2; ?>">
-            <input type="checkbox" name="hls_playlist_type[]" value="live" onclick="return KeepCount()" checked='checked'  id="option"><label for="option"> live</label>
+            <input type="checkbox" name="hls_playlist_type[]" value="live" onclick="return KeepCount()" checked='checked' id="option"><label for="option"> live</label>
             <input type="checkbox" name="hls_playlist_type[]" value="event" onclick="return KeepCount()" id="option"><label for="option"> event</label><br>
             <input type="checkbox" name="vod" id="option"><label for="option"> vod</label><br>
             <input type="checkbox" name="mp4" id="option"><label for="option"> mp4</label><br>

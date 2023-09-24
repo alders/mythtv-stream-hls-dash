@@ -80,7 +80,7 @@ function get_videomultiplexlist() {
 }
 
 function get_channel_info_list ($VideoMultiplexList) {
-   # http://$hostname:6544/Channel/GetChannelInfoList?SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true
+   #http://$hostname:6544/Channel/GetChannelInfoList?SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true
 
     $xml_response = http_request("GET" ,"Channel/GetChannelInfoList",
                              "SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true");
@@ -153,7 +153,7 @@ foreach ($settings as $setting => $settingset)
                            "</option>\n";
 }
 $select_box .= "</form></select>";
-$select_box  .= "<form action=\"hdhomerunstream.php\" method=\"GET\">";
+$select_box .= "<form action=\"hdhomerunstream.php\" method=\"GET\">";
 $select_box .= "<label for=\"channel\">Channel: </label>";
 $select_box .= "<select name=\"channel\">";
 foreach($channels as $key => $value) {
@@ -169,29 +169,35 @@ foreach($channels as $key => $value) {
        $select_box .= "<option value=\"$key\">".preg_replace('/[0-9]+/', '', ucfirst($string))."</option>";
     }
 }
-$select_box .= "</select><input type=\"submit\" name=\"do\" value=\"Encode Video\"></form>";
+$select_box .= "</select><input type=\"submit\" name=\"do\" value=\"Watch TV\"></form>";
 
 if (isset($_REQUEST['action']) && $_REQUEST["action"] == "delete")
 {
     // Shut down all screen sessions
-    $response = shell_exec('/usr/bin/sudo /usr/bin/screen -S '.$_REQUEST['channel']."_encode -X quit");
+    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$_REQUEST['channel']."_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
     // delete live files
-    array_map('unlink', glob($live_path."/*.vtt"));
-    array_map('unlink', glob($channel_path."/*.txt"));
-    array_map('unlink', glob($channel_path."/*.log"));
-    array_map('unlink', glob($channel_path."/*.sh"));
-    array_map('unlink', glob($live_path."/*.m4s"));
-    array_map('unlink', glob($live_path."/*.m3u8"));
+    array_map('unlink', glob($live_path."/".$_REQUEST['channel']."/*.vtt"));
+    array_map('unlink', glob($channel_path."/".$_REQUEST['channel']."/*.txt"));
+    array_map('unlink', glob($channel_path."/".$_REQUEST['channel']."/*.log"));
+    array_map('unlink', glob($channel_path."/".$_REQUEST['channel']."/*.sh"));
+    array_map('unlink', glob($live_path."/".$_REQUEST['channel']."/*.m4s"));
+    array_map('unlink', glob($live_path."/".$_REQUEST['channel']."/*.m3u8"));
+    rmdir($channel_path."/".$_REQUEST['channel']."/");
+    if (is_dir($channel_path."/../live/".$_REQUEST['channel']."/"))
+    {
+        rmdir($channel_path."/../live/".$_REQUEST['channel']."/");
+    }
     echo "<html><head><title>Stopped Live Stream</title></head><body><h2>Stopped Live Stream</h2>".$select_box."</body></html>";
 }
 else if (isset($_REQUEST['action']) && $_REQUEST["action"] == "status")
 {
+    $channel = $_REQUEST['channel'];
     $status = array();
-    if (file_exists($channel_path."/status.txt"))
+    if (file_exists($channel_path."/".$channel."/status.txt"))
     {
-        $status["status"] = file($channel_path."/status.txt");
+        $status["status"] = file($channel_path."/".$channel."/status.txt");
     }
-    if (file_exists($live_path."/livestream.m3u8"))
+    if (file_exists($live_path."/".$channel."/livestream.m3u8"))
     {
         $status["available"] = 100;
     }
@@ -200,36 +206,53 @@ else if (isset($_REQUEST['action']) && $_REQUEST["action"] == "status")
 }
 else if (isset($_REQUEST["do"]))
 {
+    $channel = $_REQUEST['channel'];
     # todo: if possible connect to a running screen encoding
     # todo: make filename variable to allow live streams of parallel channels livestream.m3u8
     # todo: take width and height into account
     # Write encode script (just for cleanup, if no encode necessary)
-    $fp = fopen($channel_path."/encode.sh", "w");
-    fwrite($fp, "cd ".$channel_path."/\n");
-    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." set /".$tuner."/channel auto:".$channels[$_REQUEST['channel']]['Frequency'].";");
-    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." set /".$tuner."/program ".$channels[$_REQUEST['channel']]['ServiceId'].";");
-    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$channel_path."/status.txt'; /usr/bin/sudo -uapache /usr/bin/mkdir -p ".$channel_path."; cd ".$channel_path."/; /usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache /usr/bin/ffmpeg -fix_sub_duration -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi -txt_format text -txt_page 888 -i - -y -c:v h264_vaapi -vprofile high -preset slow -b:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K  -maxrate:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K  -minrate:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K  -bufsize:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -crf 22 -c:a aac -b:a ".$settings[$_REQUEST["quality"]]["abitrate"]."k -ac 2 -map 0:v:0 -map 0:a:0 -map 0:s:0 -f webvtt -f hls -hls_time 6 -hls_list_size 10 -hls_flags +delete_segments -var_stream_map \"v:0,a:0,agroup:audio".$settings[$_REQUEST["quality"]]["abitrate"].",language:DUT,s:0,sgroup:subtitle\"  -master_pl_name livestream.m3u8 -hls_segment_filename ".$relative_path."/stream_event_%v_data%02d.m4s ".$relative_path."/stream_event_%v.m3u8 2>>/tmp/ffmpeg-hdhomerunstream.log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$channel_path."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$channel_path."/status.txt'\n");
-    fwrite($fp, "sleep 1 && /usr/bin/sudo /usr/bin/screen -S ".$_REQUEST['channel']."_encode -X quit\n");
+    if (!file_exists($channel_path."/".$channel."/"))
+    {
+        mkdir($channel_path."/".$channel."/");
+    }
+    $fp = fopen($channel_path."/".$channel."/encode.sh", "w");
+    fwrite($fp, "cd ".$channel_path."/".$channel."/\n");
+    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." set /".$tuner."/channel auto:".$channels[$_REQUEST['channel']]['Frequency'].";\n");
+    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." set /".$tuner."/program ".$channels[$_REQUEST['channel']]['ServiceId'].";\n");
+    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache /usr/bin/ffmpeg -txt_format text -txt_page 888 -i - -y -c copy -map 0:s:0 -frames:s 1 -f null - -v 0 -hide_banner;\n");
+    fwrite($fp, "subtitles=`echo $?`;\n");
+    fwrite($fp, "if [ \"\$subtitles\" -eq \"0\" ]; then\n");
+    // subtitles present
+    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$channel_path."/".$channel."/status.txt'; /usr/bin/sudo -uapache /usr/bin/mkdir -p ".$channel_path."; /usr/bin/sudo -uapache /usr/bin/mkdir -p ".$channel_path."/".$channel."; /usr/bin/sudo -uapache /usr/bin/mkdir -p ".$live_path."/".$channel."; cd ".$channel_path."/; /usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache /usr/bin/ffmpeg -fix_sub_duration -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi -txt_format text -txt_page 888 -i - -y -live_start_index 0 -force_key_frames \"expr:gte(t,n_forced*2)\" -c:v h264_vaapi -vprofile high -preset veryfast -b:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -maxrate:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K  -minrate:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -bufsize:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -crf 22 -c:a aac -b:a ".$settings[$_REQUEST["quality"]]["abitrate"]."K -ac 2 -map 0:v:0 -map 0:a:0 -map 0:s:0 -f webvtt -f hls -hls_time 6 -hls_list_size 10 -hls_flags +delete_segments -var_stream_map \"v:0,a:0,agroup:audio".$settings[$_REQUEST["quality"]]["abitrate"].",language:dut,s:0,sgroup:subtitle\" -master_pl_name livestream.m3u8 -hls_segment_filename ".$relative_path."/".$channel."/stream_event_%v_data%02d.m4s ".$relative_path."/".$channel."/stream_event_%v.m3u8 2>>/tmp/ffmpeg-hdhomerunstream.log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$channel_path."/".$channel."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$channel_path."/".$channel."/status.txt'\n");
+    fwrite($fp, "else\n");
+    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$channel_path."/".$channel."/status.txt'; /usr/bin/sudo -uapache /usr/bin/mkdir -p ".$channel_path."; /usr/bin/sudo -uapache /usr/bin/mkdir -p ".$channel_path."/".$channel."; /usr/bin/sudo -uapache /usr/bin/mkdir -p ".$live_path."/".$channel."; cd ".$channel_path."/; /usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache /usr/bin/ffmpeg -fix_sub_duration -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi -i - -y -live_start_index 0 -force_key_frames \"expr:gte(t,n_forced*2)\" -c:v h264_vaapi -vprofile high -preset veryfast -b:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -maxrate:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K  -minrate:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -bufsize:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -crf 22 -c:a aac -b:a ".$settings[$_REQUEST["quality"]]["abitrate"]."K -ac 2 -map 0:v:0 -map 0:a:0 -f hls -hls_time 6 -hls_list_size 10 -hls_flags +delete_segments -var_stream_map \"v:0,a:0,agroup:audio".$settings[$_REQUEST["quality"]]["abitrate"].",language:dut\" -master_pl_name livestream.m3u8 -hls_segment_filename ".$relative_path."/".$channel."/stream_event_%v_data%02d.m4s ".$relative_path."/".$channel."/stream_event_%v.m3u8 2>>/tmp/ffmpeg-hdhomerunstream.log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$channel_path."/".$channel."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$channel_path."/".$channel."/status.txt'\n");
+    fwrite($fp, "fi\n");
+    fwrite($fp, "sleep 1 && /usr/bin/sudo /usr/bin/screen -S ".$channel."_encode -X quit\n");
     fclose($fp);
 
-    $response = shell_exec("/usr/bin/sudo /usr/bin/chmod a+x ".$channel_path."/encode.sh");
-    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST['channel']."_encode -dm /bin/bash");
-    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST['channel']."_encode -X eval 'chdir ".$channel_path."'");
-    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST['channel']."_encode -X logfile '".$channel_path."/encode.log'");
-    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST['channel']."_encode -X log on");
-    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST['channel']."_encode -X stuff '".$channel_path."/encode.sh\n'");
+    $response = shell_exec("/usr/bin/sudo /usr/bin/chmod a+x ".$channel_path."/".$channel."/encode.sh");
+    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$channel."_encode -dm /bin/bash");
+    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$channel."_encode -X eval 'chdir ".$channel_path."/".$channel."/'");
+    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$channel."_encode -X logfile '".$channel_path."/".$channel."/encode.log'");
+    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$channel."_encode -X log on");
+    $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$channel."_encode -X stuff '".$channel_path."/".$channel."/encode.sh\n'");
     ?>
         <!DOCTYPE html>
         <html>
         <head><title>Live TV</title>
         <!-- Load the Shaka Player library. -->
         <script src="shaka-player.compiled.js"></script>
-        <script>
+        <!-- Shaka Player ui compiled library: -->
+        <script src="shaka-player.ui.js"></script>
+        <!-- Shaka Player ui compiled library default CSS: -->
+        <link rel="stylesheet" type="text/css" href="controls.css">
+        <script defer src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
+         <script>
         var manifestUri = '';
         var statusInterval = null;
         var playerInitDone = false;
         var currentStatus = "";
-        manifestUri = "<?php echo $relative_path; ?>/livestream.m3u8";
+        manifestUri = "<?php echo $relative_path; ?>/<?php echo $channel; ?>/livestream.m3u8";
 
         function checkFileExists(url) {
             var xhr = new XMLHttpRequest();
@@ -286,7 +309,7 @@ else if (isset($_REQUEST["do"]))
             var oReq = new XMLHttpRequest();
             var newHandle = function(event) { handle(event, myArgument); };
             oReq.addEventListener("load", checkStatusListener, {once: true});
-            oReq.open("GET", "hdhomerunstream.php?action=status");
+            oReq.open("GET", "hdhomerunstream.php?action=status&channel=<?php echo $channel; ?>");
             oReq.send();
         }
 
@@ -305,36 +328,81 @@ else if (isset($_REQUEST["do"]))
           }
         }
 
+        // async does not work on Edge
+        //async function initPlayer() {
         function initPlayer() {
-          // Create a Player instance.
-          var video = document.getElementById('video');
-          var player = new shaka.Player(video);
+            // When using the UI, the player is made automatically by the UI object.
+            const video = document.getElementById('video');
+            const ui = video['ui'];
+            const controls = ui.getControls();
+            const player = controls.getPlayer();
 
-          // Attach player to the window to make it easy to access in the JS console.
-          window.player = player;
+            player.configure('streaming.useNativeHlsOnSafari', true);
 
-          // Listen for error events.
-          player.addEventListener('error', onErrorEvent);
+            // Attach player and ui to the window to make it easy to access in the JS console.
+            window.player = player;
+            window.ui = ui;
+            ui.configure('castReceiverAppId', '930DEB06');
 
-          // Try to load a manifest.
-          // This is an asynchronous process.
-          player.load(manifestUri).then(function() {
-              // This runs if the asynchronous load is successful.
-              console.log('The video has now been loaded!');
-          }).catch(onError);  // onError is executed if the asynchronous load fails.
+            // Listen for error events.
+            player.addEventListener('error', onPlayerErrorEvent);
+            controls.addEventListener('error', onUIErrorEvent);
+
+            // Try to load a manifest.
+            // This is an asynchronous process.
+            try {
+                // await does not work on Edge
+                // await player.load(manifestUri);
+                player.load(manifestUri);
+                // This runs if the asynchronous load is successful.
+                console.log('The video has now been loaded!');
+                //         video.requestFullscreen().catch(err => {
+                //                      console.log(err)
+                //                             });
+            } catch (error) {
+                onPlayerError(error);
+            }
         }
 
-        function onErrorEvent(event) {
-          // Extract the shaka.util.Error object from the event.
-          onError(event.detail);
+        function onCastStatusChanged(event) {
+            const newCastStatus = event['newStatus'];
+            // Handle cast status change
+            console.log('The new cast status is: ' + newCastStatus);
         }
 
-        function onError(error) {
-          // Log the error.
-          console.error('Error code', error.code, 'object', error);
+        function onPlayerErrorEvent(errorEvent) {
+            // Extract the shaka.util.Error object from the event.
+            onPlayerError(event.detail);
+        }
+
+        function onPlayerError(error) {
+            // Handle player error
+            console.error('Error code', error.code, 'object', error);
+        }
+
+        function onUIErrorEvent(errorEvent) {
+            // Extract the shaka.util.Error object from the event.
+            onPlayerError(event.detail);
+        }
+
+        function initFailed(errorEvent) {
+            // Handle the failure to load; errorEvent.detail.reasonCode has a
+            // shaka.ui.FailReasonCode describing why.
+            console.error('Unable to load the UI library!');
+        }
+
+        function onCastStatusChanged(event) {
+            const newCastStatus = event['newStatus'];
+            // Handle cast status change
+            console.log('The new cast status is: ' + newCastStatus);
         }
 
         document.addEventListener('DOMContentLoaded', initApp);
+        // Listen to the custom shaka-ui-loaded event, to wait until the UI is loaded.
+        document.addEventListener('shaka-ui-loaded', initPlayer);
+        // Listen to the custom shaka-ui-load-failed event, in case Shaka Player fails
+        // to load (e.g. due to lack of browser support).
+        document.addEventListener('shaka-ui-load-failed', initFailed);
         </script>
         </head>
         <body>
@@ -353,22 +421,25 @@ else if (isset($_REQUEST["do"]))
 <?php
               echo "<tr><td>";
               echo "<a href=\"http://192.168.1.29/shutdownlock.php\">Shutdown Lock</a>\n";
-        if (file_exists($live_path."/livestream.m3u8"))
+        if (file_exists($live_path."/".$channel."/livestream.m3u8"))
         {
             echo "</td><td>";
-            echo "<a href=\"http://192.168.1.29/live/livestream.m3u8\" download>Live Stream</a>\n";
+            echo "<a href=\"http://192.168.1.29/live/".$channel."/livestream.m3u8\" download>Live Stream</a>\n";
         }
         echo "</td></tr>";
         ?>
             </table>
-                  <video id="video"
-                  controls>
+            <!-- The data-shaka-player-container tag will make the UI library place the controls in this div.
+                  The data-shaka-player-cast-receiver-id tag allows you to provide a Cast Application ID that
+                  the cast button will cast to; the value provided here is the sample cast receiver. -->
+             <div data-shaka-player-container style="max-width:40em"
+                  data-shaka-player-cast-receiver-id="930DEB06">
+               <video autoplay data-shaka-player id="video" style="width:100%;height:100%">
                   Your browser does not support HTML5 video.
-                  </video>
-                  </body>
-                  </html>
-                  </body>
-                  </html>
+               </video>
+               </div>
+            </body>
+            </html>
 <?php
 }
 else
