@@ -111,7 +111,7 @@ for ($i = 0; $i < count($file_list); $i++)
     }
 }
 
-// todo: when the user does removes the file in mythtv, the name in the dropdown list is Unknown
+// TODO: when the user does removes the file in mythtv, the name in the dropdown list is Unknown
 $query_parts_string=implode(" OR ", $query_parts);
 $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
 mysqli_select_db($dbconn,$dbname);
@@ -229,7 +229,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
     }
     else if (isset($_REQUEST['action']) && $_REQUEST["action"] == "clean")
     {
-        // todo: when the user does not press clean after live streaming, the data in the ramdisk may be cleared without clearing the meta data in the hls folder.
+        // TODO: when the user does not press clean after live streaming, the data in the ramdisk may be cleared without clearing the meta data in the hls folder.
         // clean HLS files only, if available VOD files remain on disk and can still be played
         if (file_exists($hls_path."/".$filename))
         {
@@ -269,7 +269,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
         }
         if (file_exists($hls_path."/../hls/".$filename."/progress-log.txt"))
         {
-            // todo: instead of reading the file again one could use $status["status"]
+            // TODO: instead of reading the file again one could use $status["status"]
             $config = file_get_contents("".$hls_path."/".$filename."/status.txt");
             if (!preg_match("/encode finish success/", $config, $matches))
             {
@@ -318,7 +318,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 if(isset($ratedetails[1][0])) {
                     $framerate = ((double)  $ratedetails[1][0]);
                 }
-                // todo: would be nice to replace these shell commands bij php
+                // TODO: would be nice to replace these shell commands with php
                 $frameNumber = shell_exec("/usr/bin/sudo -uapache /usr/bin/tail -n 13 ".$hls_path."/../hls/".$filename."/progress-log.txt | sudo -uapache /usr/bin/sed -n '/^frame=/p' | sudo -uapache sed -n 's/frame=//p'");
                 $status["available"] = $frameNumber / $framerate;
             }
@@ -338,7 +338,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
         // Encode
         if ($extension == "mp4")
         {
-            // todo: would be nice to replace these shell commands bij php
+            // TODO: would be nice to replace these shell commands with php
             $result = shell_exec("/usr/bin/sudo -uapache /usr/bin/ln -s ".$video_path."/".$filename.".".$extension." /var/www/html/hls/");
         }
         else if (!file_exists($hls_path."/../vod/".$filename."/master_vod.m3u8") &&
@@ -385,12 +385,14 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$filename."_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$filename."/status.txt ; /usr/bin/sudo -uapache /usr/bin/ffmpeg -y -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi -txt_format text -txt_page 888 -fix_sub_duration -i ".$video_path."/".$filename.".$extension -acodec copy -vcodec copy -scodec mov_text ".$hls_path."/".$filename."/video.mp4 && /usr/bin/echo `date`: remux finish success >> ".$hls_path."/".$filename."/status.txt || /usr/bin/echo `date`: remux finish failed >> ".$hls_path."/".$filename."/status.txt'");
                 fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'remux finish success'`\" ] ; do sleep 1; done\n");
             }
-            if (isset($_REQUEST["checkbox_subtitles"]))
+            $hls_playlist_type = $_REQUEST["hls_playlist_type"][0];
+            if (isset($_REQUEST["checkbox_subtitles"]) && $hls_playlist_type != "live")
             {
-                // todo: subtitles does not work with a live recording, check if code from hdhomerunstream.php would help here
+                // TODO: NOT "live" means recorded video, change second part of if statement by checking
+                // TODO: recording status, as of v34.0 RecStatus can be used, see https://www.mythtv.org/wiki/Recording_Status
                 $create_live_dir = "";
                 $create_vod_dir = "";
-                // todo: think about this, hls dir contains the meta data, should always exist
+                // TODO: think about this, hls dir contains the meta data, should always exist
                 $create_hls_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/".$BASE.";";
                 $option_live = "/dev/null";
                 $option_hls  = "/dev/null";
@@ -398,10 +400,8 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 $option_mp4  = "/dev/null";
                 if (isset($_REQUEST["hls_playlist_type"]))
                 {
-                    $hls_playlist_type = $_REQUEST["hls_playlist_type"][0];
                     if ($hls_playlist_type == "live")
                     {
-                        // todo: find out whether mythtv is still recording as of v34.0 RecStatus can be used, see https://www.mythtv.org/wiki/Recording_Status
                         $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/live/".$BASE.";";
                         $option_live = "[f=segment:segment_time=6:segment_list_size=0:segment_format=webvtt:segment_list=../live/".$BASE."/sub.m3u8]../live/".$BASE."/sub-%d.vtt";
                     }
@@ -419,13 +419,12 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 {
                     $option_mp4 = "[select=\'s:0,sgroup:subtitle\']".$BASE."/subtitles.vtt";
                 }
-                // Due to bugs in ffmpeg subtitles need to be processed first (cannot be done in a singe tee together with audio and video scaling).
+                // Due to bugs in ffmpeg subtitles need to be extracted first (cannot be done in a singe tee together with audio and video scaling).
                 fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract start >> ".$hls_path."/".$filename."/status.txt'; ".$create_live_dir." ".$create_vod_dir." ".$create_hls_dir." cd /var/www/html/".$HLSDIR."/; /usr/bin/sudo -uapache /usr/bin/ffmpeg -fix_sub_duration -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi -txt_format text -txt_page 888 ".$fileinput." -map 0:s:0 -c:s webvtt ".$STARTTIME." -f tee \"".$option_live."|".$option_hls."|".$option_mp4."|".$option_vod."\" 2>>/tmp/ffmpeg-subtitle-extract-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract failed >> ".$hls_path."/".$filename."/status.txt'\n");
                 fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'subtitle_extract success'`\" ] ; do sleep 1; done\n");
                 if (isset($_REQUEST["hls_playlist_type"]))
                 {
                     // post processing hls_playlist_type live and event
-                    $hls_playlist_type = $_REQUEST["hls_playlist_type"][0];
                     if ($hls_playlist_type == "live")
                     {
                         $dir = "/var/www/html/live/".$BASE."/master_live.m3u8";
@@ -441,77 +440,155 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                     }
                 }
             }
-            if (isset($_REQUEST["vod"]))
+            if (isset($_REQUEST["checkbox_subtitles"]) && $hls_playlist_type == "live")
             {
-                $dir = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
-                // correct for ffmpeg bug: $option_vod uses -metadata:s:a:0 language=dut (note: there can be only one language per adaptation_sets), for master_vod.m3u8 the metadata language is ignored
-                // todo: make language configurable
-                // This command need to be delayed, till the master file is created by ffmpeg!!!
-                fwrite($fp, "(while [ ! -f \"".$dir."\" ] ; do /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE."; done; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"dut\"/' ".$dir.";) & ");
-            }
-            $lowbitrate = get_key_second_adaptive_bitrate($settings, array_search($_REQUEST["quality"], $keys));
-            $read_rate = "";
-            $create_live_dir = "";
-            // todo: think about this hls dir contains meta data, thus should always exist
-            $create_hls_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/".$BASE.";";
-            $option_live = "/dev/null";
-            $option_hls  = "/dev/null";
-            $option_mp4  = "/dev/null";
-            if (isset($_REQUEST["hls_playlist_type"]))
-            {
-                $hls_playlist_type = $_REQUEST["hls_playlist_type"][0];
-                // todo: limit checkbox selection
-                // todo: make live an option
-                if ($hls_playlist_type == "live")
+                // NOTE: No Dynamic Adaptive Streaming possible with subtitle extraction
+                // NOTE: Subtitle extraction can be done progressively while still busy recording, but cannot be combined with scaling (ffmpeg bug?)
+                // TODO: "live" means here recording video, change second part of if statement by checking
+                // TODO: recording status, as of v34.0 RecStatus can be used, see https://www.mythtv.org/wiki/Recording_Status
+                $lowbitrate = get_key_second_adaptive_bitrate($settings, array_search($_REQUEST["quality"], $keys));
+                $read_rate = "";
+                $create_live_dir = "";
+                $create_vod_dir = "";
+                // TODO: think about this hls dir contains meta data, thus should always exist, but may lead to orphan meta data for live playlist type.
+                $create_hls_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/".$BASE.";";
+                $option_live = "/dev/null";
+                $option_hls  = "/dev/null";
+                $option_mp4  = "/dev/null";
+                $option_vod = "/dev/null";
+                if (isset($_REQUEST["hls_playlist_type"]))
                 {
-                    // todo: make language configurable
-                    // read input at native frame rate
-                    $read_rate = "-re";
-                    $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/../live/".$BASE.";";
-                    $option_live = "[select=\'a:0,a:1,v:0,v:1\':f=hls:hls_time=6:hls_list_size=10:hls_flags=+independent_segments+iframes_only+delete_segments:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p v:1,agroup:aac,language:dut,name:".$settings[$lowbitrate]["height"]."p a:0,agroup:aac,language:dut,name:aac_1_96k a:1,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K\':master_pl_name=master_live.m3u8:hls_segment_filename=../live/".$BASE."/stream_live_%v_data%02d.m4s]../live/".$BASE."/stream_live_%v.m3u8";
+                    $hls_playlist_type = $_REQUEST["hls_playlist_type"][0];
+                    if ($hls_playlist_type == "live")
+                    {
+                        // TODO: make language configurable
+                        // read input at native frame rate
+                        $read_rate = "-re";
+                        $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/../live/".$BASE.";";
+                        $option_live  = "[select=\'s:0\']".$BASE."/subtitles.vtt|";
+                        $option_live .= "[select=\'a:0,v:0,s:0\':f=hls:hls_time=6:hls_list_size=10:hls_flags=+independent_segments+iframes_only+delete_segments:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p,a:0,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K,s:0,sgroup:subtitle\':master_pl_name=master_live.m3u8:hls_segment_filename=../live/".$BASE."/stream_live_%v_data%02d.m4s]../live/".$BASE."/stream_live_%v.m3u8";
+                    }
+                    else if ($hls_playlist_type == "event")
+                    {
+                        $option_hls = "[select=\'a:0,v:0,s:0\':f=hls:hls_time=6:hls_playlist_type=event:hls_flags=+independent_segments+iframes_only:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p,a:0,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K,s:0,sgroup:subtitle\':master_pl_name=master_event.m3u8:hls_segment_filename=".$BASE."/stream_event_%v_data%02d.m4s]".$BASE."/stream_event_%v.m3u8";
+                    }
                 }
-                else if ($hls_playlist_type == "event")
+                if (isset($_REQUEST["vod"]))
                 {
-                    $option_hls = "[select=\'a:0,a:1,v:0,v:1\':f=hls:hls_time=6:hls_playlist_type=event:hls_flags=+independent_segments+iframes_only:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p v:1,agroup:aac,language:dut,name:".$settings[$lowbitrate]["height"]."p a:0,agroup:aac,language:dut,name:aac_1_96k a:1,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K\':master_pl_name=master_event.m3u8:hls_segment_filename=".$BASE."/stream_event_%v_data%02d.m4s]".$BASE."/stream_event_%v.m3u8";
+                    // TODO: somehow one cannot add subtitles as streams (ffmpeg bug?)
+                    $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
+                    $option_vod = "[select=\'a:0,v:0\':f=dash:seg_duration=6:hls_playlist=true:single_file=true:adaptation_sets=\'id=0,streams=0 id=1,streams=1\':media_seg_name=\'stream_vod_\$RepresentationID\$-\$Number%05d\$.\$ext\$\':hls_master_name=master_vod.m3u8]../".$VODDIR."/".$BASE."/manifest_vod.mpd";
                 }
-            }
-            $create_vod_dir = "";
-            $option_vod = "/dev/null";
-            if (isset($_REQUEST["vod"]))
-            {
-                $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
-                $option_vod = "[select=\'a:0,a:1,v:0,v:1\':f=dash:seg_duration=6:hls_playlist=true:single_file=true:adaptation_sets=\'id=0,streams=0,1 id=1,streams=2,3\':media_seg_name=\'stream_vod_\$RepresentationID\$-\$Number%05d\$.\$ext\$\':hls_master_name=master_vod.m3u8]../".$VODDIR."/".$BASE."/manifest_vod.mpd";
-            }
-            //$sub = "-map -0:4?";
-            if(isset($_REQUEST["mp4"]))
-            {
-                // todo: think about this hls dir contains meta data, thus should always exist
-                $option_mp4 = "[select=\'v:0,a:1\':f=mp4:movflags=+faststart]".$BASE."/".$BASE.".mp4";
-                // todo: do NOT understand why this does NOT work? It does WORK when no complex filter is used?
-                // if (isset($_REQUEST["checkbox_subtitles"]) && $hls_playlist_type == "live")
-                // {
-                //     $option_mp4 .= "|[select=\'s:0,sgroup:subtitle\']".$BASE."/subtitles.vtt";
-                //     $sub = "-map 0:s:0? -c:s webvtt";
-                // }
-            }
-            if ($extension == "avi")
-            {
-                // no hwaccel supported for avi
-                $hwaccel = "";
-                $scale = "scale";
-                $library = "libx264";
+                if(isset($_REQUEST["mp4"]))
+                {
+                    $option_mp4 = "[select=\'v:0,a:0\':f=mp4:movflags=+faststart]".$BASE."/".$BASE.".mp4";
+                }
+                if ($extension == "avi")
+                {
+                    // no hwaccel supported for avi
+                    $hwaccel = "";
+                    $scale = "scale";
+                    $library = "libx264";
+                }
+                else
+                {
+                    // TODO: make hwaccel configurable
+                    // hwaccel supported encode
+                    $hwaccel = "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi";
+                    $scale = "scale_vaapi";
+                    $library = "h264_vaapi";
+                }
+                // ffmpeg bug: $option_vod uses -metadata:s:a:0 language=dut (limitation: there can be only one language per adaptation_sets), for master_vod.m3u8 the metadata language is ignored
+                fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt'; ".$create_vod_dir." ".$create_live_dir." ".$create_hls_dir." cd /var/www/html/".$HLSDIR."/; /usr/bin/sudo -uapache /usr/bin/ffmpeg -fix_sub_duration ".$hwaccel." ".$STARTTIME." ".$read_rate." -txt_format text -txt_page 888 ".$fileinput." -live_start_index 0 -progress ".$BASE."/progress-log.txt -c:v ".$library." -vprofile high -preset fast -b:v ".$settings[$lowbitrate]["vbitrate"]."K -maxrate:v ".$settings[$lowbitrate]["vbitrate"]."K -minrate:v ".$settings[$lowbitrate]["vbitrate"]."K -bufsize:v ".$settings[$lowbitrate]["vbitrate"]."K -crf 18 -c:a aac -b:a ".$settings[$_REQUEST["quality"]]["abitrate"]."K -ac 2 -metadata:s:a:0 language=dut -map 0:v:0 -map 0:a:0 -map 0:s:0 -c:s webvtt -f tee \"".$option_vod."|".$option_mp4."|".$option_live."|".$option_hls."\" 2>>/tmp/ffmpeg-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
+                if (isset($_REQUEST["mp4"]))
+                {
+                    // post processing: add subtitles to mp4 file
+                    fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ; do sleep 1; done\n");
+                    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$filename."/status.txt'; cd /var/www/html/".$HLSDIR."/".$BASE."; /usr/bin/sudo -uapache /usr/bin/ffmpeg -i ".$BASE.".mp4 -i subtitles.vtt -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default -c:v copy -c:a copy ".$BASE.".tmp.mp4;/usr/bin/sudo /usr/bin/mv -f ".$BASE.".tmp.mp4 ".$BASE.".mp4 2>>/tmp/ffmpeg-subtitle-merge-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> ".$hls_path."/".$filename."/status.txt'\n");
+                }
+                if (isset($_REQUEST["vod"]))
+                {
+                    // post processing: add subtitles as segmented m3u8 to vod (correct for ffmpeg bug?)
+                    // TODO: make language configurable
+                    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract start >> ".$hls_path."/".$filename."/status.txt'; ".$create_vod_dir." cd /var/www/html/".$HLSDIR."/; /usr/bin/sudo -uapache /usr/bin/ffmpeg -fix_sub_duration -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi -i ".$BASE."/subtitles.vtt -scodec webvtt ".$STARTTIME." -f segment -segment_list_type m3u8 -segment_time 6 -segment_list_size 0 -segment_start_number 0 -segment_format webvtt -segment_list ../".$VODDIR."/".$BASE."/sub.m3u8 -map 0:0 -scodec copy ../".$VODDIR."/".$BASE."/sub_%d.vtt 2>>/tmp/ffmpeg-subtitle-extract-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract failed >> ".$hls_path."/".$filename."/status.txt'\n");
+                    fwrite($fp, "cd /var/www/html/".$VODDIR."/".$BASE."; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub.m3u8\",LANGUAGE=\"dut\"/' master_vod.m3u8; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' master_vod.m3u8\n");
+                    fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"dut\"/' master_vod.m3u8\n");
+                }
             }
             else
             {
-                // hwaccel supported encode
-                $hwaccel = "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi";
-                $scale = "scale_vaapi";
-                $library = "h264_vaapi";
+                if (isset($_REQUEST["vod"]))
+                {
+                    $dir = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
+                    // correct for ffmpeg bug: $option_vod uses -metadata:s:a:0 language=dut (note: there can be only one language per adaptation_sets), for master_vod.m3u8 the metadata language is ignored
+                    // TODO: make language configurable
+                    // NOTE: the execution of this command is delayed, till the master file is created later in time by ffmpeg!!!
+                    fwrite($fp, "(while [ ! -f \"".$dir."\" ] ; do /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE."; done; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"dut\"/' ".$dir.";) & ");
+                }
+                $lowbitrate = get_key_second_adaptive_bitrate($settings, array_search($_REQUEST["quality"], $keys));
+                $read_rate = "";
+                $create_live_dir = "";
+                // TODO: think about this hls dir contains meta data, thus should always exist
+                $create_hls_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/".$BASE.";";
+                $option_live = "/dev/null";
+                $option_hls  = "/dev/null";
+                $option_mp4  = "/dev/null";
+                if (isset($_REQUEST["hls_playlist_type"]))
+                {
+                    $hls_playlist_type = $_REQUEST["hls_playlist_type"][0];
+                    // TODO: limit checkbox selection
+                    // TODO: make live an option
+                    if ($hls_playlist_type == "live")
+                    {
+                        // TODO: make language configurable
+                        // read input at native frame rate
+                        $read_rate = "-re";
+                        $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/../live/".$BASE.";";
+                        $option_live = "[select=\'a:0,a:1,v:0,v:1\':f=hls:hls_time=6:hls_list_size=10:hls_flags=+independent_segments+iframes_only+delete_segments:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p v:1,agroup:aac,language:dut,name:".$settings[$lowbitrate]["height"]."p a:0,agroup:aac,language:dut,name:aac_1_96k a:1,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K\':master_pl_name=master_live.m3u8:hls_segment_filename=../live/".$BASE."/stream_live_%v_data%02d.m4s]../live/".$BASE."/stream_live_%v.m3u8";
+                    }
+                    else if ($hls_playlist_type == "event")
+                    {
+                        $option_hls = "[select=\'a:0,a:1,v:0,v:1\':f=hls:hls_time=6:hls_playlist_type=event:hls_flags=+independent_segments+iframes_only:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p v:1,agroup:aac,language:dut,name:".$settings[$lowbitrate]["height"]."p a:0,agroup:aac,language:dut,name:aac_1_96k a:1,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K\':master_pl_name=master_event.m3u8:hls_segment_filename=".$BASE."/stream_event_%v_data%02d.m4s]".$BASE."/stream_event_%v.m3u8";
+                    }
+                }
+                $create_vod_dir = "";
+                $option_vod = "/dev/null";
+                if (isset($_REQUEST["vod"]))
+                {
+                    $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
+                    $option_vod = "[select=\'a:0,a:1,v:0,v:1\':f=dash:seg_duration=6:hls_playlist=true:single_file=true:adaptation_sets=\'id=0,streams=0,1 id=1,streams=2,3\':media_seg_name=\'stream_vod_\$RepresentationID\$-\$Number%05d\$.\$ext\$\':hls_master_name=master_vod.m3u8]../".$VODDIR."/".$BASE."/manifest_vod.mpd";
+                }
+                //$sub = "-map -0:4?";
+                if(isset($_REQUEST["mp4"]))
+                {
+                    // TODO: think about this hls dir contains meta data, thus should always exist
+                    $option_mp4 = "[select=\'v:0,a:1\':f=mp4:movflags=+faststart]".$BASE."/".$BASE.".mp4";
+                    // TODO: do NOT understand why this does NOT work? It does WORK when no complex filter is used?
+                    // if (isset($_REQUEST["checkbox_subtitles"]) && $hls_playlist_type == "live")
+                    // {
+                    //     $option_mp4 .= "|[select=\'s:0,sgroup:subtitle\']".$BASE."/subtitles.vtt";
+                    //     $sub = "-map 0:s:0? -c:s webvtt";
+                    // }
+                }
+                if ($extension == "avi")
+                {
+                    // no hwaccel supported for avi
+                    $hwaccel = "";
+                    $scale = "scale";
+                    $library = "libx264";
+                }
+                else
+                {
+                    // hwaccel supported encode
+                    $hwaccel = "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi";
+                    $scale = "scale_vaapi";
+                    $library = "h264_vaapi";
+                }
+                // TODO: make second audio parameter configurable as well, its a constant now 96K, requires some thinking
+                // ffmpeg bug: $option_vod uses -metadata:s:a:0 language=dut (note: there can be only one language per adaptation_sets), for master_vod.m3u8 the metadata language is ignored
+                fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt'; ".$create_vod_dir." ".$create_live_dir." ".$create_hls_dir." cd /var/www/html/".$HLSDIR."/; /usr/bin/sudo -uapache /usr/bin/ffmpeg ".$hwaccel." ".$STARTTIME." ".$read_rate." ".$fileinput." -live_start_index 0 -progress ".$BASE."/progress-log.txt -force_key_frames \"expr:gte(t,n_forced*2)\" -filter_complex \"[0:v]split=2[v1][v2];[v1]".$scale."=w=".$settings[$_REQUEST["quality"]]["width"].":h=".$settings[$_REQUEST["quality"]]["height"]."[v1out];[v2]".$scale."=w=".$settings[$lowbitrate]["width"].":h=".$settings[$lowbitrate]["height"]."[v2out]\" -map [v1out] -c:v:0 ".$library." -b:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -maxrate:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -minrate:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -bufsize:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map [v2out] -c:v:1 ".$library." -b:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -maxrate:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -minrate:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -bufsize:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map a:0 -ac 2 -c:a:0 aac -b:a:0 96k -metadata:s:a:0 language=dut -map a:0 -ac 2 -c:a:1 aac -b:a:1 ".$settings[$_REQUEST["quality"]]["abitrate"]."K -metadata:s:a:1 language=dut -map -0:4? -map -0:5? -map -0:6? -map -0:7? -map -0:8? -map -0:9? -f tee \"".$option_vod."|".$option_mp4."|".$option_live."|".$option_hls."\" 2>>/tmp/ffmpeg-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
             }
-            // todo: make second audio parameter configurable as well, its a constant now 96K, requires some thinking
-            // ffmpeg bug: $option_vod uses -metadata:s:a:0 language=dut (note: there can be only one language per adaptation_sets), for master_vod.m3u8 the metadata language is ignored
-            fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt'; ".$create_vod_dir." ".$create_live_dir." ".$create_hls_dir." cd /var/www/html/".$HLSDIR."/; /usr/bin/sudo -uapache /usr/bin/ffmpeg ".$hwaccel." ".$STARTTIME." ".$read_rate." ".$fileinput." -live_start_index 0 -progress ".$BASE."/progress-log.txt -force_key_frames \"expr:gte(t,n_forced*2)\" -filter_complex \"[0:v]split=2[v1][v2];[v1]".$scale."=w=".$settings[$_REQUEST["quality"]]["width"].":h=".$settings[$_REQUEST["quality"]]["height"]."[v1out];[v2]".$scale."=w=".$settings[$lowbitrate]["width"].":h=".$settings[$lowbitrate]["height"]."[v2out]\" -map [v1out] -c:v:0 ".$library." -b:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -maxrate:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -minrate:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -bufsize:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map [v2out] -c:v:1 ".$library." -b:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -maxrate:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -minrate:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -bufsize:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map a:0 -ac 2 -c:a:0 aac -b:a:0 96k -metadata:s:a:0 language=dut -map a:0 -ac 2 -c:a:1 aac -b:a:1 ".$settings[$_REQUEST["quality"]]["abitrate"]."K -metadata:s:a:1 language=dut -map -0:4? -map -0:5? -map -0:6? -map -0:7? -map -0:8? -map -0:9? -f tee \"".$option_vod."|".$option_mp4."|".$option_live."|".$option_hls."\" 2>>/tmp/ffmpeg-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
-            if (isset($_REQUEST["checkbox_subtitles"]))
+            if (isset($_REQUEST["checkbox_subtitles"]) && $hls_playlist_type != "live")
             {
                 if (isset($_REQUEST["vod"]))
                 {
@@ -532,7 +609,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 if (isset($_REQUEST["mp4"]))
                 {
                     fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ; do sleep 1; done\n");
-                    fwrite($fp, "cd /var/www/html/".$HLSDIR."/".$BASE."; /usr/bin/sudo -uapache /usr/bin/ffmpeg -i ".$BASE.".mp4 -i subtitles.vtt -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default -c:v copy -c:a copy ".$BASE.".tmp.mp4;/usr/bin/mv -f ".$BASE.".tmp.mp4 ".$BASE.".mp4\n");
+                    fwrite($fp, "cd /var/www/html/".$HLSDIR."/".$BASE."; /usr/bin/sudo -uapache /usr/bin/ffmpeg -i ".$BASE.".mp4 -i subtitles.vtt -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default -c:v copy -c:a copy ".$BASE.".tmp.mp4;/usr/bin/sudo /usr/bin/mv -f ".$BASE.".tmp.mp4 ".$BASE.".mp4\n");
                 }
             }
             if ($mustencode)
@@ -555,7 +632,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
 
         <!DOCTYPE html>
         <html>
-        <!--   todo: HLS or DASH video player title or change to livestreaming? -->
+        <!--   TODO: HLS or DASH video player title or change to livestreaming? -->
         <head><title>HLS Video Player</title>
         <!-- Load the Shaka Player library. -->
         <script src="shaka-player.compiled.js"></script>
@@ -591,7 +668,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             return M.join(' ');
         })();
 
-        // todo: add extra check if transcoding is finished
+        // TODO: add extra check if transcoding is finished
         if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
             // Play DASH on Windows Edge browser
             manifestUri = '../vod/<?php echo $filename; ?>/manifest_vod.mpd';
@@ -616,12 +693,12 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             manifestUri = '../hls/<?php echo $filename; ?>/<?php echo $filename; ?>.mp4';
             message_string = "MP4 Video Available";
         } else {
-            // todo: if there are no files yet, guess it will be live, this needs to improve...
+            // TODO: if there are no files yet, guess it will be live, this needs to be improved...
             manifestUri = '../live/<?php echo $filename; ?>/master_live.m3u8';
             message_string = "LIVE Video Available";
         }
 
-        // todo: add wait to initPlayer until video is available
+        // TODO: add wait to initPlayer until video is available
 
         function checkFileExists(url) {
             var xhr = new XMLHttpRequest();
@@ -683,7 +760,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                     message = message + pad(Math.floor(secs));
 
                     message = message + " available";
-                    // todo: 20 seconds is just an empirical guess
+                    // TODO: 20 seconds is just an empirical guess
                     if (!playerInitDone && Math.ceil(status["available"] >= 20))
                     {
                         playerInitDone = true;
@@ -1015,7 +1092,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             <?php
                 foreach ($settings as $setting => $settingset)
                 {
-                    // todo: remove hack adding 300, need to be even higher?
+                    // TODO: remove hack adding 300, need to be even higher?
                     if ($settingset["height"] <= $videoheight + 300)
                     {
                         echo "<option value=\"".$setting."\"".((strpos($setting, "high") !== false && ($videoheight<720 && $settingset["height"]==720 || $settingset["height"]==1080))?" selected=\"selected\"":"").
