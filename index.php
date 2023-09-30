@@ -356,7 +356,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 $cut = "uncut";
                 $mustencode = true;
             }
-            else if ($_REQUEST["removecut"]=="on" and $_REQUEST["cutcount"] > 0)
+            else if (ISSET($_REQUEST["removecut"]) and $_REQUEST["removecut"]=="on" and $_REQUEST["cutcount"] > 0)
             {
                 $fileinput = "-f concat -async 1 -safe 0 -i ".$hls_path."/".$filename."/cutlist.txt";
                 $length = (int) $_REQUEST["clippedlength"];
@@ -385,7 +385,11 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$filename."_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$filename."/status.txt ; /usr/bin/sudo -uapache /usr/bin/ffmpeg -y -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi -txt_format text -txt_page 888 -fix_sub_duration -i ".$video_path."/".$filename.".$extension -acodec copy -vcodec copy -scodec mov_text ".$hls_path."/".$filename."/video.mp4 && /usr/bin/echo `date`: remux finish success >> ".$hls_path."/".$filename."/status.txt || /usr/bin/echo `date`: remux finish failed >> ".$hls_path."/".$filename."/status.txt'");
                 fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'remux finish success'`\" ] ; do sleep 1; done\n");
             }
-            $hls_playlist_type = $_REQUEST["hls_playlist_type"][0];
+            $hls_playlist_type = "";
+            if (isset($_REQUEST["hls_playlist_type"]))
+            {
+                $hls_playlist_type = $_REQUEST["hls_playlist_type"][0];
+            }
             if (isset($_REQUEST["checkbox_subtitles"]) && $hls_playlist_type != "live")
             {
                 // TODO: NOT "live" means recorded video, change second part of if statement by checking
@@ -466,11 +470,11 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                         $read_rate = "-re";
                         $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/../live/".$BASE.";";
                         $option_live  = "[select=\'s:0\']".$BASE."/subtitles.vtt|";
-                        $option_live .= "[select=\'a:0,v:0,s:0\':f=hls:hls_time=6:hls_list_size=10:hls_flags=+independent_segments+iframes_only+delete_segments:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p,a:0,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K,s:0,sgroup:subtitle\':master_pl_name=master_live.m3u8:hls_segment_filename=../live/".$BASE."/stream_live_%v_data%02d.m4s]../live/".$BASE."/stream_live_%v.m3u8";
+                        $option_live .= "[select=\'v:0,a:0,s:0\':f=hls:hls_time=6:hls_list_size=10:hls_flags=+independent_segments+iframes_only+delete_segments:hls_segment_type=fmp4:var_stream_map=\'v:0,name:".$settings[$_REQUEST["quality"]]["height"]."p,agroup:aac,a:0,agroup:aac,language:dut,name:aac_".$settings[$_REQUEST["quality"]]["abitrate"]."K,s:0,sgroup:subtitle,language:dut\':master_pl_name=master_live.m3u8:hls_segment_filename=../live/".$BASE."/stream_live_%v_data%02d.m4s]../live/".$BASE."/stream_live_%v.m3u8";
                     }
                     else if ($hls_playlist_type == "event")
                     {
-                        $option_hls = "[select=\'a:0,v:0,s:0\':f=hls:hls_time=6:hls_playlist_type=event:hls_flags=+independent_segments+iframes_only:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p,a:0,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K,s:0,sgroup:subtitle\':master_pl_name=master_event.m3u8:hls_segment_filename=".$BASE."/stream_event_%v_data%02d.m4s]".$BASE."/stream_event_%v.m3u8";
+                        $option_hls = "[select=\'v:0,a:0,s:0\':f=hls:hls_time=6:hls_playlist_type=event:hls_flags=+independent_segments+iframes_only:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p,a:0,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."K,s:0,sgroup:subtitle\':master_pl_name=master_event.m3u8:hls_segment_filename=".$BASE."/stream_event_%v_data%02d.m4s]".$BASE."/stream_event_%v.m3u8";
                     }
                 }
                 if (isset($_REQUEST["vod"]))
@@ -499,7 +503,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                     $library = "h264_vaapi";
                 }
                 // ffmpeg bug: $option_vod uses -metadata:s:a:0 language=dut (limitation: there can be only one language per adaptation_sets), for master_vod.m3u8 the metadata language is ignored
-                fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt'; ".$create_vod_dir." ".$create_live_dir." ".$create_hls_dir." cd /var/www/html/".$HLSDIR."/; /usr/bin/sudo -uapache /usr/bin/ffmpeg -fix_sub_duration ".$hwaccel." ".$STARTTIME." ".$read_rate." -txt_format text -txt_page 888 ".$fileinput." -live_start_index 0 -progress ".$BASE."/progress-log.txt -c:v ".$library." -vprofile high -preset fast -b:v ".$settings[$lowbitrate]["vbitrate"]."K -maxrate:v ".$settings[$lowbitrate]["vbitrate"]."K -minrate:v ".$settings[$lowbitrate]["vbitrate"]."K -bufsize:v ".$settings[$lowbitrate]["vbitrate"]."K -crf 18 -c:a aac -b:a ".$settings[$_REQUEST["quality"]]["abitrate"]."K -ac 2 -metadata:s:a:0 language=dut -map 0:v:0 -map 0:a:0 -map 0:s:0 -c:s webvtt -f tee \"".$option_vod."|".$option_mp4."|".$option_live."|".$option_hls."\" 2>>/tmp/ffmpeg-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
+                fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt'; ".$create_vod_dir." ".$create_live_dir." ".$create_hls_dir." cd /var/www/html/".$HLSDIR."/; /usr/bin/sudo -uapache /usr/bin/ffmpeg -fix_sub_duration ".$hwaccel." ".$STARTTIME." ".$read_rate." -txt_format text -txt_page 888 ".$fileinput." -live_start_index 0 -progress ".$BASE."/progress-log.txt -c:v ".$library." -preset veryfast -b:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -maxrate:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -minrate:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -bufsize:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -crf 18 -c:a aac -b:a ".$settings[$_REQUEST["quality"]]["abitrate"]."K -ac 2 -metadata:s:a:0 language=dut -map 0:v:0 -map 0:a:0 -map 0:s:0 -c:s webvtt -f tee \"".$option_vod."|".$option_mp4."|".$option_live."|".$option_hls."\" 2>>/tmp/ffmpeg-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
                 if (isset($_REQUEST["mp4"]))
                 {
                     // post processing: add subtitles to mp4 file
@@ -836,9 +840,9 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 player.load(manifestUri);
                 // This runs if the asynchronous load is successful.
                 console.log('The video has now been loaded!');
-                //         video.requestFullscreen().catch(err => {
-                //                      console.log(err)
-                //                             });
+                         video.requestFullscreen().catch(err => {
+                                      console.log(err)
+                                             });
             } catch (error) {
                 onPlayerError(error);
             }
@@ -1068,7 +1072,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             <head><title>Select Video Settings</title></head>
             <body>
 <?php echo $select_box; ?>
-            <form action="index.php" method="GET">
+            <form name="FC" action="index.php" method="GET">
             <input type="hidden" name="filename" value="<?php echo $filename; ?>">
 <?php
             if (file_exists($hls_path."/../vod/".$filename."/master_vod.m3u8") ||
@@ -1106,17 +1110,25 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             ?>
             </select>
             <br>
-            <select name="removecut"><option value="on">Cut Commercials (<?php echo $cutcount/2; ?> found)</option><option value="off" selected="selected">Leave Uncut</option></select><br>
             <?php
-               $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=Text;%Format%\" ".$video_path."/".$filename.".$extension");
-               if (preg_match('/(Teletext)/',$mediainfo,$subtitle) || (preg_match('/(Subtitle)/',$mediainfo,$subtitle)))
-               {
+            if ($cutcount > 0)
+            {
+             ?>
+                <select name="removecut"><option value="on">Cut Commercials (<?php echo $cutcount/2; ?> found)</option><option value="off" selected="selected">Leave Uncut</option></select>
+            <?php
+                }
+            ?>
+            <br>
+            <?php
+            $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=Text;%Format%\" ".$video_path."/".$filename.".$extension");
+            if (preg_match('/(Teletext)/',$mediainfo,$subtitle) || (preg_match('/(Subtitle)/',$mediainfo,$subtitle)))
+            {
             ?>
                    <input type="checkbox" action="" name="checkbox_subtitles" id="agree" value="yes">
                    <label for="agree">Subtitles</label>
                    <br>
             <?php
-               }
+            }
             ?>
             <input type="hidden" name="height" value="<?php echo $videoheight; ?>">
             <input type="hidden" name="framerate" value="<?php echo $framerate; ?>">
@@ -1125,9 +1137,9 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             <input type="hidden" name="cutcount" value="<?php echo (int)$cutcount/2; ?>">
             <input type="checkbox" name="hls_playlist_type[]" value="live" onclick="return KeepCount()" checked='checked' id="option"><label for="option"> live</label>
             <input type="checkbox" name="hls_playlist_type[]" value="event" onclick="return KeepCount()" id="option"><label for="option"> event</label><br>
-            <input type="checkbox" name="vod" id="option"><label for="option"> vod</label><br>
-            <input type="checkbox" name="mp4" id="option"><label for="option"> mp4</label><br>
-            <input type="submit" name="do" value="Encode Video">
+            <input type="checkbox" name="vod" id="option"><label for="option">vod</label><br>
+            <input type="checkbox" name="mp4" id="option"><label for="option">mp4</label><br>
+            <input type="submit" name="do" onclick="return ValThisForm();" value="Encode Video">
             <script type="text/javascript">
                function KeepCount()  {
                  var elements = document.getElementsByName("hls_playlist_type[]");
@@ -1136,13 +1148,26 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                    var element = elements[i];
                    if(element.checked) total++;
                    if(total>1) {
-                       alert("Pick one of the two: live or event");
+                       alert("Pick at maximum one of the two: live or event");
                        element.checked = false;
                        return false;
                    }
                  }
                }
-            </script>
+               function ValThisForm() {
+                   var elements = document.getElementsByName("hls_playlist_type[]");
+                   var total = 0;
+                   for(var i in elements) {
+                       var element = elements[i];
+                       if(element.checked) total++;
+                   }
+                   var chkd = total || document.FC.vod.checked || document.FC.mp4.checked
+                   if (chkd == false) {
+                      alert ("Pick at least one of the checkboxes: live, event, vod or mp4")
+                      return false;
+                  }
+               }
+          </script>
           <?php
         }
         ?>
