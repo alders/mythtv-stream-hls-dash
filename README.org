@@ -1,0 +1,94 @@
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
+#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
+#+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
+#+title: Mythtv stream HLS DASH
+#+date: <2020-04-19 Sun>
+#+author: Dennis Alders
+#+email: dennis.alders@gmail.com
+#+language: en
+
+Will allow you to transcode and stream any mythtv recording to be watched via the browser
+
+** Features:
+:PROPERTIES:
+:ID:       465d8cb3-3907-4450-93f9-0d252a18244a
+:END:
+- Transcodes from whatever format your recordings are in, as long as they are recognized by ffmpeg
+- Watch recording while transcode is still taking place (just don't seek too far ahead)
+- Implements live, hls, dash, mp4, and vod streaming
+- Use commercial cut info from mythtv database to cut commercials
+- Can transcode videos to configurable multiple bitrates/resolutions for adaptive playback over less reliable networks (e.g. cell phone browser).
+- Allows watching recordings that are currently being recorded (live recordings)
+- Allows live hdhomerun streams
+** This depends on:
+:PROPERTIES:
+:ID:       e32a386c-b67a-4701-ae52-5c145c18d930
+:END:
+- mythtv (for commerical cut info and looking up the name of each recording based on filename)
+  - I use version v0.33
+- ffmpeg (for transcoding)
+  - I use ffmpeg version 5.1.3
+- GNU screen
+  - This is to allow monitoring of transcode and packager and to support background processes launched by the web-facing PHP script
+  - apt-get install screen
+- Shaka player
+  - This is the Javascript-based browser player that plays MPEG DASH content
+  - I use version 4.3.6
+
+#+caption: Features supported for live recording. Note, Dynamic Adaptive Streaming is not supported.
+#+ATTR_HTML::alt table1
+#+label: feature-types
+#+attr_latex: :width 350px :options angle=90
+|       | hls | dash | subtitle (realtime) | subtitle (postprocessing) |
+|-------+-----+------+---------------------+---------------------------|
+| live  | :white_check_mark:   |      | ✅                   |                           |
+| event | ✅   |      | ✅                   |                           |
+| vod   | ✅   | ✅    |                     | ✅                         |
+| mp4   |     |      |                     | ✅                         |
+
+#+caption: Features support for recorded video.
+#+label: feature-types
+#+attr_latex: :width 350px :options angle=90
+|       | hls | dash | subtitle (inotify-realtime) | subtitle (postprocessing) | Dynamic Adaptive Streaming |
+|-------+-----+------+-----------------------------+---------------------------+----------------------------|
+| live  | ✅   |      | ✅                           |                           | ✅                          |
+| event | ✅   |      | ✅                           |                           | ✅                          |
+| vod   | ✅   | ✅    | ✅                           |                           | ✅                          |
+| mp4   |     |      |                             | ✅                         |                            |
+
+#+caption: Possible combinations of encoding types.
+#+label: feature-types
+#+attr_latex: :width 350px :options angle=90
+|           | live | event | vod | mp4 |
+|-----------+------+-------+-----+-----|
+| live      | ✅    |       | ✅   | ✅   |
+| event     |      | ✅     | ✅   | ✅   |
+| vod       | ✅    | ✅     | ✅   | ✅   |
+| mp4       | ✅    | ✅     | ✅   | ✅   |
+
+#+caption: Feature options.
+#+ATTR_HTML::alt image
+#+label: feature-options
+#+attr_latex: :width 350px :options angle=90
+[[file:options.png]]
+
+#+begin_src shell
+cd /var/www/html/hls/1003_20200301191900
+(while [ ! -f "/var/www/html/vod/1003_20200301191900/master_vod.m3u8" ] ; do /usr/bin/inotifywait -e close_write --include "master_vod.m3u8" /var/www/html/vod/1003_20200301191900; done;/usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles",NAME="Dutch",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI="sub.m3u8",LANGUAGE="dut"/' /var/www/html/vod/1003_20200301191900/master_vod.m3u8; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/' /var/www/html/vod/1003_20200301191900/master_vod.m3u8;) &
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract start >> /var/www/html/hls/1003_20200301191900/status.txt'; /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/live/1003_20200301191900; /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/vod/1003_20200301191900; /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/1003_20200301191900; cd /var/www/html/hls/; /usr/bin/sudo -uapache /usr/bin/ffmpeg -fix_sub_duration -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi -txt_format text -txt_page 888 -i /mnt/mythtv2/store//1003_20200301191900.mkv -map 0:s:0 -c:s webvtt  -f tee "[f=segment:segment_time=6:segment_list_size=0:segment_format=webvtt:segment_list=../live/1003_20200301191900/sub.m3u8]../live/1003_20200301191900/sub-%d.vtt|/dev/null|[select=\'s:0,sgroup:subtitle\']1003_20200301191900/subtitles.vtt|[f=segment:segment_time=6:segment_list_size=0:segment_format=webvtt:segment_list=../vod/1003_20200301191900/sub.m3u8]../vod/1003_20200301191900/sub-%d.vtt" 2>>/tmp/ffmpeg-subtitle-extract-hls-1003_20200301191900.log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract success >> /var/www/html/hls/1003_20200301191900/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract failed >> /var/www/html/hls/1003_20200301191900/status.txt'
+while [ ! "`/usr/bin/cat /var/www/html/hls/1003_20200301191900/status.txt | /usr/bin/grep 'subtitle_extract success'`" ] ; do sleep 1; done
+(while [ ! -f "/var/www/html/live/1003_20200301191900/master_live.m3u8" ] ; do /usr/bin/inotifywait -e close_write --include "master_live.m3u8" /var/www/html/hls/../live/1003_20200301191900; done;/usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles",NAME="Dutch",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI="sub.m3u8",LANGUAGE="dut"/' /var/www/html/live/1003_20200301191900/master_live.m3u8; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/' /var/www/html/live/1003_20200301191900/master_live.m3u8; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e '$d;N;2,6ba' -e 'P;D' -i /var/www/html/live/1003_20200301191900/master_live.m3u8;) &
+(while [ ! -f "/var/www/html/vod/1003_20200301191900/master_vod.m3u8" ] ; do /usr/bin/inotifywait -e close_write --include "master_vod.m3u8" /var/www/html/vod/1003_20200301191900; done; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="group_A1")/\1,LANGUAGE="dut"/' /var/www/html/vod/1003_20200301191900/master_vod.m3u8;) &
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> /var/www/html/hls/1003_20200301191900/status.txt'; /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/vod/1003_20200301191900; /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/../live/1003_20200301191900; /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/1003_20200301191900; cd /var/www/html/hls/; /usr/bin/sudo -uapache /usr/bin/ffmpeg -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi  -re -i /mnt/mythtv2/store//1003_20200301191900.mkv -live_start_index 0 -progress 1003_20200301191900/progress-log.txt -force_key_frames "expr:gte(t,n_forced*2)" -filter_complex "[0:v]split=2[v1][v2];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out]" -map [v1out] -c:v:0 h264_vaapi -b:v:0 5000K -maxrate:v:0 5000K -minrate:v:0 5000K -bufsize:v:0 1.5*5000K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map [v2out] -c:v:1 h264_vaapi -b:v:1 1500K -maxrate:v:1 1500K -minrate:v:1 1500K -bufsize:v:1 1.5*1500K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map a:0 -ac 2 -c:a:0 aac -b:a:0 96K -metadata:s:a:0 language=dut -map a:0 -ac 2 -c:a:1 aac -b:a:1 128K -metadata:s:a:1 language=dut -map -0:4? -map -0:5? -map -0:6? -map -0:7? -map -0:8? -map -0:9? -f tee "[select=\'a:0,a:1,v:0,v:1\':f=dash:seg_duration=6:hls_playlist=true:single_file=true:adaptation_sets=\'id=0,streams=0,1 id=1,streams=2,3\':media_seg_name=\'stream_vod_$RepresentationID$-$Number%05d$.$ext$\':hls_master_name=master_vod.m3u8]../vod/1003_20200301191900/manifest_vod.mpd|[select=\'v:0,a:1\':f=mp4:movflags=+faststart]1003_20200301191900/1003_20200301191900.mp4|[select=\'a:0,a:1,v:0,v:1\':f=hls:hls_time=6:hls_list_size=10:hls_flags=+independent_segments+iframes_only+delete_segments:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:720p v:1,agroup:aac,language:dut,name:480p a:0,agroup:aac,language:dut,name:aac_1_96K a:1,agroup:aac,language:dut,name:aac_2_128K\':master_pl_name=master_live.m3u8:hls_segment_filename=../live/1003_20200301191900/stream_live_%v_data%02d.m4s]../live/1003_20200301191900/stream_live_%v.m3u8|/dev/null" 2>>/tmp/ffmpeg-hls-1003_20200301191900.log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> /var/www/html/hls/1003_20200301191900/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> /var/www/html/hls/1003_20200301191900/status.txt'
+while [ ! "`/usr/bin/cat /var/www/html/hls/1003_20200301191900/status.txt | /usr/bin/grep 'encode finish success'`" ] ; do sleep 1; done
+cd /var/www/html/hls/1003_20200301191900; /usr/bin/sudo -uapache /usr/bin/ffmpeg -i 1003_20200301191900.mp4 -i subtitles.vtt -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default -c:v copy -c:a copy 1003_20200301191900.tmp.mp4;/usr/bin/sudo /usr/bin/mv -f 1003_20200301191900.tmp.mp4 1003_20200301191900.mp4
+sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 1003_20200301191900_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
+#+end_src
+
+#+begin_src shell
+/usr/bin/sudo -uapache /usr/bin/ffmpeg -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi  -re -i /mnt/mythtv2/store//1003_20200301191900.mkv -live_start_index 0 -progress 1003_20200301191900/progress-log.txt -force_key_frames "expr:gte(t,n_forced*2)" -filter_complex "[0:v]split=2[v1][v2];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out]" -map [v1out] -c:v:0 h264_vaapi -b:v:0 5000K -maxrate:v:0 5000K -minrate:v:0 5000K -bufsize:v:0 1.5*5000K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map [v2out] -c:v:1 h264_vaapi -b:v:1 1500K -maxrate:v:1 1500K -minrate:v:1 1500K -bufsize:v:1 1.5*1500K -preset veryfast -g 25 -keyint_min 25 -sc_threshold 0 -flags +global_header -map a:0 -ac 2 -c:a:0 aac -b:a:0 96K -metadata:s:a:0 language=dut -map a:0 -ac 2 -c:a:1 aac -b:a:1 128K -metadata:s:a:1 language=dut -map -0:4? -map -0:5? -map -0:6? -map -0:7? -map -0:8? -map -0:9? -f tee
+"[select=\'a:0,a:1,v:0,v:1\':f=dash:seg_duration=6:hls_playlist=true:single_file=true:adaptation_sets=\'id=0,streams=0,1 id=1,streams=2,3\':media_seg_name=\'stream_vod_$RepresentationID$-$Number%05d$.$ext$\':hls_master_name=master_vod.m3u8]../vod/1003_20200301191900/manifest_vod.mpd|
+[select=\'v:0,a:1\':f=mp4:movflags=+faststart]1003_20200301191900/1003_20200301191900.mp4| [select=\'a:0,a:1,v:0,v:1\':f=hls:hls_time=6:hls_list_size=10:hls_flags=+independent_segments+iframes_only+delete_segments:hls_segment_type=fmp4:var_stream_map=\'v:0,agroup:aac,language:dut,name:720p v:1,agroup:aac,language:dut,name:480p a:0,agroup:aac,language:dut,name:aac_1_96K a:1,agroup:aac,language:dut,name:aac_2_128K\':master_pl_name=master_live.m3u8:hls_segment_filename=../live/1003_20200301191900/stream_live_%v_data%02d.m4s]../live/1003_20200301191900/stream_live_%v.m3u8|
+/dev/null"
+#+end_src
