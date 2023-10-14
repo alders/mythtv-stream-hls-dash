@@ -1,0 +1,1080 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<!-- 2023-10-15 Sun 14:11 -->
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MythTV stream DASH and HLS fMP4</title>
+<meta name="author" content="Dennis Alders" />
+<meta name="generator" content="Org Mode" />
+<style>
+  #content { max-width: 60em; margin: auto; }
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #e6e6e6;
+    border-radius: 3px;
+    background-color: #f2f2f2;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: auto;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    top: -8px;
+    right: 12px;
+    padding: 3px;
+    color: #555;
+    background-color: #f2f2f299;
+  }
+  pre.src:hover:before { display: inline; margin-top: 14px;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-authinfo::before { content: 'Authinfo'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .equation-container {
+    display: table;
+    text-align: center;
+    width: 100%;
+  }
+  .equation {
+    vertical-align: middle;
+  }
+  .equation-label {
+    display: table-cell;
+    text-align: right;
+    vertical-align: middle;
+  }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { }
+</style>
+<script>
+  window.MathJax = {
+    tex: {
+      ams: {
+        multlineWidth: '85%'
+      },
+      tags: 'ams',
+      tagSide: 'right',
+      tagIndent: '.8em'
+    },
+    chtml: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    svg: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    output: {
+      font: 'mathjax-modern',
+      displayOverflow: 'overflow'
+    }
+  };
+</script>
+
+<script
+  id="MathJax-script"
+  async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+</head>
+<body>
+<div id="content" class="content">
+<h1 class="title">MythTV stream DASH and HLS fMP4</h1>
+<div id="table-of-contents" role="doc-toc">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents" role="doc-toc">
+<ul>
+<li><a href="#orgb80fd97">1. Description</a></li>
+<li><a href="#orgd1bce01">2. Background information</a></li>
+<li><a href="#orge0e78a6">3. This depends on:</a></li>
+<li><a href="#org9e8ab37">4. Features</a></li>
+<li><a href="#org19a3ffe">5. Example</a>
+<ul>
+<li><a href="#org5d21b5d">5.1. User interface</a></li>
+<li><a href="#org13267e7">5.2. Screenshot 2</a></li>
+<li><a href="#org0c4dcc7">5.3. Screenshot 3</a></li>
+<li><a href="#orgacfec3c">5.4. Screenshot 4</a></li>
+<li><a href="#orgd2feb4d">5.5. Screenshot 5</a></li>
+</ul>
+</li>
+<li><a href="#orgaacf00f">6. Generated script</a>
+<ul>
+<li><a href="#org916525c">6.1. Code block 1</a></li>
+<li><a href="#org2da6103">6.2. Code block 2</a></li>
+<li><a href="#org3a7aeea">6.3. Code block 3</a></li>
+<li><a href="#orgdfb7485">6.4. Code block 4</a></li>
+<li><a href="#org3942a59">6.5. Code block 5</a></li>
+<li><a href="#orga7aef16">6.6. Code block 6</a></li>
+<li><a href="#org6325b83">6.7. Code block 7</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orgb80fd97" class="outline-2">
+<h2 id="orgb80fd97"><span class="section-number-2">1.</span> Description</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+Supports transcode and streaming of any <a href="https://www.mythtv.org">MythTV</a> recording to be watched via the browser.
+</p>
+
+<p>
+Why:
+</p>
+<ul class="org-ul">
+<li>Although support for HTTP Live Streaming (HLS) was added to MythTV in 0.25, it
+is still not at a point to be usable.</li>
+<li>HTML 5 video for Mythweb is not supported out of the box.</li>
+<li>MythWeb is still based on Flash technology from the days of yore.</li>
+<li>Attempts to overcome these shortcomings, like the <a href="https://github.com/thecount2a/mythtv-stream-mpeg-dash">MythTV stream mpeg DASH</a>
+project, lacks support for HLS, fragmented MP4 (fMP4), Adaptive Bitrate
+Streaming (ABR), live recording, live TV, subtitles, etcetera.</li>
+</ul>
+
+<p>
+What:
+</p>
+<ul class="org-ul">
+<li>Support for streaming (serving) MythTV content to other devices (web
+browser—mobile, desktop, tablet, etc.) irrespective of the OS.</li>
+<li>The techniques used support many users viewing the same playlist.</li>
+<li>Transcoding from whatever format your recordings are in, as long as they are
+recognized by FFmpeg.</li>
+<li>Support for live broadcasts and prerecorded content.</li>
+<li>Support for less reliable networks (e.g. cell phone browser).</li>
+<li>Support for offline viewing.</li>
+</ul>
+
+<p>
+How:
+</p>
+<ul class="org-ul">
+<li>Encoding of MythTV recordings to DASH and HLS, providing playlist types
+\(live\), \(event\) and \(VOD\) for streaming.</li>
+<li>The use of fragmented MP4 files makes DASH compatible with HLS so the same
+files are used; only the manifest file (playlist) is different.</li>
+<li>Transcode videos to two renditions for adaptive playback.</li>
+<li>Transcoding to \(mp4\) for playback without internet.</li>
+<li>Simple PHP based browser interface supporting a number of highly desirable
+usecases.</li>
+<li>Video files are codified using H.264 format and audio is supported with AAC.</li>
+</ul>
+
+<p>
+Supports the following usecases:
+</p>
+<ul class="org-ul">
+<li>No MythTV frontend is required, a browser with HTML 5 support is enough.</li>
+<li>Device independent viewing.</li>
+<li>Support for streaming while encoding.</li>
+<li>Support for prerecorded content.</li>
+<li>Support for transcoding to MP4 for offline viewing.</li>
+<li>Support for MythTV cutlist.</li>
+<li>Watch recording while transcode is still taking place (just don't seek too far
+ahead).</li>
+<li>Watch prerecorded video.</li>
+<li>Use commercial cut info from MythTV database to cut commercials before
+streaming.</li>
+<li>Support for live HDHomeRun streaming without MythTV interference.</li>
+<li>Care for your hard drives by using a ramdisk for \(live\) playlist, storing the
+playlist and the fragments.</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orgd1bce01" class="outline-2">
+<h2 id="orgd1bce01"><span class="section-number-2">2.</span> Background information</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+HLS (HTTP Live Streaming) and DASH (Dynamic Adaptive Streaming over HTTP) are
+two popular methods of delivering video to consumers over the internet. Both are
+types of Adaptive Bitrate (ABR) delivery, which means the video player can
+dynamically select the bitrate that is being delivered to the end viewer during
+playback as the viewer’s internet connection speed may change during playback.
+Rather than stalling and buffering the video, the player can switch to a lower
+bitrate and continue playing.
+</p>
+
+<p>
+Each bitrate variant that we create for HLS or DASH is called a rendition.
+Adaptive Bitrate streaming requires that each rendition be split into a series
+of segments, each generally 2 to 10 seconds long. This allows the player to
+switch bitrates on the segment boundaries by loading the next segment from a
+different rendition than the one currently playing.
+</p>
+
+<p>
+Playlist \(Live\) is just what the name suggests: view in real-time the content
+that’s being created. Encoding is done at native frame rate of the input. With
+live streaming, there is little lag time between encoding and viewing. It can be
+used for recorded content and with live recording. Note, it is not possible to
+pause the streaming longer than one minute without loosing the content due to
+the Sliding Window Construction.
+</p>
+
+<p>
+Playlist \(Event\) allows for encoding speeds which are higher than the frame rate
+of the input. This means the user has more freedom to seek through the video
+(forward and backward) while recording. Moreover, it allows one to view the
+content from the start of the video with live recording.
+</p>
+
+<p>
+Playlist \(VOD\) basically provides the same as event streaming, though
+technically the term is used for a playlist file that is immutable, i.e.
+prerecorded content. VOD allows users to access the videos whenever, wherever
+(internet connection provided) they want to watch them. Note, only VOD provides
+a DASH manifest which enables playback using the Edge browser.
+</p>
+</div>
+</div>
+
+<div id="outline-container-orge0e78a6" class="outline-2">
+<h2 id="orge0e78a6"><span class="section-number-2">3.</span> This depends on:</h2>
+<div class="outline-text-2" id="text-3">
+<ul class="org-ul">
+<li>MythTV (for commerical cut info and looking up the name of each recording
+based on filename)
+<ul class="org-ul">
+<li>version v0.33</li>
+</ul></li>
+<li>FFmpeg (for transcoding)
+<ul class="org-ul">
+<li>FFmpeg version 5.1.3</li>
+</ul></li>
+<li>GNU screen
+<ul class="org-ul">
+<li>This is to allow monitoring of transcode and packager and to support
+background processes launched by the web-facing PHP script</li>
+<li>apt-get install screen</li>
+</ul></li>
+<li>Shaka player
+<ul class="org-ul">
+<li>This is the Javascript-based browser player that plays MPEG DASH content</li>
+<li>version 4.3.6</li>
+</ul></li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org9e8ab37" class="outline-2">
+<h2 id="org9e8ab37"><span class="section-number-2">4.</span> Features</h2>
+<div class="outline-text-2" id="text-4">
+<p>
+Subtitles when available in the input source can be selected by the user for
+live recording and recorded video. Different pre-/postprocessing techniques are
+required to handle this for the available playlist types.
+</p>
+
+<p>
+Features support for recorded video are shown in table 1. Note, on user request
+for subtitles a separate prepossessing step is required.
+</p>
+
+<table id="orgf08098e" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<caption class="t-above"><span class="table-number">Table 1:</span> Features support for recorded video.</caption>
+
+<colgroup>
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-left">&#xa0;</th>
+<th scope="col" class="org-left">hls</th>
+<th scope="col" class="org-left">dash</th>
+<th scope="col" class="org-left">subtitle</th>
+<th scope="col" class="org-left">subtitle</th>
+<th scope="col" class="org-left">Adaptive Bitrate Streaming</th>
+</tr>
+
+<tr>
+<th scope="col" class="org-left">&#xa0;</th>
+<th scope="col" class="org-left">&#xa0;</th>
+<th scope="col" class="org-left">&#xa0;</th>
+<th scope="col" class="org-left">(realtime viewing)</th>
+<th scope="col" class="org-left">(postprocessing required)</th>
+<th scope="col" class="org-left">&#xa0;</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="org-left">live</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+</tr>
+
+<tr>
+<td class="org-left">event</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+</tr>
+
+<tr>
+<td class="org-left">VOD</td>
+<td class="org-left">✅</td>
+<td class="org-left">✅</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+</tr>
+
+<tr>
+<td class="org-left">mp4</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+</tbody>
+</table>
+
+<p>
+Features supported for live recording are shown in table 2. Note, Adaptive
+Bitrate Streaming is not supported for live recordings.
+</p>
+
+<table id="orga26b400" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides" alt="table1">
+<caption class="t-above"><span class="table-number">Table 2:</span> Features supported for live recording.</caption>
+
+<colgroup>
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-left">&#xa0;</th>
+<th scope="col" class="org-left">hls</th>
+<th scope="col" class="org-left">dash</th>
+<th scope="col" class="org-left">subtitle</th>
+<th scope="col" class="org-left">subtitle</th>
+</tr>
+
+<tr>
+<th scope="col" class="org-left">&#xa0;</th>
+<th scope="col" class="org-left">&#xa0;</th>
+<th scope="col" class="org-left">&#xa0;</th>
+<th scope="col" class="org-left">(realtime viewing)</th>
+<th scope="col" class="org-left">(postprocessing required)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="org-left">live</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-left">event</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-left">VOD</td>
+<td class="org-left">✅</td>
+<td class="org-left">✅</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-left">mp4</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+</tr>
+</tbody>
+</table>
+
+<p>
+All possible combinations of playlist types and mp4 are shown in table 3. Note,
+all can be combined with \(Quality\), \(Commercial cut\) and \(subtitles\) selection.
+</p>
+
+<table id="orgc7e2437" border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+<caption class="t-above"><span class="table-number">Table 3:</span> All possible combinations of streaming types. Note, all can be combined with Quality, Commercial cut and subtitles.</caption>
+
+<colgroup>
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+
+<col  class="org-left" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-left">live</th>
+<th scope="col" class="org-left">event</th>
+<th scope="col" class="org-left">VOD</th>
+<th scope="col" class="org-left">mp4</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+</tr>
+
+<tr>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">✅</td>
+</tr>
+
+<tr>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+</tr>
+
+<tr>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">✅</td>
+<td class="org-left">✅</td>
+</tr>
+
+<tr>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">&#xa0;</td>
+</tr>
+
+<tr>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+</tr>
+
+<tr>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">&#xa0;</td>
+<td class="org-left">✅</td>
+<td class="org-left">✅</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<div id="outline-container-org19a3ffe" class="outline-2">
+<h2 id="org19a3ffe"><span class="section-number-2">5.</span> Example</h2>
+<div class="outline-text-2" id="text-5">
+</div>
+
+<div id="outline-container-org5d21b5d" class="outline-3">
+<h3 id="org5d21b5d"><span class="section-number-3">5.1.</span> User interface</h3>
+<div class="outline-text-3" id="text-5-1">
+
+<div id="org373c149" class="figure">
+<p><img src="screenshots/user-selection.png" alt="User selection" width="350px" title="User selection" align="right" />
+</p>
+<p><span class="figure-number">Figure 1: </span>User interface</p>
+</div>
+
+<p>
+User interface:
+</p>
+<ul class="org-ul">
+<li>Select the desired recording from the list box.</li>
+<li>Select the \(Quality\) (ABR streaming) from the list box.</li>
+<li>Select if the \(Cutlist\) should be used. Note, this option is only visible in
+the UI when a \(Cutlist\) is defined in MythTV.</li>
+<li>Select using the checkbox if \(Subtitles\) should be used or not. Note, this
+option is only visible when subtitles are available in the video file.</li>
+<li>Select using the checkboxes if playlist type \(live\) xor \(event\) should be
+used.</li>
+<li>Select if playlist type \(VOD\) should be used.</li>
+<li>Select if a \(MP4\) file should be created.</li>
+<li>Press \(Encode Video\) when you are satisfied with your choices.</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-org13267e7" class="outline-3">
+<h3 id="org13267e7"><span class="section-number-3">5.2.</span> Screenshot 2</h3>
+<div class="outline-text-3" id="text-5-2">
+
+<div id="orgaa69cc7" class="figure">
+<p><img src="screenshots/remuxing-video.png" alt="Remuxing video" width="350px" title="Remuxing video" align="right" />
+</p>
+<p><span class="figure-number">Figure 2: </span>Remuxing</p>
+</div>
+
+<p>
+Remuxing:
+</p>
+
+<p>
+Two buttons are shown. The first button \(Delete Video Files\) basically does what
+is says. Note, this will not delete any file from MythTV or change the MySQL
+database.
+</p>
+
+<p>
+In the previous screenshot the user selected the option to \(Cut Commercials\).
+This requires the video to be remuxed to a MP4 container. The second button
+shows the progress of the remuxing.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org0c4dcc7" class="outline-3">
+<h3 id="org0c4dcc7"><span class="section-number-3">5.3.</span> Screenshot 3</h3>
+<div class="outline-text-3" id="text-5-3">
+
+<div id="org8d221b0" class="figure">
+<p><img src="screenshots/generating-video.png" alt="Generating video" width="350px" title="Generating video" align="right" />
+</p>
+<p><span class="figure-number">Figure 3: </span>Generating video</p>
+</div>
+
+<p>
+After the remuxing is done, the second button shows the progress of the encoding
+as a percentage and an indication of the time of the available video. When there
+is about 30 seconds of video available the player automatically tries to load
+the video.
+</p>
+
+<p>
+Note, loading only works for live streaming. If no still of the video is shown
+after 30 seconds reload the browser page and start the video for viewing.
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgacfec3c" class="outline-3">
+<h3 id="orgacfec3c"><span class="section-number-3">5.4.</span> Screenshot 4</h3>
+<div class="outline-text-3" id="text-5-4">
+
+<div id="org664076b" class="figure">
+<p><img src="screenshots/status.png" alt="Status" width="350px" title="Status" align="right" />
+</p>
+<p><span class="figure-number">Figure 4: </span>Status</p>
+</div>
+
+<p>
+One can also click the second button, showing the progress of the encoding. This
+will trigger a popup message box with a detailed view of the the steps involved
+and the status thereof.
+</p>
+</div>
+</div>
+
+<div id="outline-container-orgd2feb4d" class="outline-3">
+<h3 id="orgd2feb4d"><span class="section-number-3">5.5.</span> Screenshot 5</h3>
+<div class="outline-text-3" id="text-5-5">
+
+<div id="org2a480d1" class="figure">
+<p><img src="screenshots/user-interface.png" alt="User interface" width="350px" title="User Interface" align="right" />
+</p>
+<p><span class="figure-number">Figure 5: </span>User interface</p>
+</div>
+
+<p>
+When the encoding is done refresh the browser page. The user interface now shows
+three buttons. Next to the \(Delete Video files\) button a new button appeared
+\(Cleanup Video Files\). Note, his button is only shown when both playlist types
+\(event\) and \(VOD\) are selected. Since both playlist types basically provide the
+same user experience, i.e. prerecorded content, one may decide to remove the
+playlist \(event\) content to reduce disk space. This is exactly what the \(Cleanup
+Video Files\) button does.
+</p>
+
+<p>
+Reloading the browser page may also reveal links to the playlist types
+requested, as shown in the screenshot for \(HLS Event\) and \(VOD\). It may also
+reveal a \(Download mp4\) link. The latter is only visible when the encoding has
+finished and optionally the selected subtitles are mixed in. The links are
+provided to allow the user to select the playlist type. Additionally, old
+devices not supporting the Shaka video player of the UI, may still be able to
+play the content through the links provided. The links may also be useful for
+another apps.
+</p>
+
+<p>
+The screenshot also shows Shaka support for the UI: Captions, Resolution,
+Language, Picture-in-Picture, Playback speed, and Airplay.
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgaacf00f" class="outline-2">
+<h2 id="orgaacf00f"><span class="section-number-2">6.</span> Generated script</h2>
+<div class="outline-text-2" id="text-6">
+<p>
+The generated shell script \(encode.sh\) for the example above is shown in all its
+detail below. For illustration purposes the code is shown in separate code
+blocks here.
+</p>
+</div>
+
+<div id="outline-container-org916525c" class="outline-3">
+<h3 id="org916525c"><span class="section-number-3">6.1.</span> Code block 1</h3>
+<div class="outline-text-3" id="text-6-1">
+<p>
+This code block shows how remuxing of the input source to a \(MP4\) container is
+done. This allows FFmpeg to use the \(concat demuxer\) later in the script. In
+MythTV one can define the \(cutlist\) which translates into the inpoint's and
+outpoint's of the video.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell"><span style="color: #657b83; font-weight: bold;">cd</span> /var/www/html/hls/10100_20231012201900
+/usr/bin/sudo /usr/bin/screen -S <span style="color: #6c71c4;">10100_20231012201900_remux</span> -dm /usr/bin/sudo -uapache /usr/bin/bash -c <span style="color: #2aa198;">'/usr/bin/echo `date`: remux start &gt; /var/www/html/hls/10100_20231012201900/status.txt ; \</span>
+<span style="color: #2aa198;">/usr/bin/sudo -uapache /usr/bin/ffmpeg \</span>
+<span style="color: #2aa198;">                                       -y \</span>
+<span style="color: #2aa198;">                                       -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \</span>
+<span style="color: #2aa198;">                                       -txt_format text -txt_page 888 \</span>
+<span style="color: #2aa198;">                                       -fix_sub_duration \</span>
+<span style="color: #2aa198;">                                       -i /mnt/mythtv2/store//10100_20231012201900.ts \</span>
+<span style="color: #2aa198;">                                       -acodec copy \</span>
+<span style="color: #2aa198;">                                       -vcodec copy \</span>
+<span style="color: #2aa198;">                                       -scodec mov_text \</span>
+<span style="color: #2aa198;">                                       /var/www/html/hls/10100_20231012201900/video.mp4 &amp;&amp; \</span>
+<span style="color: #2aa198;">/usr/bin/echo `date`: remux finish success &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt || \</span>
+<span style="color: #2aa198;">/usr/bin/echo `date`: remux finish failed &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt'</span>
+<span style="color: #859900; font-weight: bold;">while</span> <span style="color: #2aa198;">[</span> <span style="color: #b58900; font-weight: bold;">!</span> <span style="color: #2aa198;">"`/usr/bin/cat /var/www/html/hls/10100_20231012201900/status.txt | /usr/bin/grep 'remux finish success'`"</span> <span style="color: #2aa198;">]</span> ; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #859900; font-weight: bold;">do</span> <span style="color: #b58900; font-weight: bold;">\</span>
+    sleep <span style="color: #6c71c4;">1</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #859900; font-weight: bold;">done</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org2da6103" class="outline-3">
+<h3 id="org2da6103"><span class="section-number-3">6.2.</span> Code block 2</h3>
+<div class="outline-text-3" id="text-6-2">
+<p>
+Add subtitles to the \(master_event.m3u8\) file as soon as the file is created by FFmpeg some time in the future:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell"><span style="color: #2aa198;">(</span><span style="color: #859900; font-weight: bold;">while</span> <span style="color: #b58900;">[</span> <span style="color: #b58900; font-weight: bold;">!</span> -f <span style="color: #2aa198;">"/var/www/html/hls/10100_20231012201900/master_event.m3u8"</span> <span style="color: #b58900;">]</span> ; <span style="color: #b58900; font-weight: bold;">\</span>
+ <span style="color: #859900; font-weight: bold;">do</span> <span style="color: #b58900; font-weight: bold;">\</span>
+        /usr/bin/inotifywait -e close_write --include <span style="color: #2aa198;">"master_event.m3u8"</span> /var/www/html/hls/10100_20231012201900; <span style="color: #b58900; font-weight: bold;">\</span>
+ <span style="color: #859900; font-weight: bold;">done</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E <span style="color: #2aa198;">'s/(#EXT-X-VERSION:7)/\1\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles",NAME="Dutch",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI="sub_0_vtt.m3u8",LANGUAGE="dut"/'</span> /var/www/html/hls/10100_20231012201900/master_event.m3u8; <span style="color: #b58900; font-weight: bold;">\</span>
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E <span style="color: #2aa198;">'s/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/'</span>  /var/www/html/hls/10100_20231012201900/master_event.m3u8; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e <span style="color: #2aa198;">'$d;N;2,6ba'</span> -e <span style="color: #2aa198;">'P;D'</span> -i /var/www/html/hls/10100_20231012201900/master_event.m3u8;<span style="color: #2aa198;">)</span> &amp;
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org3a7aeea" class="outline-3">
+<h3 id="org3a7aeea"><span class="section-number-3">6.3.</span> Code block 3</h3>
+<div class="outline-text-3" id="text-6-3">
+<p>
+Add subtitles to the \(master_vod.m3u8\) file as soon as the file is created by FFmpeg some time in the future:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell"><span style="color: #2aa198;">(</span><span style="color: #859900; font-weight: bold;">while</span> <span style="color: #b58900;">[</span> <span style="color: #b58900; font-weight: bold;">!</span> -f <span style="color: #2aa198;">"/var/www/html/vod/10100_20231012201900/master_vod.m3u8"</span> <span style="color: #b58900;">]</span> ; <span style="color: #b58900; font-weight: bold;">\</span>
+ <span style="color: #859900; font-weight: bold;">do</span> <span style="color: #b58900; font-weight: bold;">\</span>
+        /usr/bin/inotifywait -e close_write --include <span style="color: #2aa198;">"master_vod.m3u8"</span> /var/www/html/vod/10100_20231012201900; <span style="color: #b58900; font-weight: bold;">\</span>
+ <span style="color: #859900; font-weight: bold;">done</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E <span style="color: #2aa198;">'s/(#EXT-X-VERSION:7)/\1\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles",NAME="Dutch",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI="sub_0_vtt.m3u8",LANGUAGE="dut"/'</span> /var/www/html/vod/10100_20231012201900/master_vod.m3u8; <span style="color: #b58900; font-weight: bold;">\</span>
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E <span style="color: #2aa198;">'s/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/'</span> /var/www/html/vod/10100_20231012201900/master_vod.m3u8;<span style="color: #2aa198;">)</span> &amp;
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orgdfb7485" class="outline-3">
+<h3 id="orgdfb7485"><span class="section-number-3">6.4.</span> Code block 4</h3>
+<div class="outline-text-3" id="text-6-4">
+<p>
+Pre-processing is necessary to extract the subtitles from the recorded video:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell">/usr/bin/sudo -uapache /usr/bin/bash -c <span style="color: #2aa198;">'/usr/bin/echo `date`: subtitle_extract start &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt'</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/vod/10100_20231012201900; /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231012201900; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #657b83; font-weight: bold;">cd</span> /var/www/html/hls/; <span style="color: #b58900; font-weight: bold;">\</span>
+/usr/bin/sudo -uapache /usr/bin/ffmpeg <span style="color: #b58900; font-weight: bold;">\</span>
+    -fix_sub_duration <span style="color: #b58900; font-weight: bold;">\</span>
+    -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi <span style="color: #b58900; font-weight: bold;">\</span>
+    -txt_format text -txt_page <span style="color: #6c71c4;">888</span> <span style="color: #b58900; font-weight: bold;">\</span>
+    -f concat -async <span style="color: #6c71c4;">1</span> -safe <span style="color: #6c71c4;">0</span> -i /var/www/html/hls/10100_20231012201900/cutlist.txt <span style="color: #b58900; font-weight: bold;">\</span>
+    -map <span style="color: #6c71c4;">0:s:0</span> -c:s webvtt <span style="color: #b58900; font-weight: bold;">\</span>
+     <span style="color: #b58900; font-weight: bold;">\</span>
+    -f tee <span style="color: #b58900; font-weight: bold;">\</span>
+    <span style="color: #2aa198;">"[select=\'s:0,sgroup:subtitle\']10100_20231012201900/subtitles.vtt"</span> <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #6c71c4;">2</span>&gt;&gt;/tmp/ffmpeg-subtitle-extract-hls-10100_20231012201900.log &amp;&amp; /usr/bin/sudo -uapache /usr/bin/bash -c <span style="color: #2aa198;">'/usr/bin/echo `date`: subtitle_extract success &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt'</span> || /usr/bin/sudo -uapache /usr/bin/bash -c <span style="color: #2aa198;">'/usr/bin/echo `date`: subtitle_extract failed &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt'</span>
+<span style="color: #859900; font-weight: bold;">while</span> <span style="color: #2aa198;">[</span> <span style="color: #b58900; font-weight: bold;">!</span> <span style="color: #2aa198;">"`/usr/bin/cat /var/www/html/hls/10100_20231012201900/status.txt | /usr/bin/grep 'subtitle_extract success'`"</span> <span style="color: #2aa198;">]</span> ; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #859900; font-weight: bold;">do</span> <span style="color: #b58900; font-weight: bold;">\</span>
+    sleep <span style="color: #6c71c4;">1</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #859900; font-weight: bold;">done</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org3942a59" class="outline-3">
+<h3 id="org3942a59"><span class="section-number-3">6.5.</span> Code block 5</h3>
+<div class="outline-text-3" id="text-6-5">
+<p>
+Add language information to the \(master_vod.m3u8\) file as it is created by FFmpeg some time in the future:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell"><span style="color: #2aa198;">(</span><span style="color: #859900; font-weight: bold;">while</span> <span style="color: #b58900;">[</span> <span style="color: #b58900; font-weight: bold;">!</span> -f <span style="color: #2aa198;">"/var/www/html/vod/10100_20231012201900/master_vod.m3u8"</span> <span style="color: #b58900;">]</span> ; <span style="color: #b58900; font-weight: bold;">\</span>
+ <span style="color: #859900; font-weight: bold;">do</span> <span style="color: #b58900; font-weight: bold;">\</span>
+        /usr/bin/inotifywait -e close_write --include <span style="color: #2aa198;">"master_vod.m3u8"</span> /var/www/html/vod/10100_20231012201900; <span style="color: #b58900; font-weight: bold;">\</span>
+ <span style="color: #859900; font-weight: bold;">done</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E <span style="color: #2aa198;">'s/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="group_A1")/\1,LANGUAGE="dut"/'</span> /var/www/html/vod/10100_20231012201900/master_vod.m3u8;<span style="color: #2aa198;">)</span> &amp;
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-orga7aef16" class="outline-3">
+<h3 id="orga7aef16"><span class="section-number-3">6.6.</span> Code block 6</h3>
+<div class="outline-text-3" id="text-6-6">
+<p>
+The major part of the encoding is done in one FFmpeg command utilizing
+\(filter_complex\) and \(tee\) to the max. This code block starts the actual
+encoding and waits until it is finished:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell">/usr/bin/sudo -uapache /usr/bin/bash -c <span style="color: #2aa198;">'/usr/bin/echo `date`: encode start &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt'</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/vod/10100_20231012201900;  /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231012201900; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #657b83; font-weight: bold;">cd</span> /var/www/html/hls/; <span style="color: #b58900; font-weight: bold;">\</span>
+/usr/bin/sudo -uapache /usr/bin/ffmpeg <span style="color: #b58900; font-weight: bold;">\</span>
+    -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi <span style="color: #b58900; font-weight: bold;">\</span>
+     <span style="color: #b58900; font-weight: bold;">\</span>
+     <span style="color: #b58900; font-weight: bold;">\</span>
+    -f concat -async <span style="color: #6c71c4;">1</span> -safe <span style="color: #6c71c4;">0</span> -i /var/www/html/hls/10100_20231012201900/cutlist.txt <span style="color: #2aa198;">\ </span> <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Respect the cutlist created by the user in MythTV</span>
+    -i <span style="color: #6c71c4;">10100_20231012201900/subtitles.vtt</span> <span style="color: #2aa198;">\ </span>                       <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Input subtitles seperately</span>
+    -progress <span style="color: #6c71c4;">10100_20231012201900/progress-log.txt</span> <span style="color: #2aa198;">\ </span>             <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Track progress of encoding</span>
+    -live_start_index <span style="color: #6c71c4;">0</span> <span style="color: #2aa198;">\ </span>                                         <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">.....</span>
+    -force_key_frames <span style="color: #2aa198;">"expr:gte(t,n_forced*2)"</span> <span style="color: #2aa198;">\ </span>                  <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Fixed key frame interval is needed to avoid variable segment duration.</span>
+    -filter_complex <span style="color: #2aa198;">"[0:v]split=2[v1][v2];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out]"</span> <span style="color: #2aa198;">\ </span># Resize A Video To Multiple Resolutions
+    -map <span style="color: #2aa198;">[</span>v1out<span style="color: #2aa198;">]</span> -c:v:0 <span style="color: #2aa198;">\ </span>                                         <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Rendition 1</span>
+        h264_vaapi <span style="color: #b58900; font-weight: bold;">\</span>
+        -b:v:0 <span style="color: #6c71c4;">5000K</span> -maxrate:v:0 <span style="color: #6c71c4;">5000K</span> -bufsize:v:0 <span style="color: #6c71c4;">1.5*5000K</span> <span style="color: #2aa198;">\ </span>  <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Transcode Video 1 to a user selected bitrate</span>
+        -preset veryfast <span style="color: #b58900; font-weight: bold;">\</span>
+        -g <span style="color: #6c71c4;">25</span> <span style="color: #2aa198;">\ </span>                                                   <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Frame rate used by HDHomeRun</span>
+        -keyint_min <span style="color: #6c71c4;">25</span> <span style="color: #b58900; font-weight: bold;">\</span>
+        -sc_threshold <span style="color: #6c71c4;">0</span> <span style="color: #b58900; font-weight: bold;">\</span>
+        -flags +global_header <span style="color: #b58900; font-weight: bold;">\</span>
+    -map <span style="color: #2aa198;">[</span>v2out<span style="color: #2aa198;">]</span> -c:v:1 <span style="color: #2aa198;">\ </span>                                         <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Rendition 2</span>
+        h264_vaapi <span style="color: #b58900; font-weight: bold;">\</span>
+        -b:v:1 <span style="color: #6c71c4;">1500K</span> -maxrate:v:1 <span style="color: #6c71c4;">1500K</span> -bufsize:v:1 <span style="color: #6c71c4;">1.5*1500K</span> <span style="color: #2aa198;">\ </span>  <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Transcode Video 2 to a derived lower resolution based on a user selected bitrate</span>
+        -preset veryfast <span style="color: #b58900; font-weight: bold;">\</span>
+        -g <span style="color: #6c71c4;">25</span> <span style="color: #2aa198;">\ </span>                                                   <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Frame rate used by HDHomeRun</span>
+        -keyint_min <span style="color: #6c71c4;">25</span> <span style="color: #b58900; font-weight: bold;">\</span>
+        -sc_threshold <span style="color: #6c71c4;">0</span> <span style="color: #b58900; font-weight: bold;">\</span>
+        -flags +global_header <span style="color: #b58900; font-weight: bold;">\</span>
+   -map a:0 -ac <span style="color: #6c71c4;">2</span> -c:a:0 aac -b:a:0 <span style="color: #6c71c4;">96K</span> <span style="color: #2aa198;">\ </span>                              <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Audio track predefined low bitrate</span>
+        -metadata:s:a:0 <span style="color: #268bd2;">language</span>=dut <span style="color: #2aa198;">\ </span>                                 <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">FFmpeg expects ISO_639-2_codes for language</span>
+   -map a:0 -ac <span style="color: #6c71c4;">2</span> -c:a:1 aac -b:a:1 <span style="color: #6c71c4;">128K</span> <span style="color: #2aa198;">\ </span>                             <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Audio track with user defined bitrate</span>
+        -metadata:s:a:1 <span style="color: #268bd2;">language</span>=dut <span style="color: #2aa198;">\ </span>                                 <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">FFmpeg expects ISO_639-2_codes for language</span>
+   -map -0:4? -map -0:5? -map -0:6? -map -0:7? -map -0:8? -map -0:9? <span style="color: #2aa198;">\ </span> <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Audio track user selected bitrate</span>
+   -c:s webvtt -map <span style="color: #6c71c4;">1</span> <span style="color: #b58900; font-weight: bold;">\</span>
+   -f tee <span style="color: #2aa198;">\ </span>                                                            <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Tee muxer to duplicate the output to multiple files</span>
+       <span style="color: #2aa198;">"[select=\'a:0,a:1,v:0,v:1\': \                                  # Create fragmented MP4 (fmp4) output for hls and dash</span>
+<span style="color: #2aa198;">          f=dash: \</span>
+<span style="color: #2aa198;">          seg_duration=6: \</span>
+<span style="color: #2aa198;">          hls_playlist=true: \</span>
+<span style="color: #2aa198;">          single_file=true: \</span>
+<span style="color: #2aa198;">          adaptation_sets=\'id=0,streams=0,1 id=1,streams=2,3\': \</span>
+<span style="color: #2aa198;">          media_seg_name=\'stream_vod_$RepresentationID$-$Number%05d$.$ext$\': \</span>
+<span style="color: #2aa198;">          hls_master_name=master_vod.m3u8]../vod/10100_20231012201900/manifest_vod.mpd| \</span>
+<span style="color: #2aa198;">         [select=\'v:0,s:0\': \                                         # Trick to create fragmented vtt files, video is used as a heartbeet</span>
+<span style="color: #2aa198;">          strftime=1: \</span>
+<span style="color: #2aa198;">          hls_flags=+independent_segments+iframes_only: \</span>
+<span style="color: #2aa198;">          hls_time=6: \</span>
+<span style="color: #2aa198;">          hls_playlist_type=event: \</span>
+<span style="color: #2aa198;">          hls_segment_type=fmp4: \</span>
+<span style="color: #2aa198;">          var_stream_map=\'v:0,s:0,sgroup:subtitle\': \</span>
+<span style="color: #2aa198;">          hls_segment_filename=\'/dev/null\']../vod/10100_20231012201900/sub_%v.m3u8| \ # Video output to /dev/null since it is not required. vtt output is written to vod directory</span>
+<span style="color: #2aa198;">         [select=\'v:0,a:1\': \                                         # Create mp4 output</span>
+<span style="color: #2aa198;">          f=mp4: \</span>
+<span style="color: #2aa198;">          movflags=+faststart]10100_20231012201900/10100_20231012201900.mp4| \</span>
+<span style="color: #2aa198;">         /dev/null| \                                                   # Since live was not selected by the user, /dev/null is used</span>
+<span style="color: #2aa198;">         [select=\'a:0,a:1,v:0,v:1\': \                                 # Create fragmented mp4 output for event</span>
+<span style="color: #2aa198;">          f=hls: \</span>
+<span style="color: #2aa198;">          hls_time=6: \</span>
+<span style="color: #2aa198;">          hls_playlist_type=event: \</span>
+<span style="color: #2aa198;">          hls_flags=+independent_segments+iframes_only: \</span>
+<span style="color: #2aa198;">          hls_segment_type=fmp4: \</span>
+<span style="color: #2aa198;">          var_stream_map=\'v:0,agroup:aac,language:dut,name:720p v:1,agroup:aac,language:dut,name:480p a:0,agroup:aac,language:dut,name:aac_1_96K a:1,agroup:aac,language:dut,name:aac_2_128K\': \</span>
+<span style="color: #2aa198;">          master_pl_name=master_event.m3u8:hls_segment_filename=10100_20231012201900/stream_event_%v_data%02d.m4s]10100_20231012201900/stream_event_%v.m3u8| \</span>
+<span style="color: #2aa198;">         [select=\'v:0,s:0\': \                                         # Trick to create fragmented vtt files, video is used as a heartbeet</span>
+<span style="color: #2aa198;">          strftime=1: \</span>
+<span style="color: #2aa198;">          f=hls: \</span>
+<span style="color: #2aa198;">          hls_flags=+independent_segments+program_date_time: \</span>
+<span style="color: #2aa198;">          hls_time=6: \</span>
+<span style="color: #2aa198;">          hls_playlist_type=event: \</span>
+<span style="color: #2aa198;">          hls_segment_type=fmp4: \</span>
+<span style="color: #2aa198;">          var_stream_map=\'v:0,s:0,sgroup:subtitle\': \</span>
+<span style="color: #2aa198;">          hls_segment_filename=\'/dev/null\']10100_20231012201900/sub_%v.m3u8"</span> <span style="color: #2aa198;">\ </span> <span style="color: #93a1a1;"># </span><span style="color: #93a1a1;">Video output to /dev/null since it is not required. vtt output is written to hls directory</span>
+<span style="color: #6c71c4;">2</span>&gt;&gt;/tmp/ffmpeg-hls-10100_20231012201900.log &amp;&amp; /usr/bin/sudo -uapache /usr/bin/bash -c <span style="color: #2aa198;">'/usr/bin/echo `date`: encode finish success &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt'</span> || /usr/bin/sudo -uapache /usr/bin/bash -c <span style="color: #2aa198;">'/usr/bin/echo `date`: encode finish failed &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt'</span>
+<span style="color: #859900; font-weight: bold;">while</span> <span style="color: #2aa198;">[</span> <span style="color: #b58900; font-weight: bold;">!</span> <span style="color: #2aa198;">"`/usr/bin/cat /var/www/html/hls/10100_20231012201900/status.txt | /usr/bin/grep 'encode finish success'`"</span> <span style="color: #2aa198;">]</span> ; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #859900; font-weight: bold;">do</span> <span style="color: #b58900; font-weight: bold;">\</span>
+    sleep <span style="color: #6c71c4;">1</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #859900; font-weight: bold;">done</span>
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org6325b83" class="outline-3">
+<h3 id="org6325b83"><span class="section-number-3">6.7.</span> Code block 7</h3>
+<div class="outline-text-3" id="text-6-7">
+<p>
+Post-processing step, merging subtitles into the \(MP4\) file.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell"><span style="color: #657b83; font-weight: bold;">cd</span> /var/www/html/hls/10100_20231012201900; <span style="color: #b58900; font-weight: bold;">\</span>
+/usr/bin/sudo -uapache /usr/bin/bash -c <span style="color: #2aa198;">'/usr/bin/echo `date`: subtitle_merge start &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt'</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #657b83; font-weight: bold;">cd</span> /var/www/html/hls/10100_20231012201900; <span style="color: #b58900; font-weight: bold;">\</span>
+/usr/bin/sudo -uapache /usr/bin/ffmpeg <span style="color: #b58900; font-weight: bold;">\</span>
+    -i <span style="color: #6c71c4;">10100_20231012201900.mp4</span> <span style="color: #b58900; font-weight: bold;">\</span>
+    -i subtitles.vtt <span style="color: #b58900; font-weight: bold;">\</span>
+    -c:s mov_text -metadata:s:s:0 <span style="color: #268bd2;">language</span>=dut -disposition:s:0 default <span style="color: #b58900; font-weight: bold;">\</span>
+    -c:v copy <span style="color: #b58900; font-weight: bold;">\</span>
+    -c:a copy <span style="color: #b58900; font-weight: bold;">\</span>
+    <span style="color: #6c71c4;">10100_20231012201900.tmp.mp4</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+/usr/bin/sudo /usr/bin/mv -f <span style="color: #6c71c4;">10100_20231012201900.tmp.mp4</span> <span style="color: #6c71c4;">10100_20231012201900.mp4</span> <span style="color: #6c71c4;">2</span>&gt;&gt;/tmp/ffmpeg-subtitle-merge-hls-10100_20231012201900.log &amp;&amp; /usr/bin/sudo -uapache /usr/bin/bash -c <span style="color: #2aa198;">'/usr/bin/echo `date`: subtitle_merge success &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt'</span> || /usr/bin/sudo -uapache /usr/bin/bash -c <span style="color: #2aa198;">'/usr/bin/echo `date`: subtitle_merge failed &gt;&gt; /var/www/html/hls/10100_20231012201900/status.txt'</span>
+<span style="color: #859900; font-weight: bold;">while</span> <span style="color: #2aa198;">[</span> <span style="color: #b58900; font-weight: bold;">!</span> <span style="color: #2aa198;">"`/usr/bin/cat /var/www/html/hls/10100_20231012201900/status.txt | /usr/bin/grep 'encode finish success'`"</span> <span style="color: #2aa198;">]</span> ; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #859900; font-weight: bold;">do</span> <span style="color: #b58900; font-weight: bold;">\</span>
+    sleep <span style="color: #6c71c4;">1</span>; <span style="color: #b58900; font-weight: bold;">\</span>
+<span style="color: #859900; font-weight: bold;">done</span>
+/usr/bin/sudo /usr/bin/rm /var/www/html/hls/10100_20231012201900/video.mp4
+sleep <span style="color: #6c71c4;">3</span> &amp;&amp; /usr/bin/sudo /usr/bin/screen -ls <span style="color: #6c71c4;">10100_20231012201900_encode</span>  | /usr/bin/grep -E <span style="color: #2aa198;">'\s+[0-9]+.'</span> | /usr/bin/awk <span style="color: #2aa198;">'{print $1}'</span> - | <span style="color: #859900; font-weight: bold;">while </span><span style="color: #657b83; font-weight: bold;">read</span> s; <span style="color: #859900; font-weight: bold;">do</span> /usr/bin/sudo /usr/bin/screen -XS $<span style="color: #268bd2;">s</span> quit; <span style="color: #859900; font-weight: bold;">done</span>
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="date">Date: 2020-04-19 Sun 00:00</p>
+<p class="author">Author: Dennis Alders</p>
+<p class="date">Created: 2023-10-15 Sun 14:11</p>
+<p class="validation"><a href="https://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

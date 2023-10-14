@@ -12,11 +12,15 @@ $lines = file($program_path."/mythdb.txt");
 $dbpass = trim($lines[0]);
 $dbname = "mythconverg";
 
+// Ladder from which the user may choose, Aspect ratio 16:9
 $settings = array(
+                "high1440" =>   array("height" => 1440, "width" => 2560, "vbitrate" => 8000, "abitrate" => 128),
+                "normal1440" => array("height" => 1440, "width" => 2560, "vbitrate" => 6000, "abitrate" => 128),
+                "low1440" =>    array("height" => 1440, "width" => 2560, "vbitrate" => 4000, "abitrate" => 128),
                 "high1080" =>   array("height" => 1080, "width" => 1920, "vbitrate" => 6000, "abitrate" => 128),
                 "normal1080" => array("height" => 1080, "width" => 1920, "vbitrate" => 4000, "abitrate" => 128),
                 "low1080" =>    array("height" => 1080, "width" => 1920, "vbitrate" => 2000, "abitrate" => 128),
-                "high720" =>    array("height" =>  720, "width" => 1280, "vbitrate" => 5000, "abitrate" => 128),
+                "high720" =>    array("height" =>  720, "width" => 1280, "vbitrate" => 4000, "abitrate" => 128),
                 "normal720" =>  array("height" =>  720, "width" => 1280, "vbitrate" => 2000, "abitrate" => 128),
                 "low720" =>     array("height" =>  720, "width" => 1280, "vbitrate" => 1000, "abitrate" =>  64),
                 "high480" =>    array("height" =>  480, "width" =>  854, "vbitrate" => 1500, "abitrate" => 128),
@@ -179,8 +183,6 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
         if (file_exists($hls_path."/".$filename))
         {
             // Shut down all screen sessions
-            // $response = shell_exec('/usr/bin/sudo /usr/bin/screen -S '.$filename."_remux  -X quit");
-            // $response = shell_exec('/usr/bin/sudo /usr/bin/screen -S '.$filename."_encode -X quit");
             $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_remux  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
             $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
             // kill dead screens
@@ -241,8 +243,6 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
         if (file_exists($hls_path."/".$filename))
         {
             // Shut down all screen sessions
-            // $response = shell_exec('/usr/bin/sudo /usr/bin/screen -S '.$filename."_remux  -X quit");
-            // $response = shell_exec('/usr/bin/sudo /usr/bin/screen -S '.$filename."_encode -X quit");
             $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_encode  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
             $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_remux  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
             // // Delete files
@@ -389,8 +389,23 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             if ($mustencode)
             {
                 // Launch remux to mp4 container
-                $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$filename."_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$filename."/status.txt ; /usr/bin/sudo -uapache /usr/bin/ffmpeg -y -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi -txt_format text -txt_page 888 -fix_sub_duration -i ".$video_path."/".$filename.".$extension -acodec copy -vcodec copy -scodec mov_text ".$hls_path."/".$filename."/video.mp4 && /usr/bin/echo `date`: remux finish success >> ".$hls_path."/".$filename."/status.txt || /usr/bin/echo `date`: remux finish failed >> ".$hls_path."/".$filename."/status.txt'");
-                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'remux finish success'`\" ] ; do sleep 1; done\n");
+                fwrite($fp,"/usr/bin/sudo /usr/bin/screen -S ".$filename."_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$filename."/status.txt ; \
+/usr/bin/sudo -uapache /usr/bin/ffmpeg \
+                                       -y \
+                                       -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
+                                       -txt_format text -txt_page 888 \
+                                       -fix_sub_duration \
+                                       -i ".$video_path."/".$filename.".$extension \
+                                       -acodec copy \
+                                       -vcodec copy \
+                                       -scodec mov_text \
+                                       ".$hls_path."/".$filename."/video.mp4 && \
+/usr/bin/echo `date`: remux finish success >> ".$hls_path."/".$filename."/status.txt || \
+/usr/bin/echo `date`: remux finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
+                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'remux finish success'`\" ] ; \
+do \
+    sleep 1; \
+done\n");
             }
             $hls_playlist_type = "";
             if (isset($_REQUEST["hls_playlist_type"]))
@@ -418,16 +433,17 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             }
             if (isset($_REQUEST["checkbox_subtitles"]) && $is_liverecording == "false")
             {
-                // NOTE: Subtitle handling does not work in combination with filter complex as expected (ffmpeg bug?), see excellent discussion on
+                // NOTE: Subtitle extraction does not work in combination with filter complex as expected (ffmpeg bug?), see discussion
                 // NOTE: on reddit: https://www.reddit.com/r/ffmpeg/comments/mfybas/when_adding_caption_to_hls_i_get_errors_unable_to/
-                // NOTE: Subtitles cannot be processed simultaneously in one go (as one would expect) originating from the same input (video+audio+subtitles).
-                // NOTE: Subtitles can be processed simultaneously in one go when read as a separate input.
-                // NOTE: Therefore in the case of Dynamic Adaptive Streaming (DAS) an extra prepossessing step is required to extract the subtitles.
-                // NOTE: In this implementation DAS is deemed more important (should this choice be made configurable?) than extra processing time therefore subtitles are extracted beforehand.
-                // NOTE: By adding subtitles as soon as the master m3u8 file is generated by ffmpeg, subtitles can be shown during viewing. In the case of mp4 transcoding subtitles can only be added after
-                // NOTE: the encoding has finished. The extra waiting time is a small penalty since it is not a compute intensive step.
-                // NOTE: This way playback with subtitles while transcoding ("live", "event" and "vod" ("hls" and "dash")) and DAS becomes possible.
-                // TODO: Add option to set the priority of Dynamic Adaptive Streaming vs. processing speed (skip subtitle extraction at the cost of DAS).
+                // NOTE: Moreover, progressive subtitle extraction and manipulation from a single input cannot be combined with filter_complex.
+                // NOTE: However, progressive subtitles extraction and manipulation can be combined with filter_complex when subtitles are handled as a separate input.
+                // NOTE: Therefore before Adaptive Bitrate (ABR) Streaming can be done an extra prepossessing step is required to extract the subtitles.
+                // NOTE: The extra waiting time is regarded as a small penalty, since it is not a compute intensive step.
+                // NOTE: By adding subtitles as soon as the master m3u8 file is generated by ffmpeg, subtitles can be shown during viewing.
+                // NOTE: Subtitles for "mp4" are added in a post processing step.
+                // NOTE: The approach described above allows one to watch a recording with subtitles while transcoding ("live", "event" and "vod" ("hls"
+                // NOTE: and "dash")) is still taking place in combination with Adaptive Bitrate (ABR) Streaming.
+                // TODO: Add option to choose between improved processing speed and Adaptive Bitrate (ABR) Streaming (skip subtitle extraction at the cost of ABR).
                 // TODO: think about this, hls dir contains the meta data, should always exist
                 $create_hls_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/".$BASE.";";
                 $create_live_dir = "";
@@ -436,24 +452,37 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                 {
                     $read_rate = "-re";
                     $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/live/".$BASE.";";
-                    $dir = "/var/www/html/live/".$BASE."/master_live.m3u8";
+                    $master_file = "/var/www/html/live/".$BASE."/master_live.m3u8";
                     // This command is delayed until master_live.m3u8 is created by ffmpeg!!!
-                    fwrite($fp, "(while [ ! -f \"".$dir."\" ] ; do /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/../live/".$BASE."; done;/usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$dir."; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$dir."; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e '\$d;N;2,6ba' -e 'P;D' -i ".$dir.";) & \n");
+                    fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ; \
+ do \
+        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/../live/".$BASE."; \
+ done; \
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file."; \
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file."; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e '\$d;N;2,6ba' -e 'P;D' -i ".$master_file.";) & \n");
                 }
                 if ($hls_playlist_type == "event")
                 {
-                    // TODO: look at the next line $dir is not a good name.... <=============
-                    $dir = "/var/www/html/".$HLSDIR."/".$BASE."/master_event.m3u8";
+                    $master_file = "/var/www/html/".$HLSDIR."/".$BASE."/master_event.m3u8";
                     // This command is delayed until master_event.m3u8 is created by ffmpeg!!!
-                    fwrite($fp, "(while [ ! -f \"".$dir."\" ] ; do /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/".$BASE."; done;/usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$dir."; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$dir."; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e '\$d;N;2,6ba' -e 'P;D' -i ".$dir.";) & \n");
+                    fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ; \
+ do \
+        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/".$BASE."; \
+ done; \
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file."; \
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$master_file."; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e '\$d;N;2,6ba' -e 'P;D' -i ".$master_file.";) & \n");
                 }
                 if (isset($_REQUEST["vod"]))
                 {
                     $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
-                    // TODO: look at the next line $dir is not a good name.... <=============
-                    $dir = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
+                    $master_file = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
                     // This command is delayed until master_vod.m3u8 is created by ffmpeg!!!
-                    fwrite($fp, "(while [ ! -f \"".$dir."\" ] ; do /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE."; done;/usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$dir."; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$dir.";) & \n");
+                    fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ; \
+ do \
+        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE."; \
+ done; \
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file."; \
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";) & \n");
                 }
                 // Due to a bug in ffmpeg subtitles need to be extracted first (cannot be done in a single tee together with audio and video scaling).
                 fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract start >> ".$hls_path."/".$filename."/status.txt'; \
@@ -469,15 +498,22 @@ cd /var/www/html/".$HLSDIR."/; \
     -f tee \
     \"[select=\'s:0,sgroup:subtitle\']".$BASE."/subtitles.vtt\" \
 2>>/tmp/ffmpeg-subtitle-extract-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract failed >> ".$hls_path."/".$filename."/status.txt'\n");
-                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'subtitle_extract success'`\" ] ; do sleep 1; done\n");
+                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'subtitle_extract success'`\" ] ; \
+do \
+    sleep 1; \
+done\n");
             }
             if (isset($_REQUEST["checkbox_subtitles"]) && $is_liverecording == "true")
             {
-                // NOTE: One ffmpeg command can progressively extract subtitles during live recording, but cannot be mixed with filter_complex.
-                // NOTE: The latter would require to have the subtitles available as a separate input which obviously cannot be done for live recording.
-                // NOTE: In other words, subtitles and Dynamic Adaptive Stream don't work together very well.
-                // NOTE: Having subtitles available for live recordings ("live", "event" and "vod" ("hls" and "dash")) is deemed more important here than Dynamic Adaptive Streaming.
+                // NOTE: Ffmpeg can progressively extract subtitles from a single source (video+audio+subtitles) during live recording.
+                // NOTE: However, progressive subtitle extraction and manipulation from a single source cannot be combined with filter_complex.
+                // NOTE: Both techniques can be combined when subtitles are a separate input source which obviously cannot be done for live
+                // NOTE: recordings without delay. In other words, live recording, subtitles and filter_complex (used to enable e.g. Adaptive
+                // NOTE: Bitrate (ABR) Streaming) don't work together very well. Therefore, subtitles are made available during live recordings ("live",
+                // NOTE: "event" and "vod" ("hls" and "dash")) without Adaptive Bitrate (ABR) Streaming.
                 // NOTE: Subtitles for "mp4" are added in a post processing step.
+                // NOTE: More information about subtitles in combination with filter complex (ffmpeg bug?) can be found
+                // NOTE: on reddit: https://www.reddit.com/r/ffmpeg/comments/mfybas/when_adding_caption_to_hls_i_get_errors_unable_to/
                 $create_live_dir = "";
                 $create_vod_dir = "";
                 // TODO: think about this hls dir contains meta data, thus should always exist, but may lead to orphan meta data for live playlist type.
@@ -492,6 +528,11 @@ cd /var/www/html/".$HLSDIR."/; \
                 }
                 else if (isset($_REQUEST["vod"]))
                 {
+                    // Somehow one cannot add subtitles to adaptation_sets as one would expect e.g. id=2,streams=2, see error code:
+                    // [mp4 @ 0x5636d644bd40] Could not find tag for codec webvtt in stream #0, codec not currently supported in container
+                    // [tee @ 0x5636d620e040] Slave '[select='a:0,v:0,s:0':f=dash:seg_duration=6:hls_playlist=true:single_file=true:adaptation_sets='id=0,streams=0 id=1,streams=1 id=2,streams=2':media_seg_name='stream_vod_$RepresentationID$-$Number%05d$.$ext$':hls_master_name=master_vod.m3u8]../vod/manifest_vod.mpd': error writing header: Invalid argument
+                    // [tee @ 0x5636d620e040] Slave muxer #1 failed: Invalid argument, continuing with 4/5 slaves.
+                    // Alternatively, "hls" ("event") is used here to generate the required segments for "vod".
                     $option_sub = "[select=\'v:0,s:0\': \
           strftime=1: \
           f=hls: \
@@ -534,15 +575,12 @@ cd /var/www/html/".$HLSDIR."/; \
                 }
                 if (isset($_REQUEST["vod"]))
                 {
-                    // TODO: look at the next line $dir is not a good name.... <=============
-                    $dir = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
-                    fwrite($fp, "(while [ ! -f \"".$dir."\" ] ; do /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE."; done;/usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$dir."; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$dir.";) & \n");
-                    // TODO: somehow one cannot add subtitles to the adaptation_sets e.g. id=2,streams=2
-                    // [dash @ 0x5636d6739100] No bit rate set for stream 2
+                    $master_file = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
+                    $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
+                    // Somehow one cannot add subtitles to the adaptation_sets e.g. id=2,streams=2
                     // [mp4 @ 0x5636d644bd40] Could not find tag for codec webvtt in stream #0, codec not currently supported in container
                     // [tee @ 0x5636d620e040] Slave '[select='a:0,v:0,s:0':f=dash:seg_duration=6:hls_playlist=true:single_file=true:adaptation_sets='id=0,streams=0 id=1,streams=1 id=2,streams=2':media_seg_name='stream_vod_$RepresentationID$-$Number%05d$.$ext$':hls_master_name=master_vod.m3u8]../vod/manifest_vod.mpd': error writing header: Invalid argument
                     // [tee @ 0x5636d620e040] Slave muxer #1 failed: Invalid argument, continuing with 4/5 slaves.
-                    $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
                     $option_vod = "[select=\'a:0,v:0\': \
           f=dash: \
           seg_duration=6: \
@@ -551,6 +589,13 @@ cd /var/www/html/".$HLSDIR."/; \
           adaptation_sets=\'id=0,streams=0 id=1,streams=1\': \
           media_seg_name=\'stream_vod_\$RepresentationID\$-\$Number%05d\$.\$ext\$\': \
           hls_master_name=master_vod.m3u8]../".$VODDIR."/".$BASE."/manifest_vod.mpd";
+                    //
+                    fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ; \
+ do \
+        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE."; \
+ done; \
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file."; \
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";) & \n");
                 }
                 if(isset($_REQUEST["mp4"]))
                 {
@@ -578,14 +623,14 @@ cd /var/www/html/".$HLSDIR."/; \
     -progress ".$BASE."/progress-log.txt -vf \
     ".$scale."=".$settings[$_REQUEST["quality"]]["width"].":".$settings[$_REQUEST["quality"]]["height"]." \
     -c:v ".$library." \
-    -preset veryfast \
+    -preset veryslow \
     -b:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -maxrate:v ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -bufsize:v 1.5*".$settings[$_REQUEST["quality"]]["vbitrate"]."K \
-    -crf 18 \
-    -c:a aac -b:a ".$settings[$_REQUEST["quality"]]["abitrate"]."K -ac 2 \
+    -crf 21 \
+    -c:a aac -b:a ".$settings[$_REQUEST["quality"]]["abitrate"]."K \
     -metadata:s:a:0 language=dut \
     -map 0:v:0 \
     -map 0:a:0 \
-    -map 0:s:0 -c:s webvtt
+    -map 0:s:0 -c:s webvtt \
     -f tee \
         \"".$option_vod."| \
           ".$option_mp4."| \
@@ -694,11 +739,15 @@ cd /var/www/html/".$HLSDIR."/; \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
           hls_segment_filename=\'/dev/null\']../vod/".$BASE."/sub_%v.m3u8";
                     }
-                     $dir = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
+                     $master_file = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
                     // correct for ffmpeg bug: $option_vod uses -metadata:s:a:0 language=dut (note: there can be only one language per adaptation_sets), for master_vod.m3u8 the metadata language is ignored
                     // TODO: make language configurable
                     // NOTE: the execution of this command is delayed, till the master file is created later in time by ffmpeg!!!
-                    fwrite($fp, "(while [ ! -f \"".$dir."\" ] ; do /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE."; done; /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"dut\"/' ".$dir.";) & \n");
+                    fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ; \
+ do \
+        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE."; \
+ done; \
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"dut\"/' ".$master_file.";) & \n");
                 }
                 //$sub = "-map -0:4?";
                 if(isset($_REQUEST["mp4"]))
@@ -740,7 +789,7 @@ cd /var/www/html/".$HLSDIR."/; \
     -map [v1out] -c:v:0 \
         ".$library." \
         -b:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -maxrate:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."K -bufsize:v:0 1.5*".$settings[$_REQUEST["quality"]]["vbitrate"]."K \
-        -preset veryfast \
+        -preset veryslow \
         -g 25 \
         -keyint_min 25 \
         -sc_threshold 0 \
@@ -748,7 +797,7 @@ cd /var/www/html/".$HLSDIR."/; \
     -map [v2out] -c:v:1 \
         ".$library." \
         -b:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -maxrate:v:1 ".$settings[$lowbitrate]["vbitrate"]."K -bufsize:v:1 1.5*".$settings[$lowbitrate]["vbitrate"]."K \
-        -preset veryfast \
+        -preset veryslow \
         -g 25 \
         -keyint_min 25 \
         -sc_threshold 0 \
@@ -769,7 +818,10 @@ cd /var/www/html/".$HLSDIR."/; \
             if (isset($_REQUEST["checkbox_subtitles"]) && isset($_REQUEST["mp4"]))
             {
                 // post processing: add subtitles to mp4 file
-                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ; do sleep 1; done\n");
+                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ; \
+do \
+    sleep 1; \
+done\n");
                 fwrite($fp, "cd /var/www/html/".$HLSDIR."/".$BASE."; \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$filename."/status.txt'; \
 cd /var/www/html/".$HLSDIR."/".$BASE."; \
@@ -784,7 +836,10 @@ cd /var/www/html/".$HLSDIR."/".$BASE."; \
             }
             if ($mustencode)
             {
-                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ; do sleep 1; done\n");
+                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ; \
+do \
+    sleep 1; \
+done\n");
                 fwrite($fp, "/usr/bin/sudo /usr/bin/rm /var/www/html/".$HLSDIR."/".$BASE."/video.mp4\n");
             }
             fwrite($fp, "sleep 3 && /usr/bin/sudo /usr/bin/screen -ls ".$filename."_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done\n");
@@ -801,8 +856,7 @@ cd /var/www/html/".$HLSDIR."/".$BASE."; \
 
         <!DOCTYPE html>
         <html>
-        <!--   TODO: HLS or DASH video player title or change to livestreaming? -->
-        <head><title>HLS Video Player</title>
+        <head><title>DASH and HLS fMP4 Video Player</title>
         <!-- Load the Shaka Player library. -->
         <script src="shaka-player.compiled.js"></script>
         <!-- Shaka Player ui compiled library: -->
