@@ -16,54 +16,48 @@
 :PROPERTIES:
 :ID:       465d8cb3-3907-4450-93f9-0d252a18244a
 :END:
+  Import a subtitle file (copy video/audio streams, without re-encoding)
 
-Supports transcode and streaming of any [[https://www.mythtv.org][MythTV]] recording to be watched via the browser.
+Transcoding of any [[https://www.mythtv.org][MythTV]] recording to support HTTP based streaming.
 
 Why:
-- Although support for HTTP Live Streaming (HLS) was added to MythTV in 0.25, it
-  is still not at a point to be usable.
-- HTML 5 video for Mythweb is not supported out of the box.
+- Although support for HTTP Live Streaming (HLS) was added to MythTV in 0.25 it
+  is not usable.
 - MythWeb is still based on Flash technology from the days of yore.
-- Attempts to overcome these shortcomings, like the [[https://github.com/thecount2a/mythtv-stream-mpeg-dash][MythTV stream mpeg DASH]]
-  project, lacks support for HLS, fragmented MP4 (fMP4), Adaptive Bitrate
+- Attempts to overcome these shortcomings in a project like [[https://github.com/thecount2a/mythtv-stream-mpeg-dash][MythTV stream mpeg
+  DASH]], lacks support for HLS, fragmented MP4 (fMP4), Adaptive Bitrate
   Streaming (ABR), live recording, live TV, subtitles, etcetera.
 
 What:
-- Support for streaming (serving) MythTV content to other devices (web
-  browser—mobile, desktop, tablet, etc.) irrespective of the OS.
-- The techniques used support many users viewing the same playlist.
-- Transcoding from whatever format your recordings are in, as long as they are
-  recognized by FFmpeg.
+- Support for HTTP based streaming (serving) MythTV content to other devices:
+  web browser—mobile, desktop, tablet, etc.
+- Support for transcoding from whatever format your recording is in, as long as
+  it is recognized by FFmpeg.
 - Support for live broadcasts and prerecorded content.
 - Support for less reliable networks (e.g. cell phone browser).
 - Support for offline viewing.
 
 How:
-- Encoding of MythTV recordings to DASH and HLS fMP4, providing playlist types
-  $live$, $event$ and $VOD$ for streaming.
-- The use of fragmented MP4 files makes DASH compatible with HLS so the same
-  files are used; only the manifest file (playlist) is different.
-- Transcode videos to two renditions for adaptive playback.
-- Transcoding to $mp4$ for playback without internet.
-- Simple PHP based browser interface supporting a number of highly desirable
-  usecases.
-- Video files are codified using H.264 format and audio is supported with AAC.
+- Simple PHP browser UI.
+- Encode MythTV recording to DASH and HLS fMP4, providing playlist types $live$,
+  $event$ and $VOD$ for streaming.
+- Fragmented MP4 is used to make DASH compatible with HLS so the same files are
+  used; only the manifest file (playlist) is different.
+- Transcode videos to multiple renditions for adaptive playback.
+- Video is codified in H.264 format and audio in AAC.
+- Transcode to $mp4$ for playback without internet.
 
-Supports the following usecases:
-- No MythTV frontend is required, a browser with HTML 5 support is enough.
+Supports the following use cases:
 - Device independent viewing.
-- Support for streaming while encoding.
-- Support for prerecorded content.
-- Support for transcoding to MP4 for offline viewing.
-- Support for MythTV cutlist.
-- Watch recording while transcode is still taking place (just don't seek too far
-  ahead).
+- Streaming while encoding.
+- Streaming of live broadcast content en prerecorded content.
+- HW supported transcoding.
+- Transcoding to MP4 for offline viewing.
+- Support for MythTV cutlist (commercial cut) created using Mythfrontend.
+- Watch while transcode is still taking place (just don't seek too far ahead).
 - Watch prerecorded video.
-- Use commercial cut info from MythTV database to cut commercials before
-  streaming.
-- Support for live HDHomeRun streaming without MythTV interference.
-- Care for your hard drives by using a ramdisk for $live$ playlist, storing the
-  playlist and the fragments.
+- Support for live HDHomeRun streaming without MythTV.
+- Use a ramdisk to save your harddisk for playlist type $live$.
 
 ** Background information
 :PROPERTIES:
@@ -124,14 +118,9 @@ a DASH manifest which enables playback using the Edge browser.
 :ID:       b75aeef0-0fd8-4790-91f5-abc7730e1a94
 :END:
 
-Subtitles when available in the input source can be selected by the user for
-live recording and recorded video. Different pre-/post-processing techniques are
-required to handle this for the available playlist types.
+Feature support for live broadcast and recorded video are shown in table 1.
 
-Features support for recorded video are shown in table 1. Note, on user request
-for subtitles a separate prepossessing step is required.
-
-#+caption: Features support for recorded video.
+#+caption: Feature support for live broadcast and recorded video.
 #+label: feature-types
 #+attr_latex: :width 350px :options angle=90
 |       | hls | dash | subtitle           | subtitle                   | Adaptive Bitrate Streaming |
@@ -141,21 +130,6 @@ for subtitles a separate prepossessing step is required.
 | event | ✅  |      | ✅                 |                            | ✅                         |
 | VOD   | ✅  | ✅   | ✅                 |                            | ✅                         |
 | mp4   |     |      |                    | ✅                         |                            |
-
-Features supported for live recording are shown in table 2. Note, Adaptive
-Bitrate Streaming is not supported for live recordings.
-
-#+caption: Features supported for live recording.
-#+ATTR_HTML::alt table1
-#+label: feature-types
-#+attr_latex: :width 350px :options angle=90
-|       | hls | dash | subtitle           | subtitle                   |
-|       |     |      | (realtime viewing) | (post-processing required) |
-|-------+-----+------+--------------------+----------------------------|
-| live  | ✅  |      | ✅                 |                            |
-| event | ✅  |      | ✅                 |                            |
-| VOD   | ✅  | ✅   | ✅                 |                            |
-| mp4   |     |      |                    | ✅                         |
 
 All possible combinations of playlist types and mp4 are shown in table 3. Note,
 all can be combined with $Quality$, $Commercial cut$ and $subtitles$ selection.
