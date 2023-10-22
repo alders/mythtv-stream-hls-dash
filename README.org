@@ -1,4 +1,4 @@
-#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
 #+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
 #+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
 #+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
@@ -16,48 +16,44 @@
 :PROPERTIES:
 :ID:       465d8cb3-3907-4450-93f9-0d252a18244a
 :END:
-  Import a subtitle file (copy video/audio streams, without re-encoding)
 
-Transcoding of any [[https://www.mythtv.org][MythTV]] recording to support HTTP based streaming.
+Transcode a [[https://www.mythtv.org][MythTV]] recording to support HTTP based streaming.
 
 Why:
-- Although support for HTTP Live Streaming (HLS) was added to MythTV in 0.25 it
-  is not usable.
-- MythWeb is still based on Flash technology from the days of yore.
-- Attempts to overcome these shortcomings in a project like [[https://github.com/thecount2a/mythtv-stream-mpeg-dash][MythTV stream mpeg
-  DASH]], lacks support for HLS, fragmented MP4 (fMP4), Adaptive Bitrate
-  Streaming (ABR), live recording, live TV, subtitles, etcetera.
+- Although support was added for HTTP Live Streaming (HLS) to MythTV in 0.25 it
+  is still not usable.
+- MythWeb is based on Flash technology from the days of yore.
+- Attempts to overcome these shortcomings in a project like
+  [[https://github.com/thecount2a/mythtv-stream-mpeg-dash][MythTV stream mpeg
+  DASH]] lacks support for HLS, Adaptive Bitrate Streaming (ABR), live
+  recording, live broadcast, subtitles, etcetera.
 
 What:
-- Support for HTTP based streaming (serving) MythTV content to other devices:
+- Support for HTTP based streaming (serving) of MythTV content to other devices:
   web browser—mobile, desktop, tablet, etc.
-- Support for transcoding from whatever format your recording is in, as long as
-  it is recognized by FFmpeg.
 - Support for live broadcasts and prerecorded content.
 - Support for less reliable networks (e.g. cell phone browser).
 - Support for offline viewing.
 
 How:
-- Simple PHP browser UI.
-- Encode MythTV recording to DASH and HLS fMP4, providing playlist types $live$,
-  $event$ and $VOD$ for streaming.
-- Fragmented MP4 is used to make DASH compatible with HLS so the same files are
-  used; only the manifest file (playlist) is different.
-- Transcode videos to multiple renditions for adaptive playback.
+- Fragmented MP4 (fMP4) is used to make DASH compatible with HLS so the same
+  files are used; only the manifest file (playlist) is different.
+- Encode MythTV content providing playlist types $live$, $event$ and $VOD$.
+- HW supported transcoding.
 - Video is codified in H.264 format and audio in AAC.
+- Transcode videos to user defined renditions for adaptive playback.
+- Simple PHP browser UI.
 - Transcode to $mp4$ for playback without internet.
+- A ramdisk can be used for in memory playback of playlist type $live$.
 
 Supports the following use cases:
 - Device independent viewing.
 - Streaming while encoding.
 - Streaming of live broadcast content en prerecorded content.
-- HW supported transcoding.
-- Transcoding to MP4 for offline viewing.
 - Support for MythTV cutlist (commercial cut) created using Mythfrontend.
-- Watch while transcode is still taking place (just don't seek too far ahead).
 - Watch prerecorded video.
 - Support for live HDHomeRun streaming without MythTV.
-- Use a ramdisk to save your harddisk for playlist type $live$.
+- Transcoding to MP4 for offline viewing.
 
 ** Background information
 :PROPERTIES:
@@ -112,6 +108,7 @@ a DASH manifest which enables playback using the Edge browser.
 - Shaka player
   - This is the Javascript-based browser player that plays MPEG DASH content
   - version 4.3.6
+- Mediainfo
 
 ** Features
 :PROPERTIES:
@@ -123,13 +120,13 @@ Feature support for live broadcast and recorded video are shown in table 1.
 #+caption: Feature support for live broadcast and recorded video.
 #+label: feature-types
 #+attr_latex: :width 350px :options angle=90
-|       | hls | dash | subtitle           | subtitle                   | Adaptive Bitrate Streaming |
-|       |     |      | (realtime viewing) | (post-processing required) |                            |
-|-------+-----+------+--------------------+----------------------------+----------------------------|
-| live  | ✅  |      | ✅                 |                            | ✅                         |
-| event | ✅  |      | ✅                 |                            | ✅                         |
-| VOD   | ✅  | ✅   | ✅                 |                            | ✅                         |
-| mp4   |     |      |                    | ✅                         |                            |
+|       | hls | dash | subtitle    | subtitle          | Adaptive Bitrate Streaming |
+|       |     |      | (real-time) | (post-processing) |                            |
+|-------+-----+------+-------------+-------------------+----------------------------|
+| live  | ✅  |      | ✅          |                   | ✅                         |
+| event | ✅  |      | ✅          |                   | ✅                         |
+| VOD   | ✅  | ✅   | ✅          |                   | ✅                         |
+| mp4   |     |      |             | ✅                |                            |
 
 All possible combinations of playlist types and mp4 are shown in table 3. Note,
 all can be combined with $Quality$, $Commercial cut$ and $subtitles$ selection.
@@ -172,7 +169,8 @@ Figure 1: User interface.
 
 User interface:
 - Select the desired recording from the list box.
-- Select the $Quality$ (defines ABR streaming) from the list box.
+- Select the $Quality$ (define the ABR rendition) from the select dropdown list
+  box.
 - Select if the $Cutlist$ should be used using the list box. Note, this option
   is only visible in the UI when a $Cutlist$ is defined in MythTV.
 - Select using the checkbox if $Subtitles$ should be used or not. Note, this
@@ -315,9 +313,8 @@ cd /var/www/html/hls/10100_20231012201900
                                        -txt_format text -txt_page 888 \                                                # extract subtitles from dvb_teletext
                                        -fix_sub_duration \                                                             # avoid ovelap of subtitles
                                        -i /mnt/mythtv2/store//10100_20231012201900.ts \                                # input file recorded with HDHomeRun
-                                       -acodec copy \                                                                  # use encoder copy for audio
-                                       -vcodec copy \                                                                  # use encoder copy for video
-                                       -scodec mov_text \                                                              # set subtitle codec to mov_text
+                                       -c copy \                                                                       # use encoder copy for audio and video
+                                       -c:s mov_text \                                                                 # set subtitle codec to mov_text
                                        /var/www/html/hls/10100_20231012201900/video.mp4 && \                           # output file in mp4 format
 /usr/bin/echo `date`: remux finish success >> /var/www/html/hls/10100_20231012201900/status.txt || \
 /usr/bin/echo `date`: remux finish failed >> /var/www/html/hls/10100_20231012201900/status.txt'
@@ -444,8 +441,7 @@ cd /var/www/html/hls/; \
         -metadata:s:a:0 language=dut \                                  # FFmpeg expects ISO_639-2_codes for language
    -map a:0 -ac 2 -c:a:1 aac -b:a:1 128K \                              # Audio track with user defined bitrate
         -metadata:s:a:1 language=dut \                                  # FFmpeg expects ISO_639-2_codes for language
-   -map -0:4? -map -0:5? -map -0:6? -map -0:7? -map -0:8? -map -0:9? \  # Audio track user selected bitrate
-   -c:s webvtt -map 1 \                                                 # Set subtitle codec webvtt
+   -map 0:s:0 -c:s webvtt \                                             # Set subtitle codec webvtt
    -f tee \                                                             # Tee muxer to duplicate the output to multiple files
        "[select=\'a:0,a:1,v:0,v:1\': \                                  # Create fragmented MP4 (fmp4) output for hls and dash
           f=dash: \
