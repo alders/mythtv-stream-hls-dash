@@ -55,42 +55,7 @@ Supports the following use cases:
 - Support for live HDHomeRun streaming without MythTV.
 - Transcoding to MP4 for offline viewing.
 
-** Background information
-:PROPERTIES:
-:ID:       59553686-581f-40f7-ab49-17942a4111f7
-:END:
-
-HLS (HTTP Live Streaming) and DASH (Dynamic Adaptive Streaming over HTTP) are
-two popular methods of delivering video to consumers over the internet. Both are
-types of Adaptive Bitrate (ABR) delivery, which means the video player can
-dynamically select the bitrate that is being delivered to the end viewer during
-playback as the viewer’s internet connection speed may change during playback.
-Rather than stalling and buffering the video, the player can switch to a lower
-bitrate and continue playing.
-
-Each bitrate variant that we create for HLS or DASH is called a rendition.
-Adaptive Bitrate streaming requires that each rendition be split into a series
-of segments, each generally 2 to 10 seconds long. This allows the player to
-switch bitrates on the segment boundaries by loading the next segment from a
-different rendition than the one currently playing.
-
-Playlist $Live$ is just what the name suggests: view in real-time the content
-that’s being created. Encoding is done at native frame rate of the input. With
-live streaming, there is little lag time between encoding and viewing. It can be
-used for recorded content and with live recording. Note, it is not possible to
-pause the streaming longer than one minute without loosing the content due to
-the Sliding Window Construction.
-
-Playlist $Event$ allows for encoding speeds which are higher than the frame rate
-of the input. This means the user has more freedom to seek through the video
-(forward and backward) while recording. Moreover, it allows one to view the
-content from the start of the video with live recording.
-
-Playlist $VOD$ basically provides the same as event streaming, though
-technically the term is used for a playlist file that is immutable, i.e.
-prerecorded content. VOD allows users to access the videos whenever, wherever
-(internet connection provided) they want to watch them. Note, only VOD provides
-a DASH manifest which enables playback using the Edge browser.
+#+TOC: headlines 2
 
 ** This depends on:
 :PROPERTIES:
@@ -109,6 +74,7 @@ a DASH manifest which enables playback using the Edge browser.
   - This is the Javascript-based browser player that plays MPEG DASH content
   - version 4.3.6
 - Mediainfo
+- HDHomeRun
 
 ** Features
 :PROPERTIES:
@@ -120,13 +86,14 @@ Feature support for live broadcast and recorded video are shown in table 1.
 #+caption: Feature support for live broadcast and recorded video.
 #+label: feature-types
 #+attr_latex: :width 350px :options angle=90
-|       | hls | dash | subtitle    | subtitle          | Adaptive Bitrate Streaming |
-|       |     |      | (real-time) | (post-processing) |                            |
-|-------+-----+------+-------------+-------------------+----------------------------|
-| live  | ✅  |      | ✅          |                   | ✅                         |
-| event | ✅  |      | ✅          |                   | ✅                         |
-| VOD   | ✅  | ✅   | ✅          |                   | ✅                         |
-| mp4   |     |      |             | ✅                |                            |
+|       | hls | dash | subtitle    | subtitle          | Adaptive  |
+|       |     |      | (real-time) | (post-processing) | Bitrate   |
+|       |     |      |             |                   | Streaming |
+|-------+-----+------+-------------+-------------------+-----------|
+| live  | ✅  |      | ✅          |                   | ✅        |
+| event | ✅  |      | ✅          |                   | ✅        |
+| VOD   | ✅  | ✅   | ✅          |                   | ✅        |
+| mp4   |     |      |             | ✅                |           |
 
 All possible combinations of playlist types and mp4 are shown in table 3. Note,
 all can be combined with $Quality$, $Commercial cut$ and $subtitles$ selection.
@@ -304,7 +271,13 @@ A $MP4$ container allows FFmpeg to use the $concat demuxer$ later in the script.
 Note, the $cutlist$ itself was defined in MythTV which is translated into the
 inpoint's and outpoint's of the $cutlist$ for the video.
 
-#+begin_src shell
+#+begin_sidebar
+Org mode was first released by Carsten Dominik in 2004 as an outlining and
+project planning tool.  Further development turned it into a general tool that
+can be used to author professional documents like LaTeX.
+#+end_sidebar
+
+#+begin_src shell -n
 cd /var/www/html/hls/10100_20231012201900
 /usr/bin/sudo /usr/bin/screen -S 10100_20231012201900_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > /var/www/html/hls/10100_20231012201900/status.txt ; \
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
@@ -331,7 +304,7 @@ done
 
 Adapt the playlist $master_event.m3u8$ file for subtitles as soon as the file is created by FFmpeg some time in the future:
 
-#+begin_src shell
+#+begin_src shell n+
 (while [ ! -f "/var/www/html/hls/10100_20231012201900/master_event.m3u8" ] ; \
  do \
         /usr/bin/inotifywait -e close_write --include "master_event.m3u8" /var/www/html/hls/10100_20231012201900; \
@@ -513,3 +486,46 @@ done
 /usr/bin/sudo /usr/bin/rm /var/www/html/hls/10100_20231012201900/video.mp4
 sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231012201900_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
 #+end_src
+* TODO list
+:PROPERTIES:
+:ID:       3e145ddb-7f97-4366-bb1f-8a21a41426e2
+:END:
+*************** TODO Do this task
+:PROPERTIES:
+:ID:       ed8db775-6862-4783-a8b4-8880552d81d5
+:END:
+Description of inline task.
+*************** END
+:PROPERTIES:
+:ID:       d4364ad4-9616-42a6-a566-27f85b5967d5
+:END:
+
+*************** TODO Do this task
+:PROPERTIES:
+:ID:       8d091938-71fa-452c-948a-6deaeb9fc9d4
+:END:
+Description of inline task.
+Another description
+*************** END
+:PROPERTIES:
+:ID:       6c77731c-a524-4ea7-9f94-b0dffb356a44
+:END:
+* Bibliography
+:PROPERTIES:
+:ID:       27e51f85-0b71-42eb-865f-6733b87f9649
+:END:
+
+* Contributing
+:PROPERTIES:
+:ID:       d84a5300-d3a6-44cc-9cc9-d7f634ae530b
+:END:
+** Issues
+:PROPERTIES:
+:ID:       542498fa-0324-44ac-bbad-1de075423cc7
+:END:
+Report issues and suggest features and improvements on the [[https://github.com/alders/mythtv-stream-hls-dash/issues][GitHub issue tracker]].
+** Patches
+:PROPERTIES:
+:ID:       c9f4af00-b166-42c9-982d-0b85490f1559
+:END:
+I love contributions! Patches under any form are always welcome!
