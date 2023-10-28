@@ -12,50 +12,39 @@ $lines = file($program_path."/mythdb.txt");
 $dbpass = trim($lines[0]);
 $dbname = "mythconverg";
 
+// Different hw acceleration options
+// NOTE: only "vaapi" and "nohwaccel" have been tested and are known to work
+$hwaccels = array(
+    "vaapi"     => array("encoder" => "h264_vaapi", "decoder" => "h264_vaapi", "scale" => "scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi"),
+    "qsv"       => array("encoder" => "h264_qsv",   "decoder" => "h264_qsv",   "scale" => "scale_qsv",   "hwaccel" => "-hwaccel qsv  -qsv_device -hwaccel_device /dev/dri/renderD128 -c:v h264_qsv"),
+    "nvenc"     => array("encoder" => "h264_nvenc", "decoder" => "h264_nvenc", "scale" => "scale",       "hwaccel" => "-hwaccel cuda -vaapi_device /dev/dri/renderD128 -hwaccel_output_format nvenc"),
+    "nohwaccel" => array("encoder" => "libx264",    "decoder" => "libx264",    "scale" => "scale",       "hwaccel" => ""),
+);
+
+
 // Ladder from which the user may choose, Aspect ratio 16:9
+// https://medium.com/@peer5/creating-a-production-ready-multi-bitrate-hls-vod-stream-dff1e2f1612c
 $settings = array(
-                "high1440" =>   array("height" => 1440, "width" => 2560, "vbitrate" => 8000, "abitrate" => 128),
-                "normal1440" => array("height" => 1440, "width" => 2560, "vbitrate" => 6000, "abitrate" => 128),
-                "low1440" =>    array("height" => 1440, "width" => 2560, "vbitrate" => 4000, "abitrate" => 128),
-                "high1080" =>   array("height" => 1080, "width" => 1920, "vbitrate" => 6000, "abitrate" => 128),
-                "normal1080" => array("height" => 1080, "width" => 1920, "vbitrate" => 4000, "abitrate" => 128),
-                "low1080" =>    array("height" => 1080, "width" => 1920, "vbitrate" => 2000, "abitrate" => 128),
-                "high720" =>    array("height" =>  720, "width" => 1280, "vbitrate" => 4000, "abitrate" => 128),
-                "normal720" =>  array("height" =>  720, "width" => 1280, "vbitrate" => 2000, "abitrate" => 128),
-                "low720" =>     array("height" =>  720, "width" => 1280, "vbitrate" => 1000, "abitrate" =>  64),
-                "high480" =>    array("height" =>  480, "width" =>  854, "vbitrate" => 1500, "abitrate" => 128),
-                "normal480" =>  array("height" =>  480, "width" =>  854, "vbitrate" =>  800, "abitrate" =>  64),
-                "low480" =>     array("height" =>  480, "width" =>  854, "vbitrate" =>  200, "abitrate" =>  48),
+                "high1440" =>   array("height" => 1440, "width" => 2560, "vbitrate" => 8000, "abitrate" => 192),
+                "normal1440" => array("height" => 1440, "width" => 2560, "vbitrate" => 6000, "abitrate" => 192),
+                "low1440" =>    array("height" => 1440, "width" => 2560, "vbitrate" => 4000, "abitrate" => 192),
+                "high1080" =>   array("height" => 1080, "width" => 1920, "vbitrate" => 5300, "abitrate" => 192),
+                "normal1080" => array("height" => 1080, "width" => 1920, "vbitrate" => 4900, "abitrate" => 192),
+                "low1080" =>    array("height" => 1080, "width" => 1920, "vbitrate" => 4500, "abitrate" => 192),
+                "high720" =>    array("height" =>  720, "width" => 1280, "vbitrate" => 3200, "abitrate" => 128),
+                "normal720" =>  array("height" =>  720, "width" => 1280, "vbitrate" => 2850, "abitrate" => 128),
+                "low720" =>     array("height" =>  720, "width" => 1280, "vbitrate" => 2500, "abitrate" =>  64),
+                "high480" =>    array("height" =>  480, "width" =>  854, "vbitrate" => 1600, "abitrate" => 128),
+                "normal480" =>  array("height" =>  480, "width" =>  854, "vbitrate" => 1425, "abitrate" =>  64),
+                "low480" =>     array("height" =>  480, "width" =>  854, "vbitrate" => 1250, "abitrate" =>  48),
+                "high360" =>    array("height" =>  360, "width" =>  640, "vbitrate" =>  900, "abitrate" => 128),
+                "normal360" =>  array("height" =>  360, "width" =>  640, "vbitrate" =>  800, "abitrate" =>  64),
+                "low360" =>     array("height" =>  360, "width" =>  640, "vbitrate" =>  700, "abitrate" =>  48),
+                "high240" =>    array("height" =>  240, "width" =>  426, "vbitrate" =>  600, "abitrate" => 128),
+                "normal240" =>  array("height" =>  240, "width" =>  426, "vbitrate" =>  500, "abitrate" =>  64),
+                "low240" =>     array("height" =>  240, "width" =>  426, "vbitrate" =>  400, "abitrate" =>  48),
 );
 $keys = array_keys($settings);
-
-function get_key_second_adaptive_bitrate(array $array, $keyindex)
-{
-    // precondition: at least 4 keys in the settings array
-    // return the second bitrate quality for adaptive bitrate
-    // the default quality offset in the settings array is three
-    // the offset for the lowest three bitrates defined in the settings array
-    // is either two, one or minus one (quality is higher than requested by user)
-    $keys = array_keys($array);
-    $count = count($array);
-
-    if ($count == $keyindex + 1)
-    {
-        // return second lowest quality (offset minus one)
-        // note: in this case the quality returned is higher than selected by the user
-        return $keys[$keyindex - 1];
-    }
-    else if ($count == $keyindex + 2 || $count == $keyindex + 3)
-    {
-        // return lowest quality in $array (offset two or one)
-        return $keys[$count - 1];
-    }
-    else
-    {
-        // return lower quality in $array (offset three)
-        return $keys[$keyindex + 3];
-    }
-}
 
 if (isset($_REQUEST["filename"]))
 {
@@ -67,7 +56,7 @@ if (isset($_REQUEST["filename"]))
 }
 if (isset($_REQUEST["quality"]))
 {
-    if (!array_key_exists($_REQUEST["quality"], $settings))
+    if (!array_key_exists($_REQUEST["quality"][0], $settings))
     {
         throw new InvalidArgumentException('Invalid quality');
     }
@@ -170,6 +159,17 @@ for ($i = 0; $i < count($file_list); $i++)
 }
 $select_box .= "</select></form>";
 
+$hw_box = "<br>";
+$hw_box .= "<label for=\"hwaccel\">HW acceleration: </label><select class=\"select\" name=\"hw\" required>";
+$hw_box .= "<option value=\"\" disabled hidden>-- Please choose your HW Acceleration --</option>";
+     foreach ($hwaccels as $hwaccel => $hwaccelset)
+     {
+         $hw_box .= "<option value=\"".$hwaccel."\"".((strpos($hwaccel, "vaapi") !== false)?" selected=\"selected\"":"").
+                                ">".$hwaccelset["encoder"]."".
+                                "</option>\n";
+     }
+$hw_box .= "</select>";
+
 if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
     file_exists ($hls_path."/../vod/".$_REQUEST["filename"]."/master_vod.m3u8") ||
     file_exists ($hls_path."/../live/".$_REQUEST["filename"]."/master_live.m3u8") ||
@@ -238,7 +238,6 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
     }
     else if (isset($_REQUEST['action']) && $_REQUEST["action"] == "clean")
     {
-        // TODO: when the user does not press clean after live streaming, the data in the ramdisk may be cleared without clearing the meta data in the hls folder.
         // clean HLS files only, if available VOD files remain on disk and can still be played
         if (file_exists($hls_path."/".$filename))
         {
@@ -326,7 +325,8 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
                     $framerate = ((double)  $ratedetails[1][0]);
                 }
                 // TODO: would be nice to replace these shell commands with php
-                $frameNumber = shell_exec("/usr/bin/sudo -uapache /usr/bin/tail -n 13 ".$hls_path."/../hls/".$filename."/progress-log.txt | sudo -uapache /usr/bin/sed -n '/^frame=/p' | sudo -uapache sed -n 's/frame=//p'");
+                // TODO: adapt number 23 into a search from the end of the file, may go wrong in case of may renditions no progress number is shown.
+                $frameNumber = shell_exec("/usr/bin/sudo -uapache /usr/bin/tail -n 23 ".$hls_path."/../hls/".$filename."/progress-log.txt | sudo -uapache /usr/bin/sed -n '/^frame=/p' | sudo -uapache sed -n 's/frame=//p'");
                 $status["available"] = $frameNumber / $framerate;
             }
         }
@@ -383,22 +383,20 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             $VODDIR = "vod";
             $BASE = $filename;
             $HLSDIR = "hls";
-            //$STARTTIME= " -ss 00:03:00 -to 00:07:00 ";
             $STARTTIME= "";
-            # Start remux if necessary
             if ($mustencode)
             {
                 // remux to mp4 container
                 fwrite($fp,"/usr/bin/sudo /usr/bin/screen -S ".$filename."_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$filename."/status.txt ; \
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
-                                       -y \
-                                       -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
-                                       -txt_format text -txt_page 888 \
-                                       -fix_sub_duration \
-                                       -i ".$video_path."/".$filename.".$extension \
-                                       -c copy \
-                                       -c:s mov_text \
-                                       ".$hls_path."/".$filename."/video.mp4 && \
+          -y \
+          ".$hwaccels[$_REQUEST["hw"]]["hwaccel"]." \
+          -txt_format text -txt_page 888 \
+          -fix_sub_duration \
+          -i ".$video_path."/".$filename.".$extension \
+          -c copy \
+          -c:s mov_text \
+          ".$hls_path."/".$filename."/video.mp4 && \
 /usr/bin/echo `date`: remux finish success >> ".$hls_path."/".$filename."/status.txt || \
 /usr/bin/echo `date`: remux finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
                 fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'remux finish success'`\" ] ; \
@@ -431,7 +429,6 @@ done\n");
                     $read_rate = "-re";
                 }
             }
-            $lowbitrate = get_key_second_adaptive_bitrate($settings, array_search($_REQUEST["quality"], $keys));
             // TODO: think about this hls dir contains meta data, thus should always exist
             $create_hls_dir  = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/".$BASE.";";
             $create_live_dir = "";
@@ -442,9 +439,17 @@ done\n");
             $option_mp4  = "/dev/null";
             $sub_mapping = "";
             $sub_format  = "";
+            $nb_renditions = 0;
+            for ($i=0; $i < count($settings); $i++)
+            {
+                if (isset($_REQUEST["quality"][$i]))
+                {
+                    $nb_renditions++;
+                }
+            }
             if (isset($_REQUEST["checkbox_subtitles"]))
             {
-                $sub_mapping = "-map 0:s:0 -c:s webvtt";
+                $sub_mapping = "-map 0:s:0? -c:s webvtt";
                 $sub_format = "-txt_format text -txt_page 888";
             }
             if ($hls_playlist_type == "live")
@@ -452,15 +457,69 @@ done\n");
                 $read_rate = "-re";
                 // TODO: make language configurable
                 $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/../live/".$BASE.";";
-                $option_live  = "[select=\'a:0,a:1,v:0,v:1\': \
+                $option_live  = "[select=\'";
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    $bool_new_audio = true;
+                    $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
+                    for ($j=0; $j < $i; $j++)
+                    {
+                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                        {
+                            // seen abitrate before
+                            $bool_new_audio = false;
+                        }
+                    }
+                    if ($bool_new_audio)
+                    {
+                        $option_live .= "a:".$i.",";
+                    }
+                }
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    if ($i == $nb_renditions - 1)
+                    {
+                        $option_live .= "v:".$i."";
+                    }
+                    else
+                    {
+                        $option_live .= "v:".$i.",";
+                    }
+                }
+                $option_live  .= "\': \
           f=hls: \
           hls_time=6: \
           hls_list_size=10: \
           hls_flags=+independent_segments+iframes_only+delete_segments: \
           hls_segment_type=fmp4: \
-          var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p v:1,agroup:aac,language:dut,name:".$settings[$lowbitrate]["height"]."p a:0,agroup:aac,language:dut,name:aac_1_96k a:1,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."k\': \
-          master_pl_name=master_live.m3u8: \
-          hls_segment_filename=../live/".$BASE."/stream_live_%v_data%02d.m4s]../live/".$BASE."/stream_live_%v.m3u8";
+          var_stream_map=\'";
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    $bool_new_abitrate = true;
+                    $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
+                    for ($j=0; $j < $i; $j++)
+                    {
+                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                        {
+                            // seen abitrate before
+                            $bool_new_abitrate = false;
+                        }
+                    }
+                    if ($bool_new_abitrate)
+                    {
+                        $option_live .= "a:".$i.",agroup:aac,language:dut,name:aac_".$i."_".$current_abitrate."k ";
+                    }
+                }
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    $option_live .= "v:".$i.",agroup:aac,name:".$settings[$_REQUEST["quality"][$i]]["height"]."p_".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."";
+                    if ($i < $nb_renditions - 1)
+                    {
+                        $option_live .= " ";
+                    }
+                }
+                $option_live .= "\\': \\\n          master_pl_name=master_live.m3u8: \
+          hls_segment_filename=../live/$BASE/stream_live_%v_data%02d.m4s]../live/$BASE/stream_live_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -473,27 +532,83 @@ done\n");
           hls_list_size=10: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../live/".$BASE."/sub_%v.m3u8";
-                    $master_file = "/var/www/html/live/".$BASE."/master_live.m3u8";
+          hls_segment_filename=\'/dev/null\']../live/$BASE/sub_%v.m3u8";
+                    $master_file = "/var/www/html/live/$BASE/master_live.m3u8";
                     // This command is delayed until master_live.m3u8 is created by ffmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ; \
  do \
         /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/../live/".$BASE."; \
  done; \
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file."; \
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file."; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e '\$d;N;2,6ba' -e 'P;D' -i ".$master_file.";) & \n");
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
                 }
             }
             if ($hls_playlist_type == "event")
             {
-                $option_hls  = "[select=\'a:0,a:1,v:0,v:1\': \
-         f=hls: \
+                $option_hls  = "[select=\'";
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    $bool_new_audio = true;
+                    $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
+                    for ($j=0; $j < $i; $j++)
+                    {
+                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                        {
+                            // seen abitrate before
+                            $bool_new_audio = false;
+                        }
+                    }
+                    if ($bool_new_audio)
+                    {
+                        $option_hls .= "a:".$i.",";
+                    }
+                }
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    if ($i == $nb_renditions - 1)
+                    {
+                        $option_hls .= "v:".$i."";
+                    }
+                    else
+                    {
+                        $option_hls .= "v:".$i.",";
+                    }
+                }
+                $option_hls  .= "\': \
+          f=hls: \
           hls_time=6: \
           hls_playlist_type=event: \
           hls_flags=+independent_segments+iframes_only: \
           hls_segment_type=fmp4: \
-          var_stream_map=\'v:0,agroup:aac,language:dut,name:".$settings[$_REQUEST["quality"]]["height"]."p v:1,agroup:aac,language:dut,name:".$settings[$lowbitrate]["height"]."p a:0,agroup:aac,language:dut,name:aac_1_96k a:1,agroup:aac,language:dut,name:aac_2_".$settings[$_REQUEST["quality"]]["abitrate"]."k\': \
-          master_pl_name=master_event.m3u8:hls_segment_filename=".$BASE."/stream_event_%v_data%02d.m4s]".$BASE."/stream_event_%v.m3u8";
+          var_stream_map=\'";
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    $bool_new_abitrate = true;
+                    $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
+                    for ($j=0; $j < $i; $j++)
+                    {
+                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                        {
+                            // seen abitrate before
+                            $bool_new_abitrate = false;
+                        }
+                    }
+                    if ($bool_new_abitrate)
+                    {
+                        $option_hls .= "a:".$i.",agroup:aac,language:dut,name:aac_".$i."_".$current_abitrate."k ";
+                    }
+                }
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    $option_hls .= "v:".$i.",agroup:aac,name:".$settings[$_REQUEST["quality"][$i]]["height"]."p_".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."";
+                    if ($i < $nb_renditions - 1)
+                    {
+                        $option_hls .= " ";
+                    }
+                }
+                $option_hls .= "\\': \
+          master_pl_name=master_event.m3u8: \
+          hls_segment_filename=$BASE/stream_event_%v_data%02d.m4s]$BASE/stream_event_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -506,26 +621,55 @@ done\n");
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']".$BASE."/sub_%v.m3u8";
-                    $master_file = "/var/www/html/".$HLSDIR."/".$BASE."/master_event.m3u8";
+          hls_segment_filename=\'/dev/null\']$BASE/sub_%v.m3u8";
+                    $master_file = "/var/www/html/$HLSDIR/$BASE/master_event.m3u8";
                     // This command is delayed until master_event.m3u8 is created by ffmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ; \
- do \
+ do \ fs
         /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/".$BASE."; \
  done; \
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file."; \
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$master_file."; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e '\$d;N;2,6ba' -e 'P;D' -i ".$master_file.";) & \n");
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$master_file."; /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
                 }
             }
             if (isset($_REQUEST["vod"]))
             {
                 $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
-                $option_vod = "[select=\'a:0,a:1,v:0,v:1\': \
+                $option_vod  = "[select=\'";
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    $bool_new_audio = true;
+                    $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
+                    for ($j=0; $j < $i; $j++)
+                    {
+                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                        {
+                            // seen abitrate before
+                            $bool_new_audio = false;
+                        }
+                    }
+                    if ($bool_new_audio)
+                    {
+                        $option_vod .= "a:".$i.",";
+                    }
+                }
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    if ($i == $nb_renditions - 1)
+                    {
+                        $option_vod .= "v:".$i."";
+                    }
+                    else
+                    {
+                        $option_vod .= "v:".$i.",";
+                    }
+                }
+                $option_vod  .= "\': \
           f=dash: \
           seg_duration=6: \
           hls_playlist=true: \
           single_file=true: \
-          adaptation_sets=\'id=0,streams=0,1 id=1,streams=2,3\': \
+          adaptation_sets=\'id=0,streams=a id=1,streams=v\' : \
           media_seg_name=\'stream_vod_\$RepresentationID\$-\$Number%05d\$.\$ext\$\': \
           hls_master_name=master_vod.m3u8]../".$VODDIR."/".$BASE."/manifest_vod.mpd";
                 $master_file = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
@@ -550,7 +694,8 @@ done\n");
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";) & \n");
                 }
                 // TODO: make language configurable
-                // correct for FFmpeg bug: $option_vod uses -metadata:s:a:0 language=dut
+                // TODO: can there be more than one inotifywait on one file?
+                // NOTE: Correct for FFmpeg bug: $option_vod uses -metadata:s:a:0 language=dut however
                 // NOTE: there can be only one language per adaptation_sets, for master_vod.m3u8 the metadata language is ignored
                 // NOTE: the execution of this command is delayed, till the master file is created later in time by ffmpeg!!!
                 fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ; \
@@ -561,7 +706,7 @@ done\n");
             }
             if(isset($_REQUEST["mp4"]))
             {
-                $option_mp4 = "[select=\'v:0,a:1\': \
+                $option_mp4 = "[select=\'v:0,a:0\': \
           f=mp4: \
           movflags=+faststart]".$BASE."/".$BASE.".mp4";
                 if (isset($_REQUEST["checkbox_subtitles"]))
@@ -580,13 +725,72 @@ done\n");
             else
             {
                 // hwaccel supported encode
-                $hwaccel = "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi";
-                $scale = "scale_vaapi";
-                $library = "h264_vaapi";
+                $hwaccel = $hwaccels[$_REQUEST["hw"]]["hwaccel"];
+                $scale =   $hwaccels[$_REQUEST["hw"]]["scale"];
+                $library = $hwaccels[$_REQUEST["hw"]]["encoder"];
             }
-            // TODO: make second audio parameter configurable as well, its a constant now 96k, requires some thinking
-            // FFmpeg bug: $option_vod uses -metadata:s:a:0 language=dut
-            // NOTE: there can be only one language per adaptation_sets), for master_vod.m3u8 the metadata language is ignored
+            $filter_complex = "-filter_complex \"[0:v]";
+            for ($i=0; $i < $nb_renditions; $i++)
+            {
+                $vout = "v".$i;
+                if ($i == 0)
+                {
+                    if ($nb_renditions > 1)
+                    {
+                        $filter_complex .= "split=$nb_renditions";
+                        for ($j=0; $j < $nb_renditions; $j++)
+                        {
+                            $v = "v".$j;
+                            $filter_complex .= "[".++$v."]";
+                        }
+                        $filter_complex .= ";[".++$vout."]";
+                        $filter_complex .= "".$hwaccels[$_REQUEST["hw"]]["scale"]."=w=".$settings[$_REQUEST["quality"][$i]]["width"].":h=".$settings[$_REQUEST["quality"][$i]]["height"]."[".$vout."out]";
+                    }
+                    else
+                    {
+                        $filter_complex .= "".$hwaccels[$_REQUEST["hw"]]["scale"]."=w=".$settings[$_REQUEST["quality"][$i]]["width"].":h=".$settings[$_REQUEST["quality"][$i]]["height"]."[".++$vout."out]";
+                    }
+                }
+                else
+                {
+                    $filter_complex .= ";[".++$vout."]".$hwaccels[$_REQUEST["hw"]]["scale"]."=w=".$settings[$_REQUEST["quality"][$i]]["width"].":h=".$settings[$_REQUEST["quality"][$i]]["height"]."[".$vout."out]";
+                }
+            }
+        $filter_complex .= "\" \\\n";
+        for ($i=0; $i < $nb_renditions; $i++)
+        {
+            $vout = "v".$i;
+            $filter_complex .= "    -map [".++$vout."out] -c:v:$i \
+        ".$hwaccels[$_REQUEST["hw"]]["encoder"]." \
+        -b:v:$i ".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."k \
+        -maxrate:v:$i ".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."k \
+        -bufsize:v:$i 1.5*".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."k \
+        -crf 23 \
+        -preset veryslow \
+        -g 48 \
+        -keyint_min 48 \
+        -sc_threshold 0 \
+        -flags +global_header \\\n";
+        }
+        $mapping = "";
+        for ($i=0; $i < $nb_renditions; $i++)
+        {
+            $bool_new_abitrate = true;
+            $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
+            for ($j=0; $j < $i; $j++)
+            {
+                if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                {
+                    // seen abitrate before
+                    $bool_new_abitrate = false;
+                }
+            }
+            if ($bool_new_abitrate)
+            {
+                $mapping .= "    -map a:0 -c:a:".$i." aac -b:a:".$i." ".$current_abitrate."k -ac 2 \
+        -metadata:s:a:".$i." language=dut \\\n";
+            }
+        }
             fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt'; \
 ".$create_vod_dir." ".$create_live_dir." ".$create_hls_dir." \
 cd /var/www/html/".$HLSDIR."/; \
@@ -600,36 +804,17 @@ cd /var/www/html/".$HLSDIR."/; \
     -progress ".$BASE."/progress-log.txt \
     -live_start_index 0 \
     -force_key_frames \"expr:gte(t,n_forced*2)\" \
-    -filter_complex \"[0:v]split=2[v1][v2];[v1]".$scale."=w=".$settings[$_REQUEST["quality"]]["width"].":h=".$settings[$_REQUEST["quality"]]["height"]."[v1out];[v2]".$scale."=w=".$settings[$lowbitrate]["width"].":h=".$settings[$lowbitrate]["height"]."[v2out]\" \
-    -map [v1out] -c:v:0 \
-        ".$library." \
-        -b:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."k -maxrate:v:0 ".$settings[$_REQUEST["quality"]]["vbitrate"]."k -bufsize:v:0 1.5*".$settings[$_REQUEST["quality"]]["vbitrate"]."k \
-        -crf 23 \
-        -preset veryslow \
-        -g 25 \
-        -keyint_min 25 \
-        -sc_threshold 0 \
-        -flags +global_header \
-    -map [v2out] -c:v:1 \
-        ".$library." \
-        -b:v:1 ".$settings[$lowbitrate]["vbitrate"]."k -maxrate:v:1 ".$settings[$lowbitrate]["vbitrate"]."k -bufsize:v:1 1.5*".$settings[$lowbitrate]["vbitrate"]."k \
-        -crf 23 \
-        -preset veryslow \
-        -g 25 \
-        -keyint_min 25 \
-        -sc_threshold 0 \
-        -flags +global_header \
-   -map a:0 -ac 2 -c:a:0 aac -b:a:0 96k \
-        -metadata:s:a:0 language=dut \
-   -map a:0 -ac 2 -c:a:1 aac -b:a:1 ".$settings[$_REQUEST["quality"]]["abitrate"]."k \
-        -metadata:s:a:1 language=dut \
-   ".$sub_mapping." \
-   -f tee \
-       \"".$option_vod."| \
-         ".$option_mp4."| \
-         ".$option_live."| \
-         ".$option_hls."\" \
-2>>/tmp/ffmpeg-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
+    ".$filter_complex." \
+".$mapping." \
+    ".$sub_mapping." \
+    -f tee \
+        \"".$option_vod."| \
+          ".$option_mp4."| \
+          ".$option_live."| \
+          ".$option_hls."\" \
+2>>/tmp/ffmpeg-".$HLSDIR."-".$BASE.".log && \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
             if (isset($_REQUEST["checkbox_subtitles"]) && isset($_REQUEST["mp4"]))
             {
                 // post processing: add subtitles to mp4 file
@@ -637,18 +822,21 @@ cd /var/www/html/".$HLSDIR."/; \
 do \
     sleep 1; \
 done\n");
-                fwrite($fp, "cd /var/www/html/".$HLSDIR."/".$BASE."; \
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$filename."/status.txt'; \
-cd /var/www/html/".$HLSDIR."/".$BASE."; \
+                fwrite($fp, "cd /var/www/html/".$HLSDIR."/".$BASE.";
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$filename."/status.txt';
+cd /var/www/html/".$HLSDIR."/".$BASE.";
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
     -i ".$BASE.".mp4 \
     -i subtitles.vtt \
     -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default \
     -c:v copy \
     -c:a copy \
-    ".$BASE.".tmp.mp4; \
-/usr/bin/sudo /usr/bin/mv -f ".$BASE.".tmp.mp4 ".$BASE.".mp4 2>>/tmp/ffmpeg-subtitle-merge-".$HLSDIR."-".$BASE.".log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$filename."/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> ".$hls_path."/".$filename."/status.txt'\n");
-            }
+    ".$BASE.".tmp.mp4 \
+2>>/tmp/ffmpeg-subtitle-merge-".$HLSDIR."-".$BASE.".log && \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$filename."/status.txt' || \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> ".$hls_path."/".$filename."/status.txt';
+/usr/bin/sudo /usr/bin/mv -f ".$BASE.".tmp.mp4 ".$BASE.".mp4 \n");
+       	    }
             if ($mustencode)
             {
                 fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ; \
@@ -1126,24 +1314,27 @@ done\n");
             // encoding required
             ?>
             <h2>Select the settings appropriate for your connection:</h2>
-            <label for="quality">Quality: </label><select name="quality">
+            <label for="quality">Adaptive Bitrate Streaming (ABR): </label><select name="quality[]" size=4 multiple required>
+            <option value="" disabled hidden>-- Use Ctrl-Click, Command-Click and Shift-Click to compose ABR --</option>
             <?php
                 foreach ($settings as $setting => $settingset)
                 {
                     // TODO: remove hack adding 300, need to be even higher?
                     if ($settingset["height"] <= $videoheight + 300)
                     {
-                        echo "<option value=\"".$setting."\"".((strpos($setting, "high") !== false && ($videoheight<720 && $settingset["height"]==720 || $settingset["height"]==1080))?" selected=\"selected\"":"").
+                        echo "<option value=\"".$setting."\"".((strpos($setting, "high720") !== false)?" selected=\"selected\"":"").
                                 ">".preg_replace('/[0-9]+/', '', ucfirst($setting))." Quality ".$settingset["height"]."p".
-                                (file_exists($video_path."/".$filename.".mp4")?" (mp4 Available)":"").
+                                (file_exists($video_path."/".$filename.".mp4")?" (MP4 Available)":"").
                                 (file_exists($hls_path."/".$filename."/".$filename.".mp4")?" (MP4 Available)":"").
+                                (file_exists($hls_path."/".$filename."/master_event.m3u8")?" (HLS Available)":"").
                                 (file_exists($hls_path."/../live/".$filename."/master_live.m3u8")?" (LIVE Available)":"").
                                 (file_exists($hls_path."/../vod/".$filename."/master_vod.m3u8")?" (VOD Available)":"")."</option>\n";
                     }
                 }
-            ?>
-            </select>
-            <br>
+             ?>
+             </select>
+             <?php echo $hw_box; ?>
+             <br>
             <?php
             if ($cutcount > 0)
             {
