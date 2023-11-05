@@ -1013,13 +1013,13 @@ done\n");
                       message = message + pad(Math.floor(secs));
 
                       message = message + " available";
-                      // NOTE: 12 seconds equal to 2x segment size is just an empirical guess
-                      if (!playerInitDone && Math.ceil(status["available"] >= 12))
+                      // NOTE: 18 seconds equal to 3x segment size is just an empirical guess
+                      if (!playerInitDone && Math.ceil(status["available"] > 18))
                       {
                           playerInitDone = initPlayer();
                       }
                   }
-                  else if (currentStatus.indexOf("encode finish success") >= 0)
+                  else if (currentStatus.indexOf("encode finish success") > 0)
                   {
                       message = message_string;
                       if (!playerInitDone)
@@ -1049,6 +1049,7 @@ done\n");
 
               // TODO: add extra check if transcoding is finished?
               if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
+                  message_string = "DASH VOD Available";
                   // Show button to play DASH on Windows Edge browser
                   var dashVodButtonId = document.getElementById("dashVodButtonId");
                   dashVodButtonId.style.display = 'block';
@@ -1056,6 +1057,7 @@ done\n");
                   dashVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $filename; ?>/manifest_vod.mpd'");
               }
               if (fileExists) {
+                  message_string = "HLS VOD Available";
                   // Show button to play VOD stream
                   var hlsVodButtonId = document.getElementById("hlsVodButtonId");
                   hlsVodButtonId.style.display = 'block';
@@ -1064,6 +1066,7 @@ done\n");
               }
               if (extension == "mp4" &&
                   checkFileExists("../hls/<?php echo $filename; ?>.mp4")) {
+                  message_string = "Linked MP4 Available";
                   // Show button to play available mp4 (no encoding necessary)
                   var linkButtonId = document.getElementById("linkButtonId");
                   linkButtonId.style.display = 'block';
@@ -1074,6 +1077,7 @@ done\n");
                   }, false);
               }
               if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8")) {
+                  message_string = "HLS Available";
                   // Show button to play HLS event stream
                   var eventButtonId = document.getElementById("eventButtonId");
                   eventButtonId.style.display = 'block';
@@ -1089,6 +1093,7 @@ done\n");
                   cleanupEventId.style.visibility = 'visible';
               }
               if (checkFileExists("../live/<?php echo $filename; ?>/master_live.m3u8")) {
+                  message_string = "LIVE Available";
                   // Show button to play live stream
                   var liveButtonId = document.getElementById("liveButtonId");
                   liveButtonId.style.display = 'block';
@@ -1097,6 +1102,7 @@ done\n");
               }
               if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?>.mp4") &&
                   currentStatus.indexOf("encode finish success") >= 0) {
+                  message_string = "MP4 Video Available";
                   // Show button to play MP4 stream
                   var mp4ButtonId = document.getElementById("mp4ButtonId");
                   mp4ButtonId.style.display = 'block';
@@ -1154,34 +1160,26 @@ done\n");
           function initPlayer() {
             var fileExists = checkFileExists("../vod/<?php echo $filename; ?>/manifest_vod.mpd");
 
-            // TODO: add extra check if transcoding is finished?
             if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
                 // Play DASH on Windows Edge browser
                 manifestUri = '../vod/<?php echo $filename; ?>/manifest_vod.mpd';
-                message_string = "DASH VOD Available";
             } else if (fileExists) {
-                // Transcoding is done, play VOD when available
+                // Play VOD stream
                 manifestUri = '../vod/<?php echo $filename; ?>/master_vod.m3u8';
-                message_string = "HLS VOD Available";
             } else if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8")) {
                 // Play HLS event stream
                 manifestUri = '../hls/<?php echo $filename; ?>/master_event.m3u8';
-                message_string = "HLS Available";
             } else if (checkFileExists("../live/<?php echo $filename; ?>/master_live.m3u8")) {
                 // Play live stream
                 manifestUri = '../live/<?php echo $filename; ?>/master_live.m3u8';
-                message_string = "LIVE Available";
             } else if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?>.mp4") &&
                        currentStatus.indexOf("encode finish success") >= 0) {
                 // Play MP4 stream
                 manifestUri = '../hls/<?php echo $filename; ?>/<?php echo $filename; ?>.mp4';
-                message_string = "MP4 Video Available";
             } else if (extension == "mp4") {
-                // No encoding required, just play available mp4
+                // Play existing mp4, no encoding required
                 manifestUri = '../hls/<?php echo $filename; ?>.mp4';
-                message_string = "Linked MP4 Available";
             } else {
-                throw new Error('No files generated yet...')
                     return false;
             }
 
@@ -1202,6 +1200,8 @@ done\n");
             player.addEventListener('error', onPlayerErrorEvent);
             controls.addEventListener('error', onUIErrorEvent);
 
+            basicKeyboardShortcuts();
+
             // Try to load a manifest.
             // This is an asynchronous process.
             try {
@@ -1219,6 +1219,52 @@ done\n");
             }
 
             return true;
+          }
+
+          function basicKeyboardShortcuts () {
+            document.addEventListener('keydown', (e) => {
+                    const videoContainer = document.querySelector('video');
+                    let is_fullscreen = () => !!document.fullscreenElement
+                              let audio_vol = video.volume;
+                    if (e.key == 'f') {
+                        if (is_fullscreen()) {
+                            document.exitFullscreen();
+                        } else {
+                            videoContainer.requestFullscreen();
+                        }
+                        e.preventDefault();
+                    }
+                    else if (e.key == ' ') {
+                        if (video.paused) {
+                            video.play();
+                        } else {
+                            video.pause();
+                        }
+                        e.preventDefault();
+                    }
+                    else if (e.key == "ArrowUp") {
+                        e.preventDefault();
+                        if (audio_vol != 1) {
+                            try {
+                                video.volume = audio_vol + 0.05;
+                            }
+                            catch (err) {
+                                video.volume = 1;
+                            }
+                        }
+                    }
+                    else if (e.key == "ArrowDown") {
+                        e.preventDefault();
+                        if (audio_vol != 0) {
+                            try {
+                                video.volume = audio_vol - 0.05;
+                            }
+                            catch (err) {
+                                video.volume = 0;
+                            }
+                        }
+                    }
+                });
           }
 
           function onCastStatusChanged(event) {
