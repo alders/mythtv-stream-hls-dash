@@ -23,19 +23,22 @@ Why:
 - Although support was added for HTTP Live Streaming (=HLS=) to MythTV in 0.25 it
   is not usable.
 - MythWeb is based on Flash technology from the days of yore.
-- An attempt to overcome these shortcomings in github project [[https://github.com/thecount2a/mythtv-stream-mpeg-dash][MythTV stream mpeg
-  DASH]] lacks support for =HLS=, Adaptive Bitrate Streaming (=ABR=), live
-  recording, live broadcast, subtitles, etcetera.
+- An attempt to overcome these shortcomings was made in github project [[https://github.com/thecount2a/mythtv-stream-mpeg-dash][MythTV
+  stream mpeg DASH]]. However, it lacks support for =HLS=, Adaptive Bitrate
+  Streaming (=ABR=), live recording, live broadcast, subtitles, etcetera.
 
 What:
-- Support for HTTP based streaming (serving) of MythTV content to other devices:
-  web browser—mobile, desktop, tablet, etc.
-- Support for live broadcasts and prerecorded content.
+- Support for HTTP based streaming (serving) of MythTV content for device
+- Support for less reliable networks (e.g. cell phone browser).
+  independent viewing: web browser—mobile, desktop, tablet, etc.
+- Support for live broadcasts and prerecorded video.
 - Support for offline viewing.
+- Support for MythTV cutlist (commercial cut) created using Mythfrontend.
+- Support for live HDHomeRun streaming without MythTV.
 
 How:
 - Fragmented MP4 (fMP4) is used to make DASH compatible with =HLS= so the same
-  files are used; only the manifest file (playlist) is different.
+  files are used, only the manifest file (playlist) is different.
 - Encode MythTV content providing playlist types =live=, =event= and =VOD=.
 - HW supported transcoding for VAAPI (support for QSV and NVEC untested).
 - Video is codified in H.264 format and audio in AAC.
@@ -45,15 +48,6 @@ How:
 - Transcode to =MP4= for playback on mobile devices without internet.
 - A ramdisk can be used for in memory playback of playlist type =live=.
 
-Supports the following use cases:
-- Device independent viewing.
-- Support for less reliable networks (e.g. cell phone browser).
-- Transcoding to MP4 for offline viewing.
-- Streaming while encoding.
-- Streaming of live broadcast content en prerecorded content.
-- Support for MythTV cutlist (commercial cut) created using Mythfrontend.
-- Support for live HDHomeRun streaming without MythTV.
-
 * Installation
 :PROPERTIES:
 :ID:       e32a386c-b67a-4701-ae52-5c145c18d930
@@ -61,10 +55,10 @@ Supports the following use cases:
 - MythTV (for commerical cut info and looking up the name of each recording
   based on filename)
   - version v0.33
-- FFmpeg (for transcoding)
+- FFmpeg (for encoding)
   - FFmpeg version 5.1.3
 - GNU screen 4.9.0
-  - This is to allow monitoring of transcode and packager and to support
+  - This is to allow monitoring of encoding and to support
     background processes launched by the web-facing PHP script
   - apt-get install screen
 - Shaka player
@@ -113,15 +107,15 @@ user are shown in table 2[fn:3].
 |      |       |     | ✅  |
 |      |       | ✅  | ✅  |
 
-Table 3, 4 and 5 show the Safari built-in UI m3u8 player and UI Shaka player
-feature support while encoding a set of random renditions: =720p high=, =480p normal=,
+Table 3, 4 and 5 shows feature support of the Safari built-in m3u8 player and
+Shaka player while encoding a set of random renditions: =720p high=, =480p normal=,
 =360p low=, and =240p low=. As is shown feature support varies. None of them
 provides the desired combination i.e. allowing one to manually select the
 desired video rendition and audio rendition (at least for testing purposes).
 Hopefully the players really do provide the best possible bitrate for the
 network "/automagically/".
 
-*Table 3:* /Safari m3u8 player UI playlist support./
+*Table 3:* /Safari m3u8 player UI playlist support during Live Broadcasting (while encoding)./
 #+caption: Safari m3u8 player.
 #+label: usenativehlsonsafari-true-safari-m3u8e
 #+attr_latex: :width 350px :options angle=90
@@ -132,7 +126,7 @@ network "/automagically/".
 | VOD      | 🔴           | Dutch     | 🔴         | (Dutch (audio_4)),..,Dutch (audio_6) |
 | MP4      | ✅           |           | 🔴         | 🔴                                   |
 
-*Table 4:* /Shaka player (configuration ("useNativeHlsOnSafari" : true)) UI playlist support./
+*Table 4:* /Shaka player (configuration ("useNativeHlsOnSafari" : true)) UI playlist support during Live Broadcasting (while encoding)./
 #+caption: Shaka player configuration src_sh[:exports code]{("useNativeHlsOnSafari" : true)} playlist support.
 #+label: usenativehlsonsafari-true-safari-shaka-player
 #+attr_latex: :width 350px :options angle=90
@@ -143,7 +137,7 @@ network "/automagically/".
 | VOD      | ✅           | Nederlands | Auto (nullp) | Nederlands,Nederlands  (2 out of 3 tracks) | 🔴               |
 | MP4      | ✅           |            | 🔴           | Nederlands                                 | Auto (0 kbits/s) |
 
-*Table 5:* /Safari Player (configuration ("useNativeHlsOnSafari" : false)) UI playlist support./
+*Table 5:* /Safari Player (configuration ("useNativeHlsOnSafari" : false)) UI playlist support during Live Broadcasting (while encoding)./
 #+caption: Shaka Player src_sh[:exports code]{("useNativeHlsOnSafari" : false)} playlist support.
 #+label: usenativehlsonsafari-false-safari-shaka-player
 #+attr_latex: :width 350px :options angle=90
@@ -178,8 +172,10 @@ recording in MythWeb.
 
 User interface options:
 - Select an available recording from the list box[fn:5].
-- Select if the =Cutlist= should be used using the list box[fn:6].
 - Select the =ABR= renditions from the select dropdown list box.
+- Select the HW acceleration from the list box.
+- Select if the =Cutlist= should be used using the list box[fn:6].
+- Select using the checkbox if =Subtitles= should be created.
 - Select using the checkboxes if playlist type =live= or =event= should be
   used[fn:7].
 - Select using the checkbox if playlist type =VOD= should be used.
@@ -189,15 +185,33 @@ User interface options:
 
 The selections shown in Figure 1 are used in the descriptions below.
 
+** Adaptive Bitrate Streaming
+:PROPERTIES:
+:ID:       76506860-1bba-4376-b1e1-891f8181d692
+:END:
+
+Figure 2 shows the user interface (phone interface) to select the renditions for
+Adaptive Bitrate Streaming (ABR). Use Ctrl-Click (Windows), Command-Click
+(Apple) to select the renditions.
+
+*Figure 2:* /Adaptive Bitrate UI./
+#+CAPTION: Adaptive Bitrate UI
+#+ATTR_HTML: :alt Remuxing video :title Remuxing video :align right
+#+ATTR_HTML::alt image
+#+ATTR_HTML: :width 350px
+#+ATTR_LATEX: :width 350px :options angle=90
+#+LABEL: adaptive-bitrate-ui
+[[file:screenshots/abr.png]]
+
 ** Remuxing
 :PROPERTIES:
 :ID:       23f8752d-7be6-49b5-9137-8f92fd69def2
 :END:
 
-Figure 2 shows the user interface while remuxing. The video is remuxed in this
+Figure 3 shows the user interface while remuxing. The video is remuxed in this
 example to an =MP4= container because =Cut Commercials= was selected in Figure 1.
 
-*Figure 2:* /Remuxing UI./
+*Figure 3:* /Remuxing UI./
 #+CAPTION: Remuxing UI
 #+ATTR_HTML: :alt Remuxing video :title Remuxing video :align right
 #+ATTR_HTML::alt image
@@ -206,86 +220,88 @@ example to an =MP4= container because =Cut Commercials= was selected in Figure 1
 #+LABEL: remuxing-video
 [[file:screenshots/remuxing-video.png]]
 
-In Figure 2 two buttons are shown below the available recording list box.
+In Figure 3 three buttons are shown below the available recording list box.
 
 The first button =Delete Video Files= basically does what is says[fn:8],
 
-The second status button displays a dynamic message. Figure 2 shows the =Remuxing
+The second status button displays a dynamic message. Figure 3 shows the =Remuxing
 Video= percentage.
+
+The third button =Shutdown Lock= can be used to prevent MythTV from shutting down.
 
 ** Generating video
 :PROPERTIES:
 :ID:       95d98a33-0176-4f37-a635-c2f9988422b7
 :END:
 
-Figure 3 shows the user interface while encoding the video.
+Figure 4 shows the user interface while encoding the video.
 
-*Figure 3:* /Generating video./
+*Figure 4:* /Generating video./
 #+CAPTION: Generating video.
 #+ATTR_HTML: :alt Generating video :title Generating video :align right
 #+ATTR_HTML::alt image
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: generating-video
-[[file:screenshots/generating-video.png]]
+[[file:screenshots/encoding-video.png]]
 
-Again progress of the encoding is shown on the second button as a percentage and
-the time of the video available. When there is about 30 seconds of video
+Progress of the encoding is shown on the status button as a percentage and
+the time of the video available. When there is about 6 seconds of video
 available the player automatically tries to load the video[fn:9].
+
+Next to the =Shutdown Lock= buttons appear dynamically when files become available
+on disk. In Figure 4 this is the case for =HLS event= and =HLS VOD=. Select the
+button to start streaming the playlist.
+
+Old devices not supporting the Shaka video player of the UI, may still be able
+to play media through the buttons provided. The http links can also be used in
+your favorite app.
 
 ** Status button
 :PROPERTIES:
 :ID:       5a91dae1-6e17-4c0a-ba7f-566fa21a06c6
 :END:
 
-Figure 4 shows what happens in case the second button is selected. This will
+Figure 5 shows what happens in case the status button is selected. This will
 trigger a popup message box with a detailed view of the steps involved and the
 status thereof.
 
-*Figure 4:* /Status UI./
+*Figure 5:* /Status UI./
 #+CAPTION: Status UI
 #+ATTR_HTML: :alt Status :title Status :align right
 #+ATTR_HTML::alt image
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: status
-[[file:screenshots/status.png]]
+[[file:screenshots/status-button.png]]
 
 ** User interface after encoding
 :PROPERTIES:
 :ID:       c7963ff4-1ee0-40c5-9d2d-8444518b3743
 :END:
 
-Figure 5 shows the interface after encoding is done.
+Figure 6 shows the interface after encoding is done.
 
-*Figure 5:* /User interface after encoding./
+*Figure 6:* /User interface after encoding./
 #+CAPTION: User interface
 #+ATTR_HTML: :alt User interface :title User Interface :align right
 #+ATTR_HTML::alt image
 #+LABEL: user-interface
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
-[[file:screenshots/user-interface.png]]
 
-Reloading the browser page (during encoding) may reveal links to the playlist
-types requested, as shown in Figure 5 for =HLS Event= and =VOD=. Old devices not
-supporting the Shaka video player of the UI, may still be able to play media
-through the links provided. The links can also be used in your favorite app.
+[[file:screenshots/encoding-finished.png]]
 
-When the encoding is finished, in the example at hand, the message button shows
-=VOD Video Available=, refresh the browser page. Next to the =Delete Video files=
-button a new button appeared =Cleanup Video File=[fn:10]. Since both playlist
-types basically provide similar user experience one may decide to remove the
-playlist =event= content to reduce disk space. This is exactly what the =Cleanup
-Video Files= button does.
+Two additional buttons appeared in Figure 5 for =Cleanup Video Files=[fn:10] and
+=Download MP4=.
 
-The UI also shows a =Download MP4= link as selected in Figure 1. The latter is
+Since both playlists =HLS event= and =HLS VOD= basically provide similar user
+experience for HLS one may decide to remove the playlist =HLS event= files to
+reduce disk space. This is exactly what the =Cleanup Video Files= button does.
+
+The UI also shows a =Download MP4= link as was selected in Figure 1. The latter is
 only visible when the encoding has finished and optionally subtitles are mixed
 in.
-
-Figure 5 also displays the Shaka player options: Captions, Resolution, Language,
-Picture-in-Picture, Playback speed, and Airplay (on MacOs). For more information
-about player features see table 3, 4 and 5 above.
 
 * Generated script
 :PROPERTIES:
@@ -295,6 +311,167 @@ about player features see table 3, 4 and 5 above.
 After pressing the =Encode Video= in Figure 1 a shell script called =encode.sh=
 is generated. For illustration purposes the code for the running example is
 shown in separate code blocks below.
+
+** Complete script
+:PROPERTIES:
+:ID:       1a02094d-b373-4321-9575-7e0ac529b6b9
+:END:
+
+#+begin_src shell -n
+cd /var/www/html/hls/10100_20231101212100
+/usr/bin/sudo /usr/bin/screen -S 10100_20231101212100_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > /var/www/html/hls/10100_20231101212100/status.txt;
+/usr/bin/sudo -uapache /usr/bin/ffmpeg \
+          -y \                                                                                         # Overwrite without asking
+          -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \              # Use VAAPI Hardware acceleration
+          -txt_format text -txt_page 888 \                                                             # extract subtitles from dvb_teletext
+          -fix_sub_duration \                                                                          # avoid overlap of subtitles
+          -i /mnt/mythtv2/store//10100_20231101212100.ts \                                             # input file recorded with HDHomeRun
+          -c copy \                                                                                    # use encoder copy for video and audio
+          -c:s mov_text \                                                                              # set subtitle codec to mov_text
+          /var/www/html/hls/10100_20231101212100/video.mp4 && \                                        # output file in mp4 format
+/usr/bin/echo `date`: remux finish success >> /var/www/html/hls/10100_20231101212100/status.txt || \
+/usr/bin/echo `date`: remux finish failed >> /var/www/html/hls/10100_20231101212100/status.txt'
+while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /usr/bin/grep 'remux finish success'`" ] ; \
+do \
+    sleep 1; \
+done
+(while [ ! -f "/var/www/html/hls/10100_20231101212100/master_event.m3u8" ] ;
+ do
+        /usr/bin/inotifywait -e close_write --include "master_event.m3u8"  /var/www/html/hls/10100_20231101212100;
+ done;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles",NAME="Dutch",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI="sub_0_vtt.m3u8",LANGUAGE="dut"/' /var/www/html/hls/10100_20231101212100/master_event.m3u8;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-START:TIME-OFFSET=0/' /var/www/html/hls/10100_20231101212100/master_event.m3u8;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/'  /var/www/html/hls/10100_20231101212100/master_event.m3u8; /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i /var/www/html/hls/10100_20231101212100/master_event.m3u8;) &
+(while [ ! -f "/var/www/html/vod/10100_20231101212100/master_vod.m3u8" ] ;
+ do
+        /usr/bin/inotifywait -e close_write --include "master_vod.m3u8" /var/www/html/vod/10100_20231101212100;
+ done;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles",NAME="Dutch",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI="sub_0_vtt.m3u8",LANGUAGE="dut"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-START:TIME-OFFSET=0/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="group_A1")/\1,LANGUAGE="dut"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;) &
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> /var/www/html/hls/10100_20231101212100/status.txt';
+/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/vod/10100_20231101212100;
+
+/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231101212100;
+cd /var/www/html/hls/;
+/usr/bin/sudo -uapache /usr/bin/ffmpeg \
+    -fix_sub_duration \
+    -txt_format text -txt_page 888 \
+    -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
+     \
+     \
+    -f concat -async 1 -safe 0 -i /var/www/html/hls/10100_20231101212100/cutlist.txt \
+    -progress 10100_20231101212100/progress-log.txt \
+    -live_start_index 0 \
+    -force_key_frames "expr:gte(t,n_forced*2)" \
+    -filter_complex "[0:v]split=3[v1][v2][v3];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out];[v3]scale_vaapi=w=640:h=360[v3out]" \
+    -map [v1out] -c:v:0 \
+        h264_vaapi \
+        -b:v:0 3200k \
+        -maxrate:v:0 3200k \
+        -bufsize:v:0 1.5*3200k \
+        -crf 23 \
+        -preset veryslow \
+        -g 48 \
+        -keyint_min 48 \
+        -sc_threshold 0 \
+        -flags +global_header \
+    -map [v2out] -c:v:1 \
+        h264_vaapi \
+        -b:v:1 1600k \
+        -maxrate:v:1 1600k \
+        -bufsize:v:1 1.5*1600k \
+        -crf 23 \
+        -preset veryslow \
+        -g 48 \
+        -keyint_min 48 \
+        -sc_threshold 0 \
+        -flags +global_header \
+    -map [v3out] -c:v:2 \
+        h264_vaapi \
+        -b:v:2 900k \
+        -maxrate:v:2 900k \
+        -bufsize:v:2 1.5*900k \
+        -crf 23 \
+        -preset veryslow \
+        -g 48 \
+        -keyint_min 48 \
+        -sc_threshold 0 \
+        -flags +global_header \
+ \
+    -map a:0 -c:a:0 aac -b:a:0 128k -ac 2 \
+        -metadata:s:a:0 language=dut \
+ \
+    -map 0:s:0? -c:s webvtt \
+    -f tee \
+        "[select=\'a:0,v:0,v:1,v:2\': \
+          f=dash: \
+          seg_duration=2: \
+          hls_playlist=true: \
+          single_file=true: \
+          adaptation_sets=\'id=0,streams=a id=1,streams=v\' : \
+          media_seg_name=\'stream_vod_$RepresentationID$-$Number%05d$.$ext$\': \
+          hls_master_name=master_vod.m3u8]../vod/10100_20231101212100/manifest_vod.mpd| \
+         [select=\'v:0,s:0\': \
+          strftime=1: \
+          hls_flags=+independent_segments+iframes_only: \
+          hls_time=2: \
+          hls_playlist_type=event: \
+          hls_segment_type=fmp4: \
+          var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
+          hls_segment_filename=\'/dev/null\']../vod/10100_20231101212100/sub_%v.m3u8| \
+          [select=\'v:0,a:0\': \
+          f=mp4: \
+          movflags=+faststart]10100_20231101212100/10100_20231101212100.mp4| \
+          [select=\'s:0\']10100_20231101212100/subtitles.vtt| \
+          /dev/null| \
+          [select=\'a:0,v:0,v:1,v:2\': \
+          f=hls: \
+          hls_time=2: \
+          hls_playlist_type=event: \
+          hls_flags=+independent_segments+iframes_only: \
+          hls_segment_type=fmp4: \
+          var_stream_map=\'a:0,agroup:aac,language:dut,name:aac_0_128k v:0,agroup:aac,name:720p_3200 v:1,agroup:aac,name:480p_1600 v:2,agroup:aac,name:360p_900\': \
+          master_pl_name=master_event.m3u8: \
+          hls_segment_filename=10100_20231101212100/stream_event_%v_data%02d.m4s]10100_20231101212100/stream_event_%v.m3u8| \
+         [select=\'v:0,s:0\': \
+          strftime=1: \
+          f=hls: \
+          hls_flags=+independent_segments+program_date_time: \
+          hls_time=2: \
+          hls_playlist_type=event: \
+          hls_segment_type=fmp4: \
+          var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
+          hls_segment_filename=\'/dev/null\']10100_20231101212100/sub_%v.m3u8" \
+2>>/tmp/ffmpeg-hls-10100_20231101212100.log && \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> /var/www/html/hls/10100_20231101212100/status.txt' || \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> /var/www/html/hls/10100_20231101212100/status.txt'
+while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /usr/bin/grep 'encode finish success'`" ] ;
+do
+    sleep 1;
+done
+cd /var/www/html/hls/10100_20231101212100;
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> /var/www/html/hls/10100_20231101212100/status.txt';
+cd /var/www/html/hls/10100_20231101212100;
+/usr/bin/sudo -uapache /usr/bin/ffmpeg \
+    -i 10100_20231101212100.mp4 \
+    -i subtitles.vtt \
+    -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default \
+    -c:v copy \
+    -c:a copy \
+    10100_20231101212100.tmp.mp4 \
+2>>/tmp/ffmpeg-subtitle-merge-hls-10100_20231101212100.log && \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> /var/www/html/hls/10100_20231101212100/status.txt' || \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> /var/www/html/hls/10100_20231101212100/status.txt';
+/usr/bin/sudo /usr/bin/mv -f 10100_20231101212100.tmp.mp4 10100_20231101212100.mp4
+while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /usr/bin/grep 'encode finish success'`" ] ;
+do
+    sleep 1;
+done
+/usr/bin/sudo /usr/bin/rm /var/www/html/hls/10100_20231101212100/video.mp4
+sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
+#+end_src
 
 ** Remuxing
 :PROPERTIES:
@@ -309,21 +486,20 @@ An =MP4= container allows FFmpeg to use the =concat demuxer= later in the
 script[fn:11].
 
 #+begin_src shell -n
-cd /var/www/html/hls/10100_20231012201900
-/usr/bin/sudo /usr/bin/screen -S 10100_20231012201900_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > /var/www/html/hls/10100_20231012201900/status.txt ; \
+cd /var/www/html/hls/10100_20231101212100
+/usr/bin/sudo /usr/bin/screen -S 10100_20231101212100_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > /var/www/html/hls/10100_20231101212100/status.txt;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
-                                       -y \                                                                            # Overwrite without asking
-                                       -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \ # Use VAAPI Hardware acceleration
-                                       -txt_format text -txt_page 888 \                                                # extract subtitles from dvb_teletext
-                                       -fix_sub_duration \                                                             # avoid ovelap of subtitles
-                                       -i /mnt/mythtv2/store//10100_20231012201900.ts \                                # input file recorded with HDHomeRun
-                                       -c:v copy \                                                                     # use encoder copy for video
-                                       -c:a copy \                                                                     # use encoder copy for audio
-                                       -c:s mov_text \                                                                 # set subtitle codec to mov_text
-                                       /var/www/html/hls/10100_20231012201900/video.mp4 && \                           # output file in mp4 format
-/usr/bin/echo `date`: remux finish success >> /var/www/html/hls/10100_20231012201900/status.txt || \
-/usr/bin/echo `date`: remux finish failed >> /var/www/html/hls/10100_20231012201900/status.txt'
-while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231012201900/status.txt | /usr/bin/grep 'remux finish success'`" ] ; \
+          -y \                                                                                         # Overwrite without asking
+          -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \              # Use VAAPI Hardware acceleration
+          -txt_format text -txt_page 888 \                                                             # extract subtitles from dvb_teletext
+          -fix_sub_duration \                                                                          # avoid overlap of subtitles
+          -i /mnt/mythtv2/store//10100_20231101212100.ts \                                             # input file recorded with HDHomeRun
+          -c copy \                                                                                    # use encoder copy for video and audio
+          -c:s mov_text \                                                                              # set subtitle codec to mov_text
+          /var/www/html/hls/10100_20231101212100/video.mp4 && \                                        # output file in mp4 format
+/usr/bin/echo `date`: remux finish success >> /var/www/html/hls/10100_20231101212100/status.txt || \
+/usr/bin/echo `date`: remux finish failed >> /var/www/html/hls/10100_20231101212100/status.txt'
+while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /usr/bin/grep 'remux finish success'`" ] ; \
 do \
     sleep 1; \
 done
@@ -338,12 +514,13 @@ Adapt the playlist =master_event.m3u8= file for subtitles as soon as the file is
 created by FFmpeg some time in the future:
 
 #+begin_src shell +n
-(while [ ! -f "/var/www/html/hls/10100_20231012201900/master_event.m3u8" ] ; \
- do \
-        /usr/bin/inotifywait -e close_write --include "master_event.m3u8" /var/www/html/hls/10100_20231012201900; \
- done; \
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles",NAME="Dutch",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI="sub_0_vtt.m3u8",LANGUAGE="dut"/' /var/www/html/hls/10100_20231012201900/master_event.m3u8; \
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/'  /var/www/html/hls/10100_20231012201900/master_event.m3u8; /usr/bin/sudo -uapache /usr/bin/sed -e :a -e '$d;N;2,6ba' -e 'P;D' -i /var/www/html/hls/10100_20231012201900/master_event.m3u8;) &
+(while [ ! -f "/var/www/html/hls/10100_20231101212100/master_event.m3u8" ] ;
+ do
+        /usr/bin/inotifywait -e close_write --include "master_event.m3u8"  /var/www/html/hls/10100_20231101212100;
+ done;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles",NAME="Dutch",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI="sub_0_vtt.m3u8",LANGUAGE="dut"/' /var/www/html/hls/10100_20231101212100/master_event.m3u8;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-START:TIME-OFFSET=0/' /var/www/html/hls/10100_20231101212100/master_event.m3u8;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/'  /var/www/html/hls/10100_20231101212100/master_event.m3u8; /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i /var/www/html/hls/10100_20231101212100/master_event.m3u8;) &
 #+end_src
 
 ** Adapt playlist *master_vod.m3u8* file when created for handling subtitles
@@ -354,56 +531,18 @@ created by FFmpeg some time in the future:
 Adapt the playlist =master_vod.m3u8= file for subtitles as soon as the file is
 created by FFmpeg some time in the future:
 
-#+begin_src shell +n
-(while [ ! -f "/var/www/html/vod/10100_20231012201900/master_vod.m3u8" ] ; \
- do \
-        /usr/bin/inotifywait -e close_write --include "master_vod.m3u8" /var/www/html/vod/10100_20231012201900; \
- done; \
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles",NAME="Dutch",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI="sub_0_vtt.m3u8",LANGUAGE="dut"/' /var/www/html/vod/10100_20231012201900/master_vod.m3u8; \
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/' /var/www/html/vod/10100_20231012201900/master_vod.m3u8;) &
-#+end_src
-
-** Extract subtitles in a prepossessing step
-:PROPERTIES:
-:ID:       4ef2b0a7-2a2b-4055-9ce7-4c3a60b49638
-:END:
-
-This pre-processing is necessary to extract the subtitles from the recorded video:
-
-#+begin_src shell +n
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract start >> /var/www/html/hls/10100_20231012201900/status.txt'; \
-/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/vod/10100_20231012201900; /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231012201900; \
-cd /var/www/html/hls/; \
-/usr/bin/sudo -uapache /usr/bin/ffmpeg \
-    -fix_sub_duration \
-    -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
-    -txt_format text -txt_page 888 \
-    -f concat -async 1 -safe 0 -i /var/www/html/hls/10100_20231012201900/cutlist.txt \
-    -map 0:s:0 -c:s webvtt \
-     \
-    -f tee \
-    "[select=\'s:0,sgroup:subtitle\']10100_20231012201900/subtitles.vtt" \
-2>>/tmp/ffmpeg-subtitle-extract-hls-10100_20231012201900.log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract success >> /var/www/html/hls/10100_20231012201900/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_extract failed >> /var/www/html/hls/10100_20231012201900/status.txt'
-while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231012201900/status.txt | /usr/bin/grep 'subtitle_extract success'`" ] ; \
-do \
-    sleep 1; \
-done
-#+end_src
-
-** Add language information to playlist *master_vod.m3u8* when created for audio
-:PROPERTIES:
-:ID:       7f650004-879b-42fa-9b04-59dabb2d9ddb
-:END:
-
 Add language information to the =master_vod.m3u8= file as it is created by FFmpeg
 some time in the future:
 
 #+begin_src shell +n
-(while [ ! -f "/var/www/html/vod/10100_20231012201900/master_vod.m3u8" ] ; \
- do \
-        /usr/bin/inotifywait -e close_write --include "master_vod.m3u8" /var/www/html/vod/10100_20231012201900; \
- done; \
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="group_A1")/\1,LANGUAGE="dut"/' /var/www/html/vod/10100_20231012201900/master_vod.m3u8;) &
+(while [ ! -f "/var/www/html/vod/10100_20231101212100/master_vod.m3u8" ] ;
+ do
+        /usr/bin/inotifywait -e close_write --include "master_vod.m3u8" /var/www/html/vod/10100_20231101212100;
+ done;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subtitles",NAME="Dutch",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI="sub_0_vtt.m3u8",LANGUAGE="dut"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-START:TIME-OFFSET=0/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="group_A1")/\1,LANGUAGE="dut"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;) &
 #+end_src
 
 ** FFmpeg encoding
@@ -416,111 +555,134 @@ The major part of the encoding is done in one FFmpeg command utilizing
 and waits until it is finished:
 
 #+begin_src shell +n
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> /var/www/html/hls/10100_20231012201900/status.txt'; \
-/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/vod/10100_20231012201900;  /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231012201900; \
-cd /var/www/html/hls/; \
+/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231101212100;
+cd /var/www/html/hls/;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
+    -fix_sub_duration \
+    -txt_format text -txt_page 888 \
     -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
      \
      \
-    -f concat -async 1 -safe 0 -i /var/www/html/hls/10100_20231012201900/cutlist.txt \  # Respect the cutlist created by the user in MythTV
-    -i 10100_20231012201900/subtitles.vtt \                             # Input subtitles seperately
-    -progress 10100_20231012201900/progress-log.txt \                   # Track progress of encoding
-    -live_start_index 0 \                                               # Segment index to start live streams at
-    -force_key_frames "expr:gte(t,n_forced*2)" \                        # Fixed key frame interval is needed to avoid variable segment duration.
-    -filter_complex "[0:v]split=2[v1][v2];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out]" \ # Resize A Video To Multiple Resolutions
-    -map [v1out] -c:v:0 \                                               # Rendition 1
-        h264_vaapi \                                                    # Use H264 VAAPI (Video Acceleration API) hardware acceleration
-        -b:v:0 5000K -maxrate:v:0 5000K -bufsize:v:0 1.5*5000K \        # Transcode Video 1 to a user selected bitrate
-        -preset veryslow \                                              # Best tradeoff for H264 between bitrate (file size) and quality
-        -g 48 \                                                         # Set key frame placement
-        -keyint_min 48 \                                                # Set minimum interval between IDR-frame
-        -sc_threshold 0 \                                               # Sets the threshold for the scene change detection.
-        -flags +global_header \                                         # Set global header in the bitstream.
-    -map [v2out] -c:v:1 \                                               # Rendition 2
-        h264_vaapi \                                                    # Use H264 VAAPI (Video Acceleration API) hardware acceleratio
-        -b:v:1 1500K -maxrate:v:1 1500K -bufsize:v:1 1.5*1500K \        # Transcode Video 2 to a derived lower resolution based on a user selected bitrate
-        -preset veryslow \                                              # Best tradeoff for H264 between bitrate (file size) and quality
-        -g 48 \                                                         # Set key frame placement
-        -keyint_min 48 \                                                # Set minimum interval between IDR-frame
-        -sc_threshold 0 \                                               # Sets the threshold for the scene change detection.
-        -flags +global_header \                                         # Set global header in the bitstream.
-   -map a:0 -ac 2 -c:a:0 aac -b:a:0 96K \                               # Audio track predefined low bitrate
-        -metadata:s:a:0 language=dut \                                  # FFmpeg expects ISO_639-2_codes for language
-   -map a:0 -ac 2 -c:a:1 aac -b:a:1 128K \                              # Audio track with user defined bitrate
-        -metadata:s:a:1 language=dut \                                  # FFmpeg expects ISO_639-2_codes for language
-   -map 0:s:0 -c:s webvtt \                                             # Set subtitle codec webvtt
-   -f tee \                                                             # Tee muxer to duplicate the output to multiple files
-       "[select=\'a:0,a:1,v:0,v:1\': \                                  # Create fragmented MP4 (fmp4) output for hls and dash
+    -f concat -async 1 -safe 0 -i /var/www/html/hls/10100_20231101212100/cutlist.txt \  # Use cutlist
+    -progress 10100_20231101212100/progress-log.txt \                                   # Track progress of encoding
+    -live_start_index 0 \                                                               # Segment index to start live streams at
+    -force_key_frames "expr:gte(t,n_forced*2)" \                                        # Fixed key frame interval is needed to avoid variable segment duration.
+    -filter_complex "[0:v]split=3[v1][v2][v3];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out];[v3]scale_vaapi=w=640:h=360[v3out]" \ # Resize A Video To Multiple Resolutions
+    -map [v1out] -c:v:0 \                                                               # Rendition 1
+        h264_vaapi \                                                                    # Use H264 VAAPI (Video Acceleration API) hardware acceleration
+        -b:v:0 3200k \                                                                  # Transcode Video 1 to a user selected bitrate
+        -maxrate:v:0 3200k \                                                            # Maximum bitrate
+        -bufsize:v:0 1.5*3200k \                                                        # Buffer size
+        -crf 23 \                                                                       #
+        -preset veryslow \                                                              #
+        -g 48 \                                                                         # Set key frame placement
+        -keyint_min 48 \                                                                # Set minimum interval between IDR-frame
+        -sc_threshold 0 \                                                               # Sets the threshold for the scene change detection.
+        -flags +global_header \                                                         # Set global header in the bitstream.
+    -map [v2out] -c:v:1 \                                                               # Rendition 2
+        h264_vaapi \                                                                    # Use H264 VAAPI (Video Acceleration API) hardware acceleration
+        -b:v:1 1600k \                                                                  # Transcode Video 2 to a derived lower resolution based on a user selected bitrate
+        -maxrate:v:1 1600k \                                                            # Maximum bitrate
+        -bufsize:v:1 1.5*1600k \                                                        # Buffer size
+        -crf 23 \
+        -preset veryslow \
+        -g 48 \
+        -keyint_min 48 \
+        -sc_threshold 0 \
+        -flags +global_header \
+    -map [v3out] -c:v:2 \
+        h264_vaapi \
+        -b:v:2 900k \
+        -maxrate:v:2 900k \
+        -bufsize:v:2 1.5*900k \
+        -crf 23 \
+        -preset veryslow \
+        -g 48 \
+        -keyint_min 48 \
+        -sc_threshold 0 \
+        -flags +global_header \
+ \
+    -map a:0 -c:a:0 aac -b:a:0 128k -ac 2 \
+        -metadata:s:a:0 language=dut \
+ \
+    -map 0:s:0? -c:s webvtt \
+    -f tee \
+        "[select=\'a:0,v:0,v:1,v:2\': \
           f=dash: \
-          seg_duration=6: \
+          seg_duration=2: \
           hls_playlist=true: \
           single_file=true: \
-          adaptation_sets=\'id=0,streams=0,1 id=1,streams=2,3\': \
+          adaptation_sets=\'id=0,streams=a id=1,streams=v\' : \
           media_seg_name=\'stream_vod_$RepresentationID$-$Number%05d$.$ext$\': \
-          hls_master_name=master_vod.m3u8]../vod/10100_20231012201900/manifest_vod.mpd| \
-         [select=\'v:0,s:0\': \                                         # Trick to create fragmented vtt files, video is used as a heartbeat
+          hls_master_name=master_vod.m3u8]../vod/10100_20231101212100/manifest_vod.mpd| \
+         [select=\'v:0,s:0\': \
           strftime=1: \
           hls_flags=+independent_segments+iframes_only: \
-          hls_time=6: \
+          hls_time=2: \
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../vod/10100_20231012201900/sub_%v.m3u8| \ # Video output to /dev/null since it is not required. vtt output is written to vod directory
-         [select=\'v:0,a:1\': \                                         # Create mp4 output
+          hls_segment_filename=\'/dev/null\']../vod/10100_20231101212100/sub_%v.m3u8| \
+          [select=\'v:0,a:0\': \
           f=mp4: \
-          movflags=+faststart]10100_20231012201900/10100_20231012201900.mp4| \
-         /dev/null| \                                                   # Since live was not selected by the user, /dev/null is used
-         [select=\'a:0,a:1,v:0,v:1\': \                                 # Create fragmented mp4 output for event
+          movflags=+faststart]10100_20231101212100/10100_20231101212100.mp4| \
+          [select=\'s:0\']10100_20231101212100/subtitles.vtt| \
+          /dev/null| \
+          [select=\'a:0,v:0,v:1,v:2\': \
           f=hls: \
-          hls_time=6: \
+          hls_time=2: \
           hls_playlist_type=event: \
           hls_flags=+independent_segments+iframes_only: \
           hls_segment_type=fmp4: \
-          var_stream_map=\'v:0,agroup:aac,language:dut,name:720p v:1,agroup:aac,language:dut,name:480p a:0,agroup:aac,language:dut,name:aac_1_96K a:1,agroup:aac,language:dut,name:aac_2_128K\': \
-          master_pl_name=master_event.m3u8:hls_segment_filename=10100_20231012201900/stream_event_%v_data%02d.m4s]10100_20231012201900/stream_event_%v.m3u8| \
-         [select=\'v:0,s:0\': \                                         # Trick to create fragmented vtt files, video is used as a heartbeat
+          var_stream_map=\'a:0,agroup:aac,language:dut,name:aac_0_128k v:0,agroup:aac,name:720p_3200 v:1,agroup:aac,name:480p_1600 v:2,agroup:aac,name:360p_900\': \
+          master_pl_name=master_event.m3u8: \
+          hls_segment_filename=10100_20231101212100/stream_event_%v_data%02d.m4s]10100_20231101212100/stream_event_%v.m3u8| \
+         [select=\'v:0,s:0\': \
           strftime=1: \
           f=hls: \
           hls_flags=+independent_segments+program_date_time: \
-          hls_time=6: \
+          hls_time=2: \
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']10100_20231012201900/sub_%v.m3u8" \  # Video output to /dev/null since it is not required. vtt output is written to hls directory
-2>>/tmp/ffmpeg-hls-10100_20231012201900.log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> /var/www/html/hls/10100_20231012201900/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> /var/www/html/hls/10100_20231012201900/status.txt'
-while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231012201900/status.txt | /usr/bin/grep 'encode finish success'`" ] ; \
-do \
-    sleep 1; \
+          hls_segment_filename=\'/dev/null\']10100_20231101212100/sub_%v.m3u8" \
+2>>/tmp/ffmpeg-hls-10100_20231101212100.log && \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> /var/www/html/hls/10100_20231101212100/status.txt' || \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> /var/www/html/hls/10100_20231101212100/status.txt'
+while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /usr/bin/grep 'encode finish success'`" ] ;
+do
+    sleep 1;
 done
 #+end_src
 
-** Post-processing merge subtitles into =MP4=
+** Postprocessing mix subtitles in MP4
 :PROPERTIES:
-:ID:       eaff4fbb-a7ad-4110-8b9e-a63ac48babb2
+:ID:       ef3d7f31-cd1e-4d3f-9a8a-742da904620b
 :END:
 
-Post-processing step, merging subtitles into the =MP4= file.
-
 #+begin_src shell +n
-cd /var/www/html/hls/10100_20231012201900; \
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> /var/www/html/hls/10100_20231012201900/status.txt'; \
-cd /var/www/html/hls/10100_20231012201900; \
+cd /var/www/html/hls/10100_20231101212100;
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> /var/www/html/hls/10100_20231101212100/status.txt';
+cd /var/www/html/hls/10100_20231101212100;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
-    -i 10100_20231012201900.mp4 \
+    -i 10100_20231101212100.mp4 \
     -i subtitles.vtt \
     -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default \
     -c:v copy \
     -c:a copy \
-    10100_20231012201900.tmp.mp4; \
-/usr/bin/sudo /usr/bin/mv -f 10100_20231012201900.tmp.mp4 10100_20231012201900.mp4 2>>/tmp/ffmpeg-subtitle-merge-hls-10100_20231012201900.log && /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> /var/www/html/hls/10100_20231012201900/status.txt' || /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> /var/www/html/hls/10100_20231012201900/status.txt'
-while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231012201900/status.txt | /usr/bin/grep 'encode finish success'`" ] ; \
-do \
-    sleep 1; \
+    10100_20231101212100.tmp.mp4 \
+2>>/tmp/ffmpeg-subtitle-merge-hls-10100_20231101212100.log && \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> /var/www/html/hls/10100_20231101212100/status.txt' || \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> /var/www/html/hls/10100_20231101212100/status.txt';
+/usr/bin/sudo /usr/bin/mv -f 10100_20231101212100.tmp.mp4 10100_20231101212100.mp4
+while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /usr/bin/grep 'encode finish success'`" ] ;
+do
+    sleep 1;
 done
-/usr/bin/sudo /usr/bin/rm /var/www/html/hls/10100_20231012201900/video.mp4
-sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231012201900_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
+/usr/bin/sudo /usr/bin/rm /var/www/html/hls/10100_20231101212100/video.mp4
+sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
 #+end_src
+
 * Appendix
 :PROPERTIES:
 :ID:       6bb99dfc-33a0-4fff-b020-b971b04b6516

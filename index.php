@@ -2,12 +2,18 @@
 define('MARK_CUT_START',1);
 define('MARK_CUT_END',0);
 
-$hls_path = "/var/www/html/hls";
+$hlsdir = "hls";
+$livedir = "live";
+$voddir = "vod";
+$webroot = "/var/www/html";
+$hls_path = "$webroot/$hlsdir";
+$live_path = "$webroot/$livedir";
+$vod_path = "$webroot/$voddir";
 $program_path = "/home/mythtv";
 
 $dbserver = "localhost";
 $dbuser = "mythtv";
-// Read password from file
+// Read password from clear text file ;-(
 $lines = file($program_path."/mythdb.txt");
 $dbpass = trim($lines[0]);
 $dbname = "mythconverg";
@@ -104,7 +110,7 @@ for ($i = 0; $i < count($file_list); $i++)
     }
 }
 
-// TODO: when the user does removes the file in mythtv, the name in the dropdown list is Unknown
+// TODO: when the user removes the file from mythtv, the name in the dropdown list is unknown
 $query_parts_string=implode(" OR ", $query_parts);
 $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
 mysqli_select_db($dbconn,$dbname);
@@ -171,8 +177,8 @@ $hw_box .= "<option value=\"\" disabled hidden>-- Please choose your HW Accelera
 $hw_box .= "</select>";
 
 if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
-    file_exists ($hls_path."/../vod/".$_REQUEST["filename"]."/master_vod.m3u8") ||
-    file_exists ($hls_path."/../live/".$_REQUEST["filename"]."/master_live.m3u8") ||
+    file_exists ($vod_path."/".$_REQUEST["filename"]."/master_vod.m3u8") ||
+    file_exists ($live_path."/".$_REQUEST["filename"]."/master_live.m3u8") ||
     file_exists ($hls_path."/".$_REQUEST["filename"]."/".$_REQUEST["filename"].".mp4") ||
     file_exists ($hls_path."/".$_REQUEST["filename"]."/master_event.m3u8"))
 {
@@ -201,33 +207,33 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             array_map('unlink', glob($hls_path."/".$filename."/sub_0_vtt.m3u8"));
             array_map('unlink', glob($hls_path."/".$filename."/master_event.m3u8"));
             array_map('unlink', glob($hls_path."/".$filename."/stream_event_*.m3u8"));
-            array_map('unlink', glob($hls_path."/../vod/".$filename."/*.mpd"));
-            array_map('unlink', glob($hls_path."/../vod/".$filename."/init.mp4"));
-            array_map('unlink', glob($hls_path."/../vod/".$filename."/*.vtt"));
-            array_map('unlink', glob($hls_path."/../vod/".$filename."/sub_0.m3u8"));
-            array_map('unlink', glob($hls_path."/../vod/".$filename."/sub_0_vtt.m3u8"));
-            array_map('unlink', glob($hls_path."/../vod/".$filename."/sub.m3u8"));
-            array_map('unlink', glob($hls_path."/../vod/".$filename."/manifest_vod*.mp4*"));
-            array_map('unlink', glob($hls_path."/../vod/".$filename."/master_vod.m3u8"));
-            array_map('unlink', glob($hls_path."/../vod/".$filename."/media_*.m3u8"));
-            array_map('unlink', glob($hls_path."/../live/".$filename."/*.mp4"));
-            array_map('unlink', glob($hls_path."/../live/".$filename."/*.m4s"));
-            array_map('unlink', glob($hls_path."/../live/".$filename."/*.vtt"));
-            array_map('unlink', glob($hls_path."/../live/".$filename."/sub_0.m3u8"));
-            array_map('unlink', glob($hls_path."/../live/".$filename."/sub_0_vtt.m3u8"));
-            array_map('unlink', glob($hls_path."/../live/".$filename."/sub.m3u8"));
-            array_map('unlink', glob($hls_path."/../live/".$filename."/stream_live_*.m3u8"));
-            array_map('unlink', glob($hls_path."/../live/".$filename."/manifest_live*.mp4*"));
-            array_map('unlink', glob($hls_path."/../live/".$filename."/master_live.m3u8"));
-            //array_map('unlink', glob($hls_path."/../live/".$filename."/media_*.m3u8"));
+            array_map('unlink', glob($vod_path."/".$filename."/*.mpd"));
+            array_map('unlink', glob($vod_path."/".$filename."/init.mp4"));
+            array_map('unlink', glob($vod_path."/".$filename."/*.vtt"));
+            array_map('unlink', glob($vod_path."/".$filename."/sub_0.m3u8"));
+            array_map('unlink', glob($vod_path."/".$filename."/sub_0_vtt.m3u8"));
+            array_map('unlink', glob($vod_path."/".$filename."/sub.m3u8"));
+            array_map('unlink', glob($vod_path."/".$filename."/manifest_vod*.mp4*"));
+            array_map('unlink', glob($vod_path."/".$filename."/master_vod.m3u8"));
+            array_map('unlink', glob($vod_path."/".$filename."/media_*.m3u8"));
+            array_map('unlink', glob($live_path."/".$filename."/*.mp4"));
+            array_map('unlink', glob($live_path."/".$filename."/*.m4s"));
+            array_map('unlink', glob($live_path."/".$filename."/*.vtt"));
+            array_map('unlink', glob($live_path."/".$filename."/sub_0.m3u8"));
+            array_map('unlink', glob($live_path."/".$filename."/sub_0_vtt.m3u8"));
+            array_map('unlink', glob($live_path."/".$filename."/sub.m3u8"));
+            array_map('unlink', glob($live_path."/".$filename."/stream_live_*.m3u8"));
+            array_map('unlink', glob($live_path."/".$filename."/manifest_live*.mp4*"));
+            array_map('unlink', glob($live_path."/".$filename."/master_live.m3u8"));
+            //array_map('unlink', glob($live_path."/".$filename."/media_*.m3u8"));
             rmdir($hls_path."/".$filename);
-            if (is_dir($hls_path."/../live/".$filename))
+            if (is_dir($live_path."/".$filename))
             {
-                rmdir($hls_path."/../live/".$filename);
+                rmdir($live_path."/".$filename);
             }
-            if (is_dir($hls_path."/../vod/".$filename) && $extension != "mp4")
+            if (is_dir($vod_path."/".$filename) && $extension != "mp4")
             {
-               rmdir($hls_path."/../vod/".$filename);
+               rmdir($vod_path."/".$filename);
             }
          }
         if (file_exists($hls_path."/".$filename.".mp4"))
@@ -238,13 +244,14 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
     }
     else if (isset($_REQUEST['action']) && $_REQUEST["action"] == "clean")
     {
-        // clean HLS files only, if available VOD files remain on disk and can still be played
+        // If both HLS and VOD files are available, delete the HLS files only.
+        // The VOD files remain on disk and can still be played.
         if (file_exists($hls_path."/".$filename))
         {
             // Shut down all screen sessions
             $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_encode  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
             $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_remux  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
-            // // Delete files
+            // Delete files
             array_map('unlink', glob($hls_path."/".$filename."/*.log*"));
             array_map('unlink', glob($hls_path."/".$filename."/*.sh*"));
             array_map('unlink', glob($hls_path."/".$filename."/*.vtt"));
@@ -335,7 +342,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             $framerate = $content["framerate"];
             $length = $content["length"];
             // TODO: would be nice to replace these shell commands with php
-            // TODO: adapt number 23 into a search from the end of the file, may go wrong in case of may renditions no progress number is shown.
+            // TODO: adapt number 23 into a search from the end of the file, it may go wrong in case of may renditions no progress number is shown.
             $frameNumber = shell_exec("/usr/bin/sudo -uapache /usr/bin/tail -n 23 ".$hls_path."/".$filename."/progress-log.txt | sudo -uapache /usr/bin/sed -n '/^frame=/p' | sudo -uapache sed -n 's/frame=//p'");
             $status["presentationDuration"] = (int) $length;
             $status["available"] = $frameNumber / $framerate;
@@ -355,14 +362,13 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
         // Encode
         if ($extension == "mp4")
         {
-            // TODO: would be nice to replace these shell commands with php
-            $result = shell_exec("/usr/bin/sudo -uapache /usr/bin/ln -s ".$video_path."/".$filename.".".$extension." /var/www/html/hls/");
+            symlink($video_path."/".$filename.".".$extension, $hls_path."/".$filename.".".$extension,);
         }
-        else if (!file_exists($hls_path."/../vod/".$filename."/master_vod.m3u8") &&
+        else if (!file_exists($vod_path."/".$filename."/master_vod.m3u8") &&
                  !file_exists($hls_path."/".$filename."/".$filename.".mp4") &&
                  !file_exists($hls_path."/".$filename."/video.mp4") &&
                  !file_exists($hls_path."/".$filename."/master_event.m3u8") &&
-                 !file_exists($hls_path."/../live/".$filename."/master_live.m3u8"))
+                 !file_exists($live_path."/".$filename."/master_live.m3u8"))
         {
             $mustencode = false;
             $fileinput = "";
@@ -389,10 +395,6 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             # Write encode script (just for cleanup, if no encode necessary)
             $fp = fopen($hls_path."/".$filename."/encode.sh", "w");
             fwrite($fp, "cd ".$hls_path."/".$filename."\n");
-
-            $VODDIR = "vod";
-            $BASE = $filename;
-            $HLSDIR = "hls";
             $STARTTIME= "";
             if ($mustencode)
             {
@@ -440,7 +442,7 @@ done\n");
                 }
             }
             // TODO: think about this hls dir contains meta data, thus should always exist
-            $create_hls_dir  = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/".$BASE.";";
+            $create_hls_dir  = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$hls_path."/".$filename.";";
             $create_live_dir = "";
             $create_vod_dir  = "";
             $option_hls  = "/dev/null";
@@ -466,7 +468,7 @@ done\n");
             {
                 $read_rate = "-re";
                 // TODO: make language configurable
-                $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$HLSDIR."/../live/".$BASE.";";
+                $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$live_path."/".$filename.";";
                 $option_live  = "[select=\'";
                 $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -500,7 +502,7 @@ done\n");
                 }
                 $option_live  .= "\': \
           f=hls: \
-          hls_time=6: \
+          hls_time=2: \
           hls_list_size=10: \
           hls_flags=+independent_segments+iframes_only+delete_segments: \
           hls_segment_type=fmp4: \
@@ -533,7 +535,7 @@ done\n");
                     }
                 }
                 $option_live .= "\\': \\\n          master_pl_name=master_live.m3u8: \
-          hls_segment_filename=../live/$BASE/stream_live_%v_data%02d.m4s]../live/$BASE/stream_live_%v.m3u8";
+          hls_segment_filename=../live/$filename/stream_live_%v_data%02d.m4s]../live/$filename/stream_live_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -542,17 +544,17 @@ done\n");
           strftime=1: \
           f=hls: \
           hls_flags=+independent_segments+delete_segments+program_date_time: \
-          hls_time=6: \
+          hls_time=2: \
           hls_list_size=10: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../live/$BASE/sub_%v.m3u8";
-                    $master_file = "/var/www/html/live/$BASE/master_live.m3u8";
+          hls_segment_filename=\'/dev/null\']../live/$filename/sub_%v.m3u8";
+                    $master_file = "$live_path/$filename/master_live.m3u8";
                     // This command is delayed until master_live.m3u8 is created by FFmpeg!!!
                     // NOTE: Add subtitles
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/../live/".$BASE.";
+        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$live_path."/".$filename.";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
@@ -593,7 +595,7 @@ done\n");
                 }
                 $option_hls  .= "\': \
           f=hls: \
-          hls_time=6: \
+          hls_time=2: \
           hls_playlist_type=event: \
           hls_flags=+independent_segments+iframes_only: \
           hls_segment_type=fmp4: \
@@ -627,7 +629,7 @@ done\n");
                 }
                 $option_hls .= "\\': \
           master_pl_name=master_event.m3u8: \
-          hls_segment_filename=$BASE/stream_event_%v_data%02d.m4s]$BASE/stream_event_%v.m3u8";
+          hls_segment_filename=$filename/stream_event_%v_data%02d.m4s]$filename/stream_event_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -636,18 +638,18 @@ done\n");
           strftime=1: \
           f=hls: \
           hls_flags=+independent_segments+program_date_time: \
-          hls_time=6: \
+          hls_time=2: \
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']$BASE/sub_%v.m3u8";
-                    $master_file = "/var/www/html/$HLSDIR/$BASE/master_event.m3u8";
+          hls_segment_filename=\'/dev/null\']$filename/sub_%v.m3u8";
+                    $master_file = "$hls_path/$filename/master_event.m3u8";
                     // This command is delayed until master_event.m3u8 is created by FFmpeg!!!
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Add subtitles
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/".$BASE.";
+        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\"  ".$hls_path."/".$filename.";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
@@ -655,12 +657,12 @@ done\n");
                 }
                 else
                 {
-                    $master_file = "/var/www/html/$HLSDIR/$BASE/master_event.m3u8";
+                    $master_file = "$hls_path/$filename/master_event.m3u8";
                     // This command is delayed until master_event.m3u8 is created by FFmpeg!!!
                     // NOTE: Start playing the video at the beginning.
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" /var/www/html/".$HLSDIR."/".$BASE.";
+        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$hls_path."/".$filename.";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";) & \n");
 
@@ -668,7 +670,7 @@ done\n");
             }
             if (isset($_REQUEST["vod"]))
             {
-                $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/".$VODDIR."/".$BASE.";";
+                $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$vod_path."/".$filename.";";
                 $option_vod  = "[select=\'";
                 $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -702,13 +704,13 @@ done\n");
                 }
                 $option_vod  .= "\': \
           f=dash: \
-          seg_duration=6: \
+          seg_duration=2: \
           hls_playlist=true: \
           single_file=true: \
           adaptation_sets=\'id=0,streams=a id=1,streams=v\' : \
           media_seg_name=\'stream_vod_\$RepresentationID\$-\$Number%05d\$.\$ext\$\': \
-          hls_master_name=master_vod.m3u8]../".$VODDIR."/".$BASE."/manifest_vod.mpd";
-                $master_file = "/var/www/html/".$VODDIR."/".$BASE."/master_vod.m3u8";
+          hls_master_name=master_vod.m3u8]../".$voddir."/".$filename."/manifest_vod.mpd";
+                $master_file = "".$vod_path."/".$filename."/master_vod.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls event is used here to segment the subtitles, adding subtitle "streams" to dash is not implemented in FFmpeg
@@ -717,11 +719,11 @@ done\n");
          [select=\'v:0,s:0\': \
           strftime=1: \
           hls_flags=+independent_segments+iframes_only: \
-          hls_time=6: \
+          hls_time=2: \
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../vod/".$BASE."/sub_%v.m3u8";
+          hls_segment_filename=\'/dev/null\']../vod/".$filename."/sub_%v.m3u8";
                     // TODO: make language configurable
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=dut
@@ -729,7 +731,7 @@ done\n");
                     // NOTE: The execution of this command is delayed, till the master file is created later in time by FFmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE.";
+        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
@@ -745,7 +747,7 @@ done\n");
                     // NOTE: The execution of this command is delayed, till the master file is created later in time by FFmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" /var/www/html/".$VODDIR."/".$BASE.";
+        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"dut\"/' ".$master_file.";) & \n");
@@ -755,11 +757,11 @@ done\n");
             {
                 $option_mp4 = "[select=\'v:0,a:0\': \
           f=mp4: \
-          movflags=+faststart]".$BASE."/".$BASE.".mp4";
+          movflags=+faststart]".$filename."/".$filename.".mp4";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     $option_mp4 .= "| \
-          [select=\'s:0\']".$BASE."/subtitles.vtt";
+          [select=\'s:0\']".$filename."/subtitles.vtt";
                 }
             }
             if ($extension == "avi")
@@ -844,7 +846,7 @@ done\n");
 ".$create_vod_dir."
 ".$create_live_dir."
 ".$create_hls_dir."
-cd /var/www/html/".$HLSDIR."/;
+cd ".$hls_path."/;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
     -fix_sub_duration \
     ".$sub_format." \
@@ -852,7 +854,7 @@ cd /var/www/html/".$HLSDIR."/;
     ".$STARTTIME." \
     ".$read_rate." \
     ".$fileinput." \
-    -progress ".$BASE."/progress-log.txt \
+    -progress ".$filename."/progress-log.txt \
     -live_start_index 0 \
     -force_key_frames \"expr:gte(t,n_forced*2)\" \
     ".$filter_complex." \
@@ -863,7 +865,7 @@ cd /var/www/html/".$HLSDIR."/;
           ".$option_mp4."| \
           ".$option_live."| \
           ".$option_hls."\" \
-2>>/tmp/ffmpeg-".$HLSDIR."-".$BASE.".log && \
+2>>/tmp/ffmpeg-".$hlsdir."-".$filename.".log && \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
             if (isset($_REQUEST["checkbox_subtitles"]) && isset($_REQUEST["mp4"]))
@@ -873,20 +875,20 @@ cd /var/www/html/".$HLSDIR."/;
 do
     sleep 1;
 done\n");
-                fwrite($fp, "cd /var/www/html/".$HLSDIR."/".$BASE.";
+                fwrite($fp, "cd ".$hls_path."/".$filename.";
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$filename."/status.txt';
-cd /var/www/html/".$HLSDIR."/".$BASE.";
+cd ".$hls_path."/".$filename.";
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
-    -i ".$BASE.".mp4 \
+    -i ".$filename.".mp4 \
     -i subtitles.vtt \
     -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default \
     -c:v copy \
     -c:a copy \
-    ".$BASE.".tmp.mp4 \
-2>>/tmp/ffmpeg-subtitle-merge-".$HLSDIR."-".$BASE.".log && \
+    ".$filename.".tmp.mp4 \
+2>>/tmp/ffmpeg-subtitle-merge-".$hlsdir."-".$filename.".log && \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$filename."/status.txt' || \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> ".$hls_path."/".$filename."/status.txt';
-/usr/bin/sudo /usr/bin/mv -f ".$BASE.".tmp.mp4 ".$BASE.".mp4 \n");
+/usr/bin/sudo /usr/bin/mv -f ".$filename.".tmp.mp4 ".$filename.".mp4 \n");
        	    }
             if ($mustencode)
             {
@@ -894,7 +896,7 @@ cd /var/www/html/".$HLSDIR."/".$BASE.";
 do
     sleep 1;
 done\n");
-                fwrite($fp, "/usr/bin/sudo /usr/bin/rm /var/www/html/".$HLSDIR."/".$BASE."/video.mp4\n");
+                fwrite($fp, "/usr/bin/sudo /usr/bin/rm ".$hls_path."/".$filename."/video.mp4\n");
             }
             fwrite($fp, "sleep 3 && /usr/bin/sudo /usr/bin/screen -ls ".$filename."_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done\n");
             fclose($fp);
@@ -1013,8 +1015,8 @@ done\n");
                       message = message + pad(Math.floor(secs));
 
                       message = message + " available";
-                      // NOTE: 18 seconds equal to 3x segment size is just an empirical guess
-                      if (!playerInitDone && Math.ceil(status["available"] > 18))
+                      // NOTE: 4 seconds equal to 2x segment size is just an empirical guess
+                      if (!playerInitDone && Math.ceil(status["available"] > 4))
                       {
                           playerInitDone = initPlayer();
                       }
@@ -1207,7 +1209,6 @@ done\n");
             try {
                 // await does not work on Edge
                 // await player.load(manifestUri);
-
                 player.load(manifestUri);
                 // This runs if the asynchronous load is successful.
                 console.log('The video has now been loaded!');
@@ -1319,7 +1320,7 @@ done\n");
               </form>
             </td>
             <td>
-              <form action="index.php" method="GET">
+              <form action="index.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
                 <input type="hidden" name="filename" value="<?php echo $filename; ?>">
                 <input type="hidden" name="action" value="clean">
                 <input type="submit" style="display: none; visibility: hidden;" id="cleanupEventId" value="Cleanup Video Files">
@@ -1466,11 +1467,11 @@ done\n");
             <form name="FC" action="index.php" method="GET">
             <input type="hidden" name="filename" value="<?php echo $filename; ?>">
 <?php
-            if (file_exists($hls_path."/../vod/".$filename."/master_vod.m3u8") ||
+            if (file_exists($vod_path."/".$filename."/master_vod.m3u8") ||
                 file_exists($hls_path."/".$filename."/master_event.m3u8") ||
                 file_exists($video_path."/".$filename.".mp4") ||
                 file_exists($hls_path."/".$filename."/".$filename.".mp4") ||
-                file_exists($hls_path."/../live/".$filename."/master_live.m3u8"))
+                file_exists($live_path."/".$filename."/master_live.m3u8"))
         {
             // ready for streaming
             ?>
@@ -1496,8 +1497,8 @@ done\n");
                                 (file_exists($video_path."/".$filename.".mp4")?" (MP4 Available)":"").
                                 (file_exists($hls_path."/".$filename."/".$filename.".mp4")?" (MP4 Available)":"").
                                 (file_exists($hls_path."/".$filename."/master_event.m3u8")?" (HLS Available)":"").
-                                (file_exists($hls_path."/../live/".$filename."/master_live.m3u8")?" (LIVE Available)":"").
-                                (file_exists($hls_path."/../vod/".$filename."/master_vod.m3u8")?" (VOD Available)":"")."</option>\n";
+                                (file_exists($live_path."/".$filename."/master_live.m3u8")?" (LIVE Available)":"").
+                                (file_exists($vod_path."/".$filename."/master_vod.m3u8")?" (VOD Available)":"")."</option>\n";
                     }
                 }
              ?>
