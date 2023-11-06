@@ -292,7 +292,7 @@ Figure 6 shows the interface after encoding is done.
 
 [[file:screenshots/encoding-finished.png]]
 
-Two additional buttons appeared in Figure 5 for =Cleanup Video Files=[fn:10] and
+Two additional buttons appeared in Figure 6 for =Cleanup Video Files=[fn:10] and
 =Download MP4=.
 
 Since both playlists =HLS event= and =HLS VOD= basically provide similar user
@@ -316,6 +316,12 @@ shown in separate code blocks below.
 :PROPERTIES:
 :ID:       1a02094d-b373-4321-9575-7e0ac529b6b9
 :END:
+
+#+begin_html
+  <details>
+    <summary>
+    Click me
+    </summary>
 
 #+begin_src shell -n
 cd /var/www/html/hls/10100_20231101212100
@@ -472,6 +478,9 @@ done
 /usr/bin/sudo /usr/bin/rm /var/www/html/hls/10100_20231101212100/video.mp4
 sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
 #+end_src
+
+  </details>
+#+end_html
 
 ** Remuxing
 :PROPERTIES:
