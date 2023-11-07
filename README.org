@@ -66,6 +66,58 @@ How:
   - version 4.3.6
 - Mediainfo 23.09
 - HDHomeRun 20230323
+
+** Install Shaka player
+:PROPERTIES:
+:ID:       1820b442-87b9-4ca9-a764-d91bb97e3a2f
+:END:
+
+#+begin_src shell -n
+sudo useradd -d /var/www/ -g apache -M -N -s /sbin/nologin usera
+sudo chown -R apache:apache /var/www/html
+sudo chmod -R 755 /var/www/html
+#+end_src
+
+
+#+begin_src shell -n
+git clone git@github.com:shaka-project/shaka-player.git
+cd shaka-player
+python build/all.py
+sudo mkdir /var/www/html/dist
+sudo chown apache:apache /var/www/html/dist
+sudo -uapache rsync -avh dist/ /var/www/html/dist/
+#+end_src
+
+#+begin_src shell -n
+*** /var/folders/gt/p178c17d1qj7bls0rkdxpdzh0000gn/T/ediffxdyLVE	2023-11-07 19:35:45.000000000 +0100
+:PROPERTIES:
+:ID:       4b34ec8a-b0ef-47e0-a296-7b390e9da846
+:END:
+--- /var/folders/gt/p178c17d1qj7bls0rkdxpdzh0000gn/T/ediffIeBikq	2023-11-07 19:35:47.000000000 +0100
+***************
+*** 158,165 ****
+:PROPERTIES:
+:ID:       2dc22883-204a-4d73-9c78-7d9875196eb0
+:END:
+              echo ' -noimg">';
+  ?>
+          <a class="x-download"
+!             href="<?php echo video_url($show, true) ?>" title="<?php echo t('ASX Stream'); ?>"
+!             ><img height="24" width="24" src="<?php echo skin_url ?>/img/play_sm.png" alt="<?php echo t('ASX Stream'); ?>"></a>
+          <a class="x-download"
+              href="<?php echo $show->url ?>" title="<?php echo t('Direct Download'); ?>"
+              ><img height="24" width="24" src="<?php echo skin_url ?>/img/video_sm.png" alt="<?php echo t('Direct Download'); ?>"></a>
+--- 158,165 ----
+              echo ' -noimg">';
+  ?>
+          <a class="x-download"
+!             target="_blank" href="/mythtv-stream-hls-dash/index.php?filename=<?php echo $show->chanid."_".gmdate('YmdHis', $show->recstartts) ?>" title="<?php echo 'DASH Stream'; ?>"
+!             ><img height="24" width="24" src="<?php echo skin_url ?>/img/play_sm.png" alt="<?php echo 'DASH Stream'; ?>"></a>
+          <a class="x-download"
+              href="<?php echo $show->url ?>" title="<?php echo t('Direct Download'); ?>"
+              ><img height="24" width="24" src="<?php echo skin_url ?>/img/video_sm.png" alt="<?php echo t('Direct Download'); ?>"></a>
+#+end_src
+
 * Features
 :PROPERTIES:
 :ID:       b75aeef0-0fd8-4790-91f5-abc7730e1a94
@@ -317,6 +369,8 @@ shown in separate code blocks below.
 :ID:       1a02094d-b373-4321-9575-7e0ac529b6b9
 :END:
 
+blablabla
+
 #+begin_html
   <details>
     <summary>
@@ -481,6 +535,8 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 
   </details>
 #+end_html
+
+blablabla
 
 ** Remuxing
 :PROPERTIES:
