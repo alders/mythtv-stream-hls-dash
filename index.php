@@ -10,8 +10,11 @@ $hls_path = "$webroot/$hlsdir";
 $live_path = "$webroot/$livedir";
 $vod_path = "$webroot/$voddir";
 $program_path = "/home/mythtv";
+$language = "dut";
+$languagename = "Dutch";
 
 $dbserver = "localhost";
+$domainname = "192.168.1.29";
 $dbuser = "mythtv";
 // Read password from clear text file ;-(
 $lines = file($program_path."/mythdb.txt");
@@ -22,6 +25,7 @@ $dbname = "mythconverg";
 // NOTE: only "vaapi" and "nohwaccel" have been tested and are known to work
 $hwaccels = array(
     "vaapi"     => array("encoder" => "h264_vaapi", "decoder" => "h264_vaapi", "scale" => "scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi"),
+    "h265"      => array("encoder" => "hevc_vaapi", "decoder" => "hevc_vaapi", "scale" => "scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi"),
     "qsv"       => array("encoder" => "h264_qsv",   "decoder" => "h264_qsv",   "scale" => "scale_qsv",   "hwaccel" => "-hwaccel qsv  -qsv_device -hwaccel_device /dev/dri/renderD128 -c:v h264_qsv"),
     "nvenc"     => array("encoder" => "h264_nvenc", "decoder" => "h264_nvenc", "scale" => "scale",       "hwaccel" => "-hwaccel cuda -vaapi_device /dev/dri/renderD128 -hwaccel_output_format nvenc"),
     "nohwaccel" => array("encoder" => "libx264",    "decoder" => "libx264",    "scale" => "scale",       "hwaccel" => ""),
@@ -113,6 +117,7 @@ for ($i = 0; $i < count($file_list); $i++)
 // TODO: when the user removes the file from mythtv, the name in the dropdown list is unknown
 $query_parts_string=implode(" OR ", $query_parts);
 $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
+$dbconn->set_charset("utf8");
 mysqli_select_db($dbconn,$dbname);
 $getnames = sprintf("select title,subtitle,chanid,starttime,basename from recorded where %s;",
                     $query_parts_string);
@@ -120,11 +125,12 @@ $result=mysqli_query($dbconn,$getnames);
 $names = array();
 $extension = "";
 $video_path = "";
+$title_subtitle = "";
 while ($row = mysqli_fetch_assoc($result))
 {
     $starttime = str_replace(":", "", str_replace(" ", "", str_replace("-", "", $row['starttime'])));
     $names[$row['chanid']."_".$starttime] = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
-    if ($_REQUEST["filename"] == pathinfo($row['basename'], PATHINFO_FILENAME))
+    if ($_REQUEST["filename"] === pathinfo($row['basename'], PATHINFO_FILENAME))
     {
         $extension = pathinfo($row['basename'], PATHINFO_EXTENSION);
         $get_storage_dirs = sprintf("select dirname from storagegroup where groupname=\"Default\"");
@@ -134,6 +140,7 @@ while ($row = mysqli_fetch_assoc($result))
             if (file_exists($row_q["dirname"]."/".$_REQUEST["filename"].".$extension"))
             {
                 $video_path= $row_q["dirname"];
+                $title_subtitle = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
             }
         }
     }
@@ -183,7 +190,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
     file_exists ($hls_path."/".$_REQUEST["filename"]."/master_event.m3u8"))
 {
     $filename = $_REQUEST["filename"];
-    if (isset($_REQUEST['action']) && $_REQUEST["action"] == "delete")
+    if (isset($_REQUEST['action']) && $_REQUEST["action"] === "delete")
     {
         // delete hls and vod files
         if (file_exists($hls_path."/".$filename))
@@ -197,7 +204,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             array_map('unlink', glob($hls_path."/".$filename."/*.log*"));
             array_map('unlink', glob($hls_path."/".$filename."/*.sh*"));
             array_map('unlink', glob($hls_path."/".$filename."/*.m4s*"));
-            array_map('unlink', glob($hls_path."/".$filename."/".$filename.".mp4"));
+            array_map('unlink', glob($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4"));
             array_map('unlink', glob($hls_path."/".$filename."/video.mp4"));
             array_map('unlink', glob($hls_path."/".$filename."/init*.mp4"));
             array_map('unlink', glob($hls_path."/".$filename."/*.txt*"));
@@ -242,7 +249,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
         }
         echo "<html><head><title>Video Deleted</title></head><body>".$select_box."<h2>Video Deleted</h2></html>";
     }
-    else if (isset($_REQUEST['action']) && $_REQUEST["action"] == "clean")
+    else if (isset($_REQUEST['action']) && $_REQUEST["action"] === "clean")
     {
         // If both HLS and VOD files are available, delete the HLS files only.
         // The VOD files remain on disk and can still be played.
@@ -266,9 +273,9 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
         {
             array_map('unlink', glob($hls_path."/".$filename.".mp4"));
         }
-        header("Location: /dash/index.php?filename=".$filename);
+        header("Location: /mythtv-stream-hls-dash/index.php?filename=".$filename);
     }
-    else if (isset($_REQUEST['action']) && $_REQUEST["action"] == "status")
+    else if (isset($_REQUEST['action']) && $_REQUEST["action"] === "status")
     {
         $status = array();
         if (file_exists($hls_path."/".$filename."/status.txt"))
@@ -347,7 +354,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             $status["presentationDuration"] = (int) $length;
             $status["available"] = $frameNumber / $framerate;
         }
-        else if ($extension ==  "mp4")
+        else if ($extension ===  "mp4")
         {
             $status["available"] = 100;
         }
@@ -360,26 +367,26 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
     else if (isset($_REQUEST["do"]))
     {
         // Encode
-        if ($extension == "mp4")
+        if ($extension === "mp4" && !file_exists($hls_path."/".$filename.".".$extension))
         {
-            symlink($video_path."/".$filename.".".$extension, $hls_path."/".$filename.".".$extension,);
+            symlink($video_path."/".$filename.".".$extension, $hls_path."/".$filename.".".$extension);
         }
         else if (!file_exists($vod_path."/".$filename."/master_vod.m3u8") &&
-                 !file_exists($hls_path."/".$filename."/".$filename.".mp4") &&
-                 !file_exists($hls_path."/".$filename."/video.mp4") &&
+                 !file_exists($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4") &&
+                 !file_exists($hls_path."/".$filename.".mp4") &&
                  !file_exists($hls_path."/".$filename."/master_event.m3u8") &&
                  !file_exists($live_path."/".$filename."/master_live.m3u8"))
         {
             $mustencode = false;
             $fileinput = "";
-            if ($extension == "avi")
+            if ($extension === "avi")
             {
                 $fileinput = "-i ".$hls_path."/".$filename."/video.mp4";
                 $length = (int) $_REQUEST["length"];
                 $cut = "uncut";
                 $mustencode = true;
             }
-            else if (ISSET($_REQUEST["removecut"]) and $_REQUEST["removecut"]=="on" and $_REQUEST["cutcount"] > 0)
+            else if (ISSET($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and $_REQUEST["cutcount"] > 0)
             {
                 $fileinput = "-f concat -async 1 -safe 0 -i ".$hls_path."/".$filename."/cutlist.txt";
                 $length = (int) $_REQUEST["clippedlength"];
@@ -427,6 +434,7 @@ done\n");
             }
             // TODO: As of v34.0 the RecStatus can be checked using the Service API, see https://www.mythtv.org/wiki/Recording_Status
             $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
+            $dbconn->set_charset("utf8");
             mysqli_select_db($dbconn,$dbname);
             $recstatus = sprintf("select recstatus from oldrecorded where starttime=(select starttime from recorded where basename='".$filename.".".$extension."') OR title=(select title from recorded where basename='".$filename.".".$extension."') AND subtitle=(select subtitle from recorded where basename='".$filename.".".$extension."');");
             $result=mysqli_query($dbconn,$recstatus);
@@ -434,7 +442,7 @@ done\n");
             $is_liverecording = "false";
             while ($row_s = mysqli_fetch_assoc($result))
             {
-                if ($row_s["recstatus"] == "-2")
+                if ($row_s["recstatus"] === "-2")
                 {
                     $is_liverecording= "true";
                     // read input at native frame rate
@@ -464,7 +472,7 @@ done\n");
                 $sub_mapping = "-map 0:s:0? -c:s webvtt";
                 $sub_format = "-txt_format text -txt_page 888";
             }
-            if ($hls_playlist_type == "live")
+            if ($hls_playlist_type === "live")
             {
                 $read_rate = "-re";
                 // TODO: make language configurable
@@ -477,7 +485,7 @@ done\n");
                     $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
                     for ($j=0; $j < $i; $j++)
                     {
-                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
                         {
                             // seen abitrate before
                             $bool_new_audio = false;
@@ -491,7 +499,7 @@ done\n");
                 }
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
-                    if ($i == $nb_renditions - 1)
+                    if ($i === $nb_renditions - 1)
                     {
                         $option_live .= "v:".$i."";
                     }
@@ -514,7 +522,7 @@ done\n");
                     $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
                     for ($j=0; $j < $i; $j++)
                     {
-                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
                         {
                             // seen abitrate before
                             $bool_new_abitrate = false;
@@ -522,7 +530,7 @@ done\n");
                     }
                     if ($bool_new_abitrate)
                     {
-                        $option_live .= "a:".$audio_stream_number.",agroup:aac,language:dut,name:aac_".$audio_stream_number."_".$current_abitrate."k ";
+                        $option_live .= "a:".$audio_stream_number.",agroup:aac,language:".$language.",name:aac_".$audio_stream_number."_".$current_abitrate."k ";
                         $audio_stream_number++;
                     }
                 }
@@ -556,11 +564,11 @@ done\n");
  do
         /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$live_path."/".$filename.";
  done;
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file.";
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
                 }
             }
-            if ($hls_playlist_type == "event")
+            if ($hls_playlist_type === "event")
             {
                 $option_hls  = "[select=\'";
                 $audio_stream_number = 0;
@@ -570,7 +578,7 @@ done\n");
                     $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
                     for ($j=0; $j < $i; $j++)
                     {
-                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
                         {
                             // seen abitrate before
                             $bool_new_audio = false;
@@ -584,7 +592,7 @@ done\n");
                 }
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
-                    if ($i == $nb_renditions - 1)
+                    if ($i === $nb_renditions - 1)
                     {
                         $option_hls .= "v:".$i."";
                     }
@@ -607,7 +615,7 @@ done\n");
                     $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
                     for ($j=0; $j < $i; $j++)
                     {
-                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
                         {
                             // seen abitrate before
                             $bool_new_abitrate = false;
@@ -615,7 +623,7 @@ done\n");
                     }
                     if ($bool_new_abitrate)
                     {
-                        $option_hls .= "a:".$audio_stream_number.",agroup:aac,language:dut,name:aac_".$audio_stream_number."_".$current_abitrate."k ";
+                        $option_hls .= "a:".$audio_stream_number.",agroup:aac,language:".$language.",name:aac_".$audio_stream_number."_".$current_abitrate."k ";
                         $audio_stream_number++;
                     }
                 }
@@ -651,7 +659,7 @@ done\n");
  do
         /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\"  ".$hls_path."/".$filename.";
  done;
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file.";
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$master_file."; /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
                 }
@@ -679,7 +687,7 @@ done\n");
                     $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
                     for ($j=0; $j < $i; $j++)
                     {
-                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
                         {
                             // seen abitrate before
                             $bool_new_audio = false;
@@ -693,7 +701,7 @@ done\n");
                 }
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
-                    if ($i == $nb_renditions - 1)
+                    if ($i === $nb_renditions - 1)
                     {
                         $option_vod .= "v:".$i."";
                     }
@@ -726,23 +734,23 @@ done\n");
           hls_segment_filename=\'/dev/null\']../vod/".$filename."/sub_%v.m3u8";
                     // TODO: make language configurable
                     // NOTE: Start playing the video at the beginning.
-                    // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=dut
+                    // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
                     // NOTE: the language setting is not written to the master_vod.m3u8 file.
                     // NOTE: The execution of this command is delayed, till the master file is created later in time by FFmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
         /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
  done;
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file.";
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"dut\"/' ".$master_file.";) & \n");
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."\"/' ".$master_file.";) & \n");
                 }
                 else
                 {
                     // TODO: make language configurable
                     // NOTE: Start playing the video at the beginning.
-                    // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=dut
+                    // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
                     // NOTE: the language setting is not written to the master_vod.m3u8 file.
                     // NOTE: The execution of this command is delayed, till the master file is created later in time by FFmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
@@ -750,21 +758,21 @@ done\n");
         /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"dut\"/' ".$master_file.";) & \n");
+    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."\"/' ".$master_file.";) & \n");
                 }
             }
             if(isset($_REQUEST["mp4"]))
             {
                 $option_mp4 = "[select=\'v:0,a:0\': \
           f=mp4: \
-          movflags=+faststart]".$filename."/".$filename.".mp4";
+          movflags=+faststart]".$filename."/".$filename." - ".$title_subtitle.".mp4";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     $option_mp4 .= "| \
           [select=\'s:0\']".$filename."/subtitles.vtt";
                 }
             }
-            if ($extension == "avi")
+            if ($extension === "avi")
             {
                 // no hwaccel supported for avi
                 $hwaccel = "";
@@ -782,7 +790,7 @@ done\n");
             for ($i=0; $i < $nb_renditions; $i++)
             {
                 $vout = "v".$i;
-                if ($i == 0)
+                if ($i === 0)
                 {
                     if ($nb_renditions > 1)
                     {
@@ -815,7 +823,7 @@ done\n");
         -maxrate:v:$i ".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."k \
         -bufsize:v:$i 1.5*".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."k \
         -crf 23 \
-        -preset veryslow \
+        -preset veryfast \
         -g 48 \
         -keyint_min 48 \
         -sc_threshold 0 \
@@ -829,7 +837,7 @@ done\n");
             $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
             for ($j=0; $j < $i; $j++)
             {
-                if ($settings[$_REQUEST["quality"][$j]]["abitrate"] == $current_abitrate)
+                if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
                 {
                     // seen abitrate before
                     $bool_new_abitrate = false;
@@ -838,7 +846,7 @@ done\n");
             if ($bool_new_abitrate)
             {
                 $mapping .= "    -map a:0 -c:a:".$audio_stream_number." aac -b:a:".$audio_stream_number." ".$current_abitrate."k -ac 2 \
-        -metadata:s:a:".$audio_stream_number." language=dut \\\n";
+        -metadata:s:a:".$audio_stream_number." language=".$language." \\\n";
                 $audio_stream_number++;
             }
         }
@@ -856,6 +864,7 @@ cd ".$hls_path."/;
     ".$fileinput." \
     -progress ".$filename."/progress-log.txt \
     -live_start_index 0 \
+    -metadata title=\"".$title_subtitle."\" \
     -force_key_frames \"expr:gte(t,n_forced*2)\" \
     ".$filter_complex." \
 ".$mapping." \
@@ -879,16 +888,16 @@ done\n");
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$filename."/status.txt';
 cd ".$hls_path."/".$filename.";
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
-    -i ".$filename.".mp4 \
+    -i \"".$filename." - ".$title_subtitle.".mp4\" \
     -i subtitles.vtt \
-    -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default \
+    -c:s mov_text -metadata:s:s:0 language=".$language." -disposition:s:0 default \
     -c:v copy \
     -c:a copy \
-    ".$filename.".tmp.mp4 \
+    \"".$filename." - ".$title_subtitle.".tmp.mp4\" \
 2>>/tmp/ffmpeg-subtitle-merge-".$hlsdir."-".$filename.".log && \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$filename."/status.txt' || \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> ".$hls_path."/".$filename."/status.txt';
-/usr/bin/sudo /usr/bin/mv -f ".$filename.".tmp.mp4 ".$filename.".mp4 \n");
+/usr/bin/sudo /usr/bin/mv -f \"".$filename." - ".$title_subtitle.".tmp.mp4\" \"".$filename." - ".$title_subtitle.".mp4\" \n");
        	    }
             if ($mustencode)
             {
@@ -930,11 +939,11 @@ done\n");
                          visibility:hidden; }
         </style>
         <!-- Load the Shaka Player library. -->
-        <script src="shaka-player.compiled.js"></script>
+        <script src="../dist/shaka-player.compiled.js"></script>
         <!-- Shaka Player ui compiled library: -->
-        <script src="shaka-player.ui.js"></script>
+        <script src="../dist/shaka-player.ui.js"></script>
         <!-- Shaka Player ui compiled library default CSS: -->
-        <link rel="stylesheet" type="text/css" href="controls.css">
+        <link rel="stylesheet" type="text/css" href="../dist/controls.css">
         <script defer src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
         <script>
           var manifestUri = "";
@@ -966,7 +975,7 @@ done\n");
               var xhr = new XMLHttpRequest();
               xhr.open('HEAD', url, false);
               xhr.send();
-              return xhr.status == 200;
+              return xhr.status === 200;
           }
 
           function showStatus()
@@ -1015,8 +1024,9 @@ done\n");
                       message = message + pad(Math.floor(secs));
 
                       message = message + " available";
-                      // NOTE: 4 seconds equal to 2x segment size is just an empirical guess
-                      if (!playerInitDone && Math.ceil(status["available"] > 4))
+                      // NOTE: 6 seconds is equal to 3x segment size is just an empirical guess, works without subtitles
+                      // NOTE: 20 seconds is equal to 10x segment size is just an empirical guess, works with subtitles
+                      if (!playerInitDone && Math.ceil(status["available"] > 6))
                       {
                           playerInitDone = initPlayer();
                       }
@@ -1033,7 +1043,7 @@ done\n");
                   {
                       message = "Remuxing Video "+(Math.ceil(status["remuxBytesDone"] / status["remuxBytesTotal"] * 20)*5).toString()+"%";
                   }
-                  else if (extension == "mp4")
+                  else if (extension === "mp4")
                   {
                       message = message_string;
                       if (!playerInitDone)
@@ -1066,7 +1076,7 @@ done\n");
                   hlsVodButtonId.style.visibility = 'visible';
                   hlsVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $filename; ?>/master_vod.m3u8'");
               }
-              if (extension == "mp4" &&
+              if (extension === "mp4" &&
                   checkFileExists("../hls/<?php echo $filename; ?>.mp4")) {
                   message_string = "Linked MP4 Available";
                   // Show button to play available mp4 (no encoding necessary)
@@ -1074,7 +1084,7 @@ done\n");
                   linkButtonId.style.display = 'block';
                   linkButtonId.style.visibility = 'visible';
                   linkButtonId.addEventListener("click", function() {
-                      var url = "http://192.168.1.29/hls/<?php echo $filename; ?>.mp4";
+                      var url = "http://<?php echo $domainname; ?>/hls/<?php echo $filename; ?>.mp4";
                       copyToClipboard(url);
                   }, false);
               }
@@ -1102,7 +1112,7 @@ done\n");
                   liveButtonId.style.visibility = 'visible';
                   liveButtonId.setAttribute('onclick',"window.location.href='../live/<?php echo $filename; ?>/master_live.m3u8'");
               }
-              if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?>.mp4") &&
+              if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                   currentStatus.indexOf("encode finish success") >= 0) {
                   message_string = "MP4 Video Available";
                   // Show button to play MP4 stream
@@ -1110,7 +1120,7 @@ done\n");
                   mp4ButtonId.style.display = 'block';
                   mp4ButtonId.style.visibility = 'visible';
                   mp4ButtonId.addEventListener("click", function() {
-                      var url = "http://192.168.1.29/hls/<?php echo $filename; ?>/<?php echo $filename; ?>.mp4";
+                      var url = "http://<?php echo $domainname; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
                       download(url);
                           }, false);
               }
@@ -1174,10 +1184,10 @@ done\n");
             } else if (checkFileExists("../live/<?php echo $filename; ?>/master_live.m3u8")) {
                 // Play live stream
                 manifestUri = '../live/<?php echo $filename; ?>/master_live.m3u8';
-            } else if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?>.mp4") &&
+            } else if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                        currentStatus.indexOf("encode finish success") >= 0) {
-                // Play MP4 stream
-                manifestUri = '../hls/<?php echo $filename; ?>/<?php echo $filename; ?>.mp4';
+                // Play MP4 file
+                manifestUri = '../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4';
             } else if (extension == "mp4") {
                 // Play existing mp4, no encoding required
                 manifestUri = '../hls/<?php echo $filename; ?>.mp4';
@@ -1368,7 +1378,7 @@ done\n");
     }
     else
     {
-        if (file_exists($video_path."/".$_REQUEST["filename"].".$extension"))
+        if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") && $extension !== "mp4")
         {
             if (!file_exists($hls_path."/".$filename))
             {
@@ -1409,6 +1419,7 @@ done\n");
             $starttime="$year-$month-$day $hour:$minute:$second";
 
             $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
+            $dbconn->set_charset("utf8");
             mysqli_select_db($dbconn,$dbname);
             $sqlselect="select * from recordedmarkup where (chanid=$chanid and starttime='$starttime' and (type=".MARK_CUT_START." or type=".MARK_CUT_END.")) order by mark;";
             $result=mysqli_query($dbconn,$sqlselect);
@@ -1424,7 +1435,7 @@ done\n");
                 $cutcount++;
                 $mark = (double) $row['mark'];
                 $mark = ($mark / $framerate);
-                if ($row['type']==MARK_CUT_START)
+                if ($row['type']===MARK_CUT_START)
                 {
                     if ($firstrow && $mark > 1)
                     {
@@ -1440,7 +1451,7 @@ done\n");
                         $clippedlength += ($mark - $startsegment) + 1;
                     }
                 }
-                else if ($row['type']==MARK_CUT_END)
+                else if ($row['type']===MARK_CUT_END)
                 {
                     if ($length - $mark > 10)
                     {
@@ -1467,11 +1478,11 @@ done\n");
             <form name="FC" action="index.php" method="GET">
             <input type="hidden" name="filename" value="<?php echo $filename; ?>">
 <?php
-            if (file_exists($vod_path."/".$filename."/master_vod.m3u8") ||
-                file_exists($hls_path."/".$filename."/master_event.m3u8") ||
-                file_exists($video_path."/".$filename.".mp4") ||
-                file_exists($hls_path."/".$filename."/".$filename.".mp4") ||
-                file_exists($live_path."/".$filename."/master_live.m3u8"))
+        if (file_exists($vod_path."/".$filename."/master_vod.m3u8") ||
+            file_exists($hls_path."/".$filename."/master_event.m3u8") ||
+            file_exists($video_path."/".$filename.".mp4") ||
+            file_exists($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4") ||
+            file_exists($live_path."/".$filename."/master_live.m3u8"))
         {
             // ready for streaming
             ?>
@@ -1484,7 +1495,8 @@ done\n");
             // encoding required
             ?>
             <h2>Select the settings appropriate for your connection:</h2>
-            <label for="quality">Adaptive Bitrate Streaming (ABR): </label><select name="quality[]" size=4 multiple required>
+            <label for="quality">Adaptive Bitrate Streaming (ABR): </label>
+            <select name="quality[]" size=4 multiple required>
             <option value="" disabled hidden>-- Use Ctrl-Click, Command-Click and Shift-Click to compose ABR --</option>
             <?php
                 foreach ($settings as $setting => $settingset)
@@ -1492,13 +1504,7 @@ done\n");
                     // TODO: remove hack adding 300, need to be even higher?
                     if ($settingset["height"] <= $videoheight + 300)
                     {
-                        echo "<option value=\"".$setting."\"".((strpos($setting, "high720") !== false)?" selected=\"selected\"":"").
-                                ">".preg_replace('/[0-9]+/', '', ucfirst($setting))." Quality ".$settingset["height"]."p".
-                                (file_exists($video_path."/".$filename.".mp4")?" (MP4 Available)":"").
-                                (file_exists($hls_path."/".$filename."/".$filename.".mp4")?" (MP4 Available)":"").
-                                (file_exists($hls_path."/".$filename."/master_event.m3u8")?" (HLS Available)":"").
-                                (file_exists($live_path."/".$filename."/master_live.m3u8")?" (LIVE Available)":"").
-                                (file_exists($vod_path."/".$filename."/master_vod.m3u8")?" (VOD Available)":"")."</option>\n";
+                        echo "            <option value=\"".$setting."\"".((strpos($setting, "high720") !== false)?" selected=\"selected\"":"").">".preg_replace('/[0-9]+/', '', ucfirst($setting))." Quality ".$settingset["height"]."p</option>\n";
                     }
                 }
              ?>
@@ -1557,7 +1563,7 @@ done\n");
                        if(element.checked) total++;
                    }
                    var chkd = total || document.FC.vod.checked || document.FC.mp4.checked
-                   if (chkd == false) {
+                   if (chkd === false) {
                       alert ("Pick at least one of the checkboxes: live, event, vod or mp4")
                       return false;
                   }
