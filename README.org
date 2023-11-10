@@ -2,7 +2,7 @@
 #+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
 #+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
 #+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
-#+title: MythTV stream HLS fMP4 and DASH
+#+title: MythTV stream MPEG-DASH and HLS with fMP4 segments
 #+date: <2023-10-15 Sun>
 #+author: Dennis Alders
 #+email: (concat "dennis.alders" at-sign "gmail.com")
@@ -37,15 +37,16 @@ What:
 - Support for live HDHomeRun streaming without MythTV.
 
 How:
-- Fragmented MP4 (fMP4) is used to make DASH compatible with =HLS= so the same
-  files are used, only the manifest file (playlist) is different.
-- Encode MythTV content providing playlist types =live=, =event= and =VOD=.
-- HW supported transcoding for VAAPI (support for QSV and NVEC untested).
+- MPEG-DASH and HLS with fragmented MP4 (fMP4) (CMAF) to make both compatible,
+  therefore only the manifest file (playlist) is different.
+- Transcode to =MP4= for playback on mobile devices without internet.
 - Video is codified in H.264 format and audio in AAC.
+- Encode MythTV content providing playlist types =live=, =event= and =VOD=.
+- HW supported transcoding for VAAPI (support for QSV and NVEC remains
+  untested).
+- Simple PHP browser UI.
 - Transcode videos to user defined (UI select dropdown list) renditions for
   adaptive playback.
-- Simple PHP browser UI.
-- Transcode to =MP4= for playback on mobile devices without internet.
 - A ramdisk can be used for in memory playback of playlist type =live=.
 
 * Installation
@@ -72,13 +73,14 @@ How:
 :ID:       1820b442-87b9-4ca9-a764-d91bb97e3a2f
 :END:
 
+Create apache user:
 #+begin_src shell -n
 sudo useradd -d /var/www/ -g apache -M -N -s /sbin/nologin usera
 sudo chown -R apache:apache /var/www/html
 sudo chmod -R 755 /var/www/html
 #+end_src
 
-
+Install Shaka-player:
 #+begin_src shell -n
 git clone git@github.com:shaka-project/shaka-player.git
 cd shaka-player
@@ -88,6 +90,12 @@ sudo chown apache:apache /var/www/html/dist
 sudo -uapache rsync -avh dist/ /var/www/html/dist/
 #+end_src
 
+** Patch mythweb
+:PROPERTIES:
+:ID:       4eba13d0-81fc-48e1-9e4d-d1d553fa4783
+:END:
+
+Diff:
 #+begin_src shell -n
 *** /var/folders/gt/p178c17d1qj7bls0rkdxpdzh0000gn/T/ediffxdyLVE	2023-11-07 19:35:45.000000000 +0100
 :PROPERTIES:
@@ -376,6 +384,7 @@ done.
 An =MP4= container allows FFmpeg to use the =concat demuxer= later in the
 script[fn:11].
 
+
 #+begin_src shell -n
 cd /var/www/html/hls/10100_20231101212100
 /usr/bin/sudo /usr/bin/screen -S 10100_20231101212100_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > /var/www/html/hls/10100_20231101212100/status.txt;
@@ -434,6 +443,7 @@ some time in the future:
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-START:TIME-OFFSET=0/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="group_A1")/\1,LANGUAGE="dut"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;) &
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> /var/www/html/hls/10100_20231101212100/status.txt';
 #+end_src
 
 ** FFmpeg encoding
@@ -458,6 +468,8 @@ cd /var/www/html/hls/;
     -progress 10100_20231101212100/progress-log.txt \                                   # Track progress of encoding
     -live_start_index 0 \                                                               # Segment index to start live streams at
     -force_key_frames "expr:gte(t,n_forced*2)" \                                        # Fixed key frame interval is needed to avoid variable segment duration.
+    -tune movie \
+    -metadata title="De Avondshow met Arjen Lubach" \
     -filter_complex "[0:v]split=3[v1][v2][v3];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out];[v3]scale_vaapi=w=640:h=360[v3out]" \ # Resize A Video To Multiple Resolutions
     -map [v1out] -c:v:0 \                                                               # Rendition 1
         h264_vaapi \                                                                    # Use H264 VAAPI (Video Acceleration API) hardware acceleration
@@ -466,7 +478,7 @@ cd /var/www/html/hls/;
         -bufsize:v:0 1.5*3200k \                                                        # Buffer size
         -crf 23 \                                                                       #
         -preset veryslow \                                                              #
-        -g 48 \                                                                         # Set key frame placement
+        -g 48 \                                                                         #
         -keyint_min 48 \                                                                # Set minimum interval between IDR-frame
         -sc_threshold 0 \                                                               # Sets the threshold for the scene change detection.
         -flags +global_header \                                                         # Set global header in the bitstream.
@@ -475,22 +487,23 @@ cd /var/www/html/hls/;
         -b:v:1 1600k \                                                                  # Transcode Video 2 to a derived lower resolution based on a user selected bitrate
         -maxrate:v:1 1600k \                                                            # Maximum bitrate
         -bufsize:v:1 1.5*1600k \                                                        # Buffer size
-        -crf 23 \
-        -preset veryslow \
-        -g 48 \
-        -keyint_min 48 \
-        -sc_threshold 0 \
-        -flags +global_header \
-    -map [v3out] -c:v:2 \
-        h264_vaapi \
-        -b:v:2 900k \
-        -maxrate:v:2 900k \
-        -bufsize:v:2 1.5*900k \
-        -crf 23 \
-        -preset veryslow \
-        -g 48 \
-        -keyint_min 48 \
-        -sc_threshold 0 \
+        -crf 23 \                                                                       #
+        -preset veryslow \                                                              #
+        -g 48 \                                                                         #
+        -keyint_min 48 \                                                                # Set minimum interval between IDR-frame
+        -sc_threshold 0 \                                                               # Sets the threshold for the scene change detection.
+        -flags +global_header \                                                         # Set global header in the bitstream.
+    -map [v3out] -c:v:2 \                                                               # Rendition 1
+        h264_vaapi \                                                                    # Use H264 VAAPI (Video Acceleration API) hardware acceleration
+        -b:v:2 900k \                                                                   # Transcode Video 3 to a derived lower resolution based on a user selected bitrate
+        -maxrate:v:2 900k \                                                             # Maximum bitrate
+        -bufsize:v:2 1.5*900k \                                                         # Buffer size
+        -crf 23 \                                                                       #
+        -preset veryslow \                                                              #
+        -g 48 \                                                                         #
+        -keyint_min 48 \                                                                # Set minimum interval between IDR-frame
+        -sc_threshold 0 \                                                               # Sets the threshold for the scene change detection.
+        -flags +global_header \                                                         # Set global header in the bitstream.
         -flags +global_header \
  \
     -map a:0 -c:a:0 aac -b:a:0 128k -ac 2 \
@@ -516,7 +529,7 @@ cd /var/www/html/hls/;
           hls_segment_filename=\'/dev/null\']../vod/10100_20231101212100/sub_%v.m3u8| \
           [select=\'v:0,a:0\': \
           f=mp4: \
-          movflags=+faststart]10100_20231101212100/10100_20231101212100.mp4| \
+          movflags=+faststart]10100_20231101212100/10100_20231101212100 - De Avondshow met Arjen Lubach.mp4| \
           [select=\'s:0\']10100_20231101212100/subtitles.vtt| \
           /dev/null| \
           [select=\'a:0,v:0,v:1,v:2\': \
@@ -556,16 +569,16 @@ cd /var/www/html/hls/10100_20231101212100;
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> /var/www/html/hls/10100_20231101212100/status.txt';
 cd /var/www/html/hls/10100_20231101212100;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
-    -i 10100_20231101212100.mp4 \
+    -i "10100_20231101212100 - De Avondshow met Arjen Lubach.mp4" \
     -i subtitles.vtt \
     -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default \
     -c:v copy \
     -c:a copy \
-    10100_20231101212100.tmp.mp4 \
+    "10100_20231101212100 - De Avondshow met Arjen Lubach.tmp.mp4" \
 2>>/tmp/ffmpeg-subtitle-merge-hls-10100_20231101212100.log && \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> /var/www/html/hls/10100_20231101212100/status.txt' || \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> /var/www/html/hls/10100_20231101212100/status.txt';
-/usr/bin/sudo /usr/bin/mv -f 10100_20231101212100.tmp.mp4 10100_20231101212100.mp4
+/usr/bin/sudo /usr/bin/mv -f "10100_20231101212100 - De Avondshow met Arjen Lubach.tmp.mp4" "10100_20231101212100 - De Avondshow met Arjen Lubach.mp4"
 while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /usr/bin/grep 'encode finish success'`" ] ;
 do
     sleep 1;
@@ -591,14 +604,14 @@ blablabla
 cd /var/www/html/hls/10100_20231101212100
 /usr/bin/sudo /usr/bin/screen -S 10100_20231101212100_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > /var/www/html/hls/10100_20231101212100/status.txt;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
-          -y \                                                                                         # Overwrite without asking
-          -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \              # Use VAAPI Hardware acceleration
-          -txt_format text -txt_page 888 \                                                             # extract subtitles from dvb_teletext
-          -fix_sub_duration \                                                                          # avoid overlap of subtitles
-          -i /mnt/mythtv2/store//10100_20231101212100.ts \                                             # input file recorded with HDHomeRun
-          -c copy \                                                                                    # use encoder copy for video and audio
-          -c:s mov_text \                                                                              # set subtitle codec to mov_text
-          /var/www/html/hls/10100_20231101212100/video.mp4 && \                                        # output file in mp4 format
+          -y \
+          -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
+          -txt_format text -txt_page 888 \
+          -fix_sub_duration \
+          -i /mnt/mythtv2/store//10100_20231101212100.ts \
+          -c copy \
+          -c:s mov_text \
+          /var/www/html/hls/10100_20231101212100/video.mp4 && \
 /usr/bin/echo `date`: remux finish success >> /var/www/html/hls/10100_20231101212100/status.txt || \
 /usr/bin/echo `date`: remux finish failed >> /var/www/html/hls/10100_20231101212100/status.txt'
 while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /usr/bin/grep 'remux finish success'`" ] ; \
@@ -634,6 +647,8 @@ cd /var/www/html/hls/;
     -f concat -async 1 -safe 0 -i /var/www/html/hls/10100_20231101212100/cutlist.txt \
     -progress 10100_20231101212100/progress-log.txt \
     -live_start_index 0 \
+    -tune movie \
+    -metadata title="De Avondshow met Arjen Lubach" \
     -force_key_frames "expr:gte(t,n_forced*2)" \
     -filter_complex "[0:v]split=3[v1][v2][v3];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out];[v3]scale_vaapi=w=640:h=360[v3out]" \
     -map [v1out] -c:v:0 \
@@ -642,7 +657,7 @@ cd /var/www/html/hls/;
         -maxrate:v:0 3200k \
         -bufsize:v:0 1.5*3200k \
         -crf 23 \
-        -preset veryslow \
+        -preset veryfast \
         -g 48 \
         -keyint_min 48 \
         -sc_threshold 0 \
@@ -653,7 +668,7 @@ cd /var/www/html/hls/;
         -maxrate:v:1 1600k \
         -bufsize:v:1 1.5*1600k \
         -crf 23 \
-        -preset veryslow \
+        -preset veryfast \
         -g 48 \
         -keyint_min 48 \
         -sc_threshold 0 \
@@ -664,7 +679,7 @@ cd /var/www/html/hls/;
         -maxrate:v:2 900k \
         -bufsize:v:2 1.5*900k \
         -crf 23 \
-        -preset veryslow \
+        -preset veryfast \
         -g 48 \
         -keyint_min 48 \
         -sc_threshold 0 \
@@ -693,7 +708,7 @@ cd /var/www/html/hls/;
           hls_segment_filename=\'/dev/null\']../vod/10100_20231101212100/sub_%v.m3u8| \
           [select=\'v:0,a:0\': \
           f=mp4: \
-          movflags=+faststart]10100_20231101212100/10100_20231101212100.mp4| \
+          movflags=+faststart]10100_20231101212100/10100_20231101212100 - De Avondshow met Arjen Lubach.mp4| \
           [select=\'s:0\']10100_20231101212100/subtitles.vtt| \
           /dev/null| \
           [select=\'a:0,v:0,v:1,v:2\': \
@@ -725,16 +740,16 @@ cd /var/www/html/hls/10100_20231101212100;
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> /var/www/html/hls/10100_20231101212100/status.txt';
 cd /var/www/html/hls/10100_20231101212100;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
-    -i 10100_20231101212100.mp4 \
+    -i "10100_20231101212100 - De Avondshow met Arjen Lubach.mp4" \
     -i subtitles.vtt \
     -c:s mov_text -metadata:s:s:0 language=dut -disposition:s:0 default \
     -c:v copy \
     -c:a copy \
-    10100_20231101212100.tmp.mp4 \
+    "10100_20231101212100 - De Avondshow met Arjen Lubach.tmp.mp4" \
 2>>/tmp/ffmpeg-subtitle-merge-hls-10100_20231101212100.log && \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> /var/www/html/hls/10100_20231101212100/status.txt' || \
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> /var/www/html/hls/10100_20231101212100/status.txt';
-/usr/bin/sudo /usr/bin/mv -f 10100_20231101212100.tmp.mp4 10100_20231101212100.mp4
+/usr/bin/sudo /usr/bin/mv -f "10100_20231101212100 - De Avondshow met Arjen Lubach.tmp.mp4" "10100_20231101212100 - De Avondshow met Arjen Lubach.mp4"
 while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /usr/bin/grep 'encode finish success'`" ] ;
 do
     sleep 1;
