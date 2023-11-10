@@ -864,6 +864,7 @@ cd ".$hls_path."/;
     ".$fileinput." \
     -progress ".$filename."/progress-log.txt \
     -live_start_index 0 \
+    -tune movie \
     -metadata title=\"".$title_subtitle."\" \
     -force_key_frames \"expr:gte(t,n_forced*2)\" \
     ".$filter_complex." \
@@ -930,8 +931,6 @@ done\n");
           #hlsVodButtonId { display:none;
                             visibility:hidden; }
           #linkButtonId { display:none;
-                          visibility:hidden; }
-          #liveButtonId { display:none;
                           visibility:hidden; }
           #eventButtonId { display:none;
                            visibility:hidden; }
@@ -1435,7 +1434,7 @@ done\n");
                 $cutcount++;
                 $mark = (double) $row['mark'];
                 $mark = ($mark / $framerate);
-                if ($row['type']===MARK_CUT_START)
+                if ($row['type']==MARK_CUT_START)
                 {
                     if ($firstrow && $mark > 1)
                     {
@@ -1451,7 +1450,7 @@ done\n");
                         $clippedlength += ($mark - $startsegment) + 1;
                     }
                 }
-                else if ($row['type']===MARK_CUT_END)
+                else if ($row['type']==MARK_CUT_END)
                 {
                     if ($length - $mark > 10)
                     {
@@ -1481,6 +1480,7 @@ done\n");
         if (file_exists($vod_path."/".$filename."/master_vod.m3u8") ||
             file_exists($hls_path."/".$filename."/master_event.m3u8") ||
             file_exists($video_path."/".$filename.".mp4") ||
+            file_exists($hls_path."/".$filename."/video.mp4") ||
             file_exists($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4") ||
             file_exists($live_path."/".$filename."/master_live.m3u8"))
         {

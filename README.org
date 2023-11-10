@@ -28,17 +28,18 @@ Why:
   Streaming (=ABR=), live recording, live broadcast, subtitles, etcetera.
 
 What:
-- Support for HTTP based streaming (serving) of MythTV content for device
+- Support for HTTP based streaming (serving) of MythTV content.
+- Support for device independent viewing: web browser—mobile, desktop, tablet,
+  etc.
 - Support for less reliable networks (e.g. cell phone browser).
-  independent viewing: web browser—mobile, desktop, tablet, etc.
 - Support for live broadcasts and prerecorded video.
 - Support for offline viewing.
 - Support for MythTV cutlist (commercial cut) created using Mythfrontend.
 - Support for live HDHomeRun streaming without MythTV.
 
 How:
-- MPEG-DASH and HLS with fragmented MP4 (fMP4) (CMAF) to make both compatible,
-  therefore only the manifest file (playlist) is different.
+- MPEG-DASH and HLS with fragmented MP4 (fMP4) makes both compatible, therefore
+  only the manifest file (playlist) is different.
 - Transcode to =MP4= for playback on mobile devices without internet.
 - Video is codified in H.264 format and audio in AAC.
 - Encode MythTV content providing playlist types =live=, =event= and =VOD=.
@@ -47,40 +48,48 @@ How:
 - Simple PHP browser UI.
 - Transcode videos to user defined (UI select dropdown list) renditions for
   adaptive playback.
-- A ramdisk can be used for in memory playback of playlist type =live=.
+- A ramdisk can be used for in memory handling of playlist type =live=.
 
 * Installation
 :PROPERTIES:
 :ID:       e32a386c-b67a-4701-ae52-5c145c18d930
 :END:
+
+** Dependency
+:PROPERTIES:
+:ID:       335b222c-00c0-4151-8365-911272ccbeca
+:END:
+
 - MythTV (for commerical cut info and looking up the name of each recording
   based on filename)
   - version v0.33
-- FFmpeg (for encoding)
+- FFmpeg (for encoding)[fn:1]
   - FFmpeg version 5.1.3
 - GNU screen 4.9.0
   - This is to allow monitoring of encoding and to support
     background processes launched by the web-facing PHP script
-  - apt-get install screen
 - Shaka player
   - This is the Javascript-based browser player that plays MPEG DASH content
   - version 4.3.6
 - Mediainfo 23.09
 - HDHomeRun 20230323
 
-** Install Shaka player
+** Create apache user
 :PROPERTIES:
-:ID:       1820b442-87b9-4ca9-a764-d91bb97e3a2f
+:ID:       eff9c934-56c8-4691-bfeb-e39465be8e72
 :END:
 
-Create apache user:
 #+begin_src shell -n
 sudo useradd -d /var/www/ -g apache -M -N -s /sbin/nologin usera
 sudo chown -R apache:apache /var/www/html
 sudo chmod -R 755 /var/www/html
 #+end_src
 
-Install Shaka-player:
+** Install Shaka-player
+:PROPERTIES:
+:ID:       1820b442-87b9-4ca9-a764-d91bb97e3a2f
+:END:
+
 #+begin_src shell -n
 git clone git@github.com:shaka-project/shaka-player.git
 cd shaka-player
@@ -95,17 +104,19 @@ sudo -uapache rsync -avh dist/ /var/www/html/dist/
 :ID:       4eba13d0-81fc-48e1-9e4d-d1d553fa4783
 :END:
 
-Diff:
+Optional final step: modify 2 lines of mythweb code to change ASX Stream button
+on the "Recorded Programs" page to DASH Stream button.
+
 #+begin_src shell -n
-*** /var/folders/gt/p178c17d1qj7bls0rkdxpdzh0000gn/T/ediffxdyLVE	2023-11-07 19:35:45.000000000 +0100
+*** /var/www/html/mythweb/modules/tv/tmpl/default/recorded.php.original
 :PROPERTIES:
-:ID:       4b34ec8a-b0ef-47e0-a296-7b390e9da846
+:ID:       9c5d22ca-fc97-45dd-af73-4a2b4f478a6a
 :END:
---- /var/folders/gt/p178c17d1qj7bls0rkdxpdzh0000gn/T/ediffIeBikq	2023-11-07 19:35:47.000000000 +0100
+--- /var/www/html/mythweb/modules/tv/tmpl/default/recorded.php
 ***************
 *** 158,165 ****
 :PROPERTIES:
-:ID:       2dc22883-204a-4d73-9c78-7d9875196eb0
+:ID:       b90c4069-2c33-4b58-b790-0d4ac8ca6596
 :END:
               echo ' -noimg">';
   ?>
@@ -131,15 +142,15 @@ Diff:
 :ID:       b75aeef0-0fd8-4790-91f5-abc7730e1a94
 :END:
 
-Playlist type and =MP4= support for live broadcast and recorded video are shown in
-table 1. =DASH= is only supported by =VOD=, whereas =HLS= (and =ABR=) is supported by
+Playlist type (and =MP4)= support for live broadcast and recorded video are shown
+in table 1. =DASH= is only supported by =VOD=, whereas =HLS= (and =ABR=) is supported by
 all playlist types. Subtitles are supported by all.
 
 *Table 1:* /Playlist and MP4 support for live broadcast and recorded video./
 #+caption: Feature support for live broadcast and recorded video.
 #+label: feature-types
 #+attr_latex: :width 350px :options angle=90
-| Playlist | HLS | DASH | subtitle[fn:1] | subtitle[fn:2] | ABR |
+| Playlist | HLS | DASH | subtitle[fn:2] | subtitle[fn:3] | ABR |
 |----------+-----+------+----------------+----------------+-----|
 | live     | ✅  |      | ✅             |                | ✅  |
 | event    | ✅  |      | ✅             |                | ✅  |
@@ -147,7 +158,7 @@ all playlist types. Subtitles are supported by all.
 | MP4      |     |      |                | ✅             |     |
 
 All possible UI combinations of playlist types and MP4 that can be chosen by the
-user are shown in table 2[fn:3].
+user are shown in table 2[fn:4].
 
 *Table 2:* /All possible UI combinations of playlist types and MP4./
 #+caption: All possible combinations of playlist types and MP4.
@@ -192,7 +203,7 @@ network "/automagically/".
 #+attr_latex: :width 350px :options angle=90
 | Playlist | Progress bar | Captions   | Resolution   | Language                                   | Quality          |
 |----------+--------------+------------+--------------+--------------------------------------------+------------------|
-| live     | ✅ [fn:4]    | Nederlands | Auto (nullp) | Nederlands                                 | 🔴               |
+| live     | ✅ [fn:5]    | Nederlands | Auto (nullp) | Nederlands                                 | 🔴               |
 | event    | ✅           | Nederlands | Auto (nullp) | Nederlands                                 | 🔴               |
 | VOD      | ✅           | Nederlands | Auto (nullp) | Nederlands,Nederlands  (2 out of 3 tracks) | 🔴               |
 | MP4      | ✅           |            | 🔴           | Nederlands                                 | Auto (0 kbits/s) |
@@ -231,13 +242,13 @@ recording in MythWeb.
 [[file:screenshots/user-selection.png]]
 
 User interface options:
-- Select an available recording from the list box[fn:5].
+- Select an available recording from the list box[fn:6].
 - Select the =ABR= renditions from the select dropdown list box.
 - Select the HW acceleration from the list box.
-- Select if the =Cutlist= should be used using the list box[fn:6].
+- Select if the =Cutlist= should be used using the list box[fn:7].
 - Select using the checkbox if =Subtitles= should be created.
 - Select using the checkboxes if playlist type =live= or =event= should be
-  used[fn:7].
+  used[fn:8].
 - Select using the checkbox if playlist type =VOD= should be used.
 - Select using the checkbox if a =MP4= file should be created.
 - Press *Encode Video* when you are satisfied with your choices to start
@@ -268,8 +279,8 @@ Adaptive Bitrate Streaming (ABR). Use Ctrl-Click (Windows), Command-Click
 :ID:       23f8752d-7be6-49b5-9137-8f92fd69def2
 :END:
 
-Figure 3 shows the user interface while remuxing. The video is remuxed in this
-example to an =MP4= container because =Cut Commercials= was selected in Figure 1.
+Figure 3 shows the user interface while remuxing. In this example, because =Cut
+Commercials= was selected in Figure 1, the video is remuxed to an =MP4= container .
 
 *Figure 3:* /Remuxing UI./
 #+CAPTION: Remuxing UI
@@ -280,14 +291,16 @@ example to an =MP4= container because =Cut Commercials= was selected in Figure 1
 #+LABEL: remuxing-video
 [[file:screenshots/remuxing-video.png]]
 
-In Figure 3 three buttons are shown below the available recording list box.
+Three buttons are shown below the available recording list box.
 
-The first button =Delete Video Files= basically does what is says[fn:8],
+The first button =Delete Video Files= basically does what is says[fn:9],
 
 The second status button displays a dynamic message. Figure 3 shows the =Remuxing
 Video= percentage.
 
 The third button =Shutdown Lock= can be used to prevent MythTV from shutting down.
+In combination with wake-on lan and =mythbackend= this allows one to view all
+recordings.
 
 ** Generating video
 :PROPERTIES:
@@ -307,7 +320,7 @@ Figure 4 shows the user interface while encoding the video.
 
 Progress of the encoding is shown on the status button as a percentage and
 the time of the video available. When there is about 6 seconds of video
-available the player automatically tries to load the video[fn:9].
+available the player automatically tries to load the video[fn:10].
 
 Next to the =Shutdown Lock= buttons appear dynamically when files become available
 on disk. In Figure 4 this is the case for =HLS event= and =HLS VOD=. Select the
@@ -352,25 +365,25 @@ Figure 6 shows the interface after encoding is done.
 
 [[file:screenshots/encoding-finished.png]]
 
-Two additional buttons appeared in Figure 6 for =Cleanup Video Files=[fn:10] and
+Two additional buttons appeared in Figure 6 for =Cleanup Video Files=[fn:11] and
 =Download MP4=.
 
 Since both playlists =HLS event= and =HLS VOD= basically provide similar user
 experience for HLS one may decide to remove the playlist =HLS event= files to
 reduce disk space. This is exactly what the =Cleanup Video Files= button does.
 
-The UI also shows a =Download MP4= link as was selected in Figure 1. The latter is
-only visible when the encoding has finished and optionally subtitles are mixed
-in.
+The UI also shows a =Download MP4= link as was requested in Figure 1. The latter
+is only visible when the encoding has finished and optionally subtitles are
+mixed in.
 
 * Generated script
 :PROPERTIES:
 :ID:       78c95423-4574-4893-b883-6d7f4836b2ca
 :END:
 
-After pressing the =Encode Video= in Figure 1 a shell script called =encode.sh=
-is generated. For illustration purposes the code for the running example is
-shown in separate code blocks below.
+After pressing the =Encode Video= in Figure 1 a shell script is generated. For
+illustration purposes the code for the running example is shown in separate code
+blocks below.
 
 ** Remuxing
 :PROPERTIES:
@@ -378,11 +391,11 @@ shown in separate code blocks below.
 :END:
 
 The user in Figure 1 selected =Cut Commercials=. This requires the input video to
-be remuxed to a =MP4= container. The code block below shows in detail how this is
-done.
+be remuxed to a =MP4= container as shown in the user interface of Figure 3. The
+code block below shows in detail how this is done.
 
 An =MP4= container allows FFmpeg to use the =concat demuxer= later in the
-script[fn:11].
+script[fn:12].
 
 
 #+begin_src shell -n
@@ -405,13 +418,14 @@ do \
 done
 #+end_src
 
-** Adapt playlist =master_event.m3u8= file when created for handling subtitles
+** Adapt playlist =master_event.m3u8= file
 :PROPERTIES:
 :ID:       1c41d2a9-1f1d-4214-8d93-89c63da02a6f
 :END:
 
-Adapt the playlist =master_event.m3u8= file for subtitles as soon as the file is
-created by FFmpeg some time in the future:
+Adapt the playlist =master_event.m3u8= as soon as the file is created by FFmpeg
+some time in the future. This allows the handling of subtitles and the player to
+start at the beginning of the video:
 
 #+begin_src shell +n
 (while [ ! -f "/var/www/html/hls/10100_20231101212100/master_event.m3u8" ] ;
@@ -423,16 +437,15 @@ created by FFmpeg some time in the future:
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/'  /var/www/html/hls/10100_20231101212100/master_event.m3u8; /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i /var/www/html/hls/10100_20231101212100/master_event.m3u8;) &
 #+end_src
 
-** Adapt playlist *master_vod.m3u8* file when created for handling subtitles
+** Adapt playlist *master_vod.m3u8* file
 :PROPERTIES:
 :ID:       0be38d35-c457-426f-8812-6ce6483aa593
 :END:
 
-Adapt the playlist =master_vod.m3u8= file for subtitles as soon as the file is
-created by FFmpeg some time in the future:
-
-Add language information to the =master_vod.m3u8= file as it is created by FFmpeg
-some time in the future:
+Adapt the playlist =master_vod.m3u8= file as soon as the file is created by FFmpeg
+some time in the future. This allows the handling of subtitles and the player to
+start at the beginning of the video. Additionally the language of the audio is
+defined:
 
 #+begin_src shell +n
 (while [ ! -f "/var/www/html/vod/10100_20231101212100/master_vod.m3u8" ] ;
@@ -559,10 +572,12 @@ do
 done
 #+end_src
 
-** Postprocessing mix subtitles in MP4
+** Add subtitles to MP4
 :PROPERTIES:
 :ID:       ef3d7f31-cd1e-4d3f-9a8a-742da904620b
 :END:
+
+In a post-processing step subtitles are added to the =MP4=:
 
 #+begin_src shell +n
 cd /var/www/html/hls/10100_20231101212100;
@@ -592,7 +607,7 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 :ID:       1a02094d-b373-4321-9575-7e0ac529b6b9
 :END:
 
-blablabla
+For completeness the whole script is:
 
 #+begin_html
   <details>
@@ -761,7 +776,6 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
   </details>
 #+end_html
 
-blablabla
 
 * Appendix
 :PROPERTIES:
@@ -794,27 +808,29 @@ I love contributions! Patches are welcome!
 :ID:       88e5bb8f-808f-4944-9533-3b4195016f43
 :END:
 
-[fn:1] /Realtime./
+[fn:1] =mythffmpeg= can be used instead, but does not support subtitles.
 
-[fn:2] /After /Post-processing./
+[fn:2] /Realtime./
 
-[fn:3] /All can be combined with/ =ABR=, =Cut commercials= /and/ =subtitles= /selection/.
+[fn:3] /After /Post-processing./
 
-[fn:4] /One minute of playback./
+[fn:4] /All can be combined with/ =ABR=, =Cut commercials= /and/ =subtitles= /selection/.
 
-[fn:5] /Leave as is since we are defining the settings for this recording./
+[fn:5] /One minute of playback./
 
-[fn:12] /This option is only visible when subtitles are available in the video file./
+[fn:6] /Leave as is since we are defining the settings for this recording./
 
-[fn:6] /This option is only visible in the UI when a/ =Cutlist= /is defined in MythTV./
+[fn:13] /This option is only visible when subtitles are available in the video file./
 
-[fn:7] /Either one of the two or none at all./
+[fn:7] /This option is only visible in the UI when a/ =Cutlist= /is defined in MythTV./
 
-[fn:8] /This will not delete any file from MythTV or change the MySQL database. All files can be recreated as long as the recording is available in MythTV./
+[fn:8] /Either one of the two or none at all./
 
-[fn:9] /Automatic loading currently only works for live streaming. If no still of the video is shown after 30 seconds, as the case in this example, reload the browser page and start the video for viewing./
+[fn:9] /This will not delete any file from MythTV or change the MySQL database. All files can be recreated as long as the recording is available in MythTV./
 
-[fn:10] /This button is only shown when both playlist types/ =event= /and/ =VOD= /were selected as shown in Figure 1./
+[fn:10] /Automatic loading currently only works for live streaming. If no still of the video is shown after 30 seconds, as the case in this example, reload the browser page and start the video for viewing./
 
-[fn:11] /The/ =cutlist= /itself was defined in MythTV which is translated into the
+[fn:11] /This button is only shown when both playlist types/ =event= /and/ =VOD= /were selected as shown in Figure 1./
+
+[fn:12] /The/ =cutlist= /itself was defined in MythTV which is translated into the
 inpoint's and outpoint's of the/ =cutlist= /for the video./

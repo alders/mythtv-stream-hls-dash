@@ -1,10 +1,14 @@
 <?php
-# live_path is configured as a ramdisk
-$live_path = "/var/www/html/live";
-$channel_path = "/var/www/html/channel";
-# todo: select free tuner instead of hard coding
+$webroot = "/var/www/html";
+# live_path may be configured as a ramdisk
+$live_path = "$webroot/live";
+$channel_path = "$webroot/channel";
+$language = "dut";
+$languagename = "Dutch";
+# TODO: select free tuner instead of hard coding
 $tuner="tuner3";
 
+$domainname = "192.168.1.29";
 $HDHRID = shell_exec("/usr/bin/sudo /usr/bin/hdhomerun_config discover | cut -d ' ' -f3");
 $HDHRID = str_replace("\n", '', $HDHRID);
 $response = shell_exec("/usr/bin/sudo /usr/bin/mkdir -p ".$channel_path.";");
@@ -277,7 +281,7 @@ else if (isset($_REQUEST["do"]))
         do \
             /usr/bin/inotifywait -e close_write --include \"master_live.m3u8\" ".$live_path."/".$channel."; \
         done; \
-                 /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"Dutch\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"dut\"/' ".$master_file."; \
+                 /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file."; \
                  /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,RESOLUTION.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
         fwrite($fp, "fi\n");
         fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache /usr/bin/ffmpeg \
@@ -285,6 +289,7 @@ else if (isset($_REQUEST["do"]))
                                          ".$hwaccels[$_REQUEST["hw"]]["hwaccel"]." \
                                          -txt_format text -txt_page 888 \
                                          -i - -y \
+                                         -tune movie \
                                          -live_start_index 0 \
                                          -force_key_frames \"expr:gte(t,n_forced*2)\" \\\n");
         fwrite($fp, "                                     -filter_complex \"[0:v]");
@@ -324,7 +329,7 @@ else if (isset($_REQUEST["do"]))
                                              -maxrate:v:$i ".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."k \
                                              -bufsize:v:$i 1.5*".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."k \
                                              -crf 23 \
-                                             -preset veryslow \
+                                             -preset veryfast \
                                              -g 48 \
                                              -keyint_min 48 \
                                              -sc_threshold 0 \
@@ -345,7 +350,7 @@ else if (isset($_REQUEST["do"]))
             if ($bool_new_abitrate)
             {
                 fwrite($fp, "                                         -map a:0 -c:a:".$i." aac -b:a:".$i." ".$current_abitrate."k \
-                                             -metadata:s:a:".$i." language=dut \\\n");
+                                             -metadata:s:a:".$i." language=".$language." \\\n");
             }
         }
         fwrite($fp, "                                         -map 0:s:0? -c:s webvtt \
@@ -381,7 +386,7 @@ else if (isset($_REQUEST["do"]))
         }
         fwrite($fp, "\': \
                                                 f=hls: \
-                                                hls_time=6: \
+                                                hls_time=2: \
                                                 hls_list_size=10: \
                                                 hls_flags=+independent_segments+iframes_only+delete_segments: \
                                                 hls_segment_type=fmp4: \
@@ -400,7 +405,7 @@ else if (isset($_REQUEST["do"]))
             }
             if ($bool_new_abitrate)
             {
-                fwrite($fp, "a:".$i.",agroup:aac,language:dut,name:aac_".$i."_".$current_abitrate."k ");
+                fwrite($fp, "a:".$i.",agroup:aac,language:".$language.",name:aac_".$i."_".$current_abitrate."k ");
             }
         }
         for ($i=0; $i < $nb_renditions; $i++)
@@ -417,7 +422,7 @@ else if (isset($_REQUEST["do"]))
                                                 strftime=1: \
                                                 f=hls: \
                                                 hls_flags=+independent_segments+delete_segments+program_date_time: \
-                                                hls_time=6: \
+                                                hls_time=2: \
                                                 hls_list_size=10: \
                                                 hls_segment_type=fmp4: \
                                                 var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
@@ -439,12 +444,16 @@ else if (isset($_REQUEST["do"]))
         <!DOCTYPE html>
         <html>
         <head><title>Live TV</title>
+        <style>
+        #liveButtonId { display: none;
+        visibility: hidden; }
+        </style>
         <!-- Load the Shaka Player library. -->
-        <script src="shaka-player.compiled.js"></script>
+        <script src="../dist/shaka-player.compiled.js"></script>
         <!-- Shaka Player ui compiled library: -->
-        <script src="shaka-player.ui.js"></script>
+        <script src="../dist/shaka-player.ui.js"></script>
         <!-- Shaka Player ui compiled library default CSS: -->
-        <link rel="stylesheet" type="text/css" href="controls.css">
+        <link rel="stylesheet" type="text/css" href="../dist/controls.css">
         <script defer src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
          <script>
         var manifestUri = '';
@@ -500,6 +509,16 @@ else if (isset($_REQUEST["do"]))
                     }
                 }
             }
+
+            if (checkFileExists("../live/<?php echo $channel; ?>/master_live.m3u8")) {
+                message_string = "LIVE Available";
+                // Show button to play live stream
+                var liveButtonId = document.getElementById("liveButtonId");
+                liveButtonId.style.display = 'block';
+                liveButtonId.style.visibility = 'visible';
+                liveButtonId.setAttribute('onclick',"window.location.href='../live/<?php echo $channel; ?>/master_live.m3u8'");
+            }
+
             document.getElementById("statusbutton").value = message;
         }
 
@@ -605,40 +624,41 @@ else if (isset($_REQUEST["do"]))
         </script>
         </head>
         <body>
-        <table cellspacing="10"><tr><td>
-        <form action="hdhomerunstream.php" method="GET" onSubmit="return confirm('Are you sure you want to stop streaming?');">
-        <input type="hidden" name="action" value="delete">
-        <input type="hidden" name="channel" value="<?php echo $_REQUEST['channel']; ?>">
-        <input type="submit" value="Stop streaming">
-        </form></td><td valign="top">
-        <form>
-        <input type="button" onClick="showStatus();" id="statusbutton" value="Loading...">
-        </form>
-        </td><td valign="top">
-              <span id="mp4link"></span>
-              </td></tr>
-<?php
-              echo "<tr><td>";
-              echo "<a href=\"http://192.168.1.29/shutdownlock.php\">Shutdown Lock</a>\n";
-        if (file_exists($live_path."/".$channel."/master_live.m3u8"))
-        {
-            echo "</td><td>";
-            echo "<a href=\"http://192.168.1.29/live/".$channel."/master_live.m3u8\" download>Live Stream</a>\n";
-        }
-        echo "</td></tr>";
-        ?>
-            </table>
+        <table cellspacing="10">
+          <tr>
+            <td>
+              <form action="hdhomerunstream.php" method="GET" onSubmit="return confirm('Are you sure you want to stop streaming?');">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="channel" value="<?php echo $_REQUEST['channel']; ?>">
+                <input type="submit" value="Stop streaming">
+              </form>
+            </td>
+            <td valign="top">
+              <form>
+                <input type="button" onClick="showStatus();" id="statusbutton" value="Loading...">
+              </form>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <input type="button" style="display: block; visibility: visible;" onclick="window.location.href='../shutdownlock.php';" value="Shutdown Lock" />
+            </td>
+            <td>
+              <input type="button" style="display: none; visibility: hidden;" id="liveButtonId" value="LIVE" />
+            </td>
+          </tr>
+          </table>
             <!-- The data-shaka-player-container tag will make the UI library place the controls in this div.
                   The data-shaka-player-cast-receiver-id tag allows you to provide a Cast Application ID that
                   the cast button will cast to; the value provided here is the sample cast receiver. -->
-             <div data-shaka-player-container style="max-width:40em"
-                  data-shaka-player-cast-receiver-id="930DEB06">
-               <video autoplay data-shaka-player id="video" style="width:100%;height:100%">
-                  Your browser does not support HTML5 video.
-               </video>
-               </div>
-            </body>
-            </html>
+            <div data-shaka-player-container style="max-width:40em"
+                 data-shaka-player-cast-receiver-id="930DEB06">
+              <video autoplay data-shaka-player id="video" style="width:100%;height:100%">
+                 Your browser does not support HTML5 video.
+              </video>
+            </div>
+          </body>
+          </html>
 <?php
 }
 else
