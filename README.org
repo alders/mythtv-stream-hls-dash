@@ -20,12 +20,15 @@
 HTTP Live streaming support for [[https://www.mythtv.org][MythTV]].
 
 Why:
-- Although support was added for HTTP Live Streaming (=HLS=) to MythTV in 0.25 it
+- Although support was added for HTTP Live Streaming (=HLS=) to MythTV in v0.25 it
   is not usable.
-- MythWeb is based on Flash technology from the days of yore.
+- [[https://www.mythtv.org/wiki/MythWeb][MythWeb]] is no longer actively developed and is based on Flash technology from
+  the days of yore.
+- HTML5 support for [[https://www.mythtv.org/wiki/WebFrontend][WebFrontend]] is work in progress.
 - An attempt to overcome these shortcomings was made in github project [[https://github.com/thecount2a/mythtv-stream-mpeg-dash][MythTV
-  stream mpeg DASH]]. However, it lacks support for =HLS=, Adaptive Bitrate
-  Streaming (=ABR=), live recording, live broadcast, subtitles, etcetera.
+  stream mpeg DASH]].
+- All lack support for =HLS=, Adaptive Bitrate Streaming (=ABR=), live recording,
+  live broadcast, subtitles, etcetera.
 
 What:
 - Support for HTTP based streaming (serving) of MythTV content.
@@ -109,15 +112,9 @@ on the "Recorded Programs" page to DASH Stream button.
 
 #+begin_src shell -n
 *** /var/www/html/mythweb/modules/tv/tmpl/default/recorded.php.original
-:PROPERTIES:
-:ID:       9c5d22ca-fc97-45dd-af73-4a2b4f478a6a
-:END:
 --- /var/www/html/mythweb/modules/tv/tmpl/default/recorded.php
 ***************
 *** 158,165 ****
-:PROPERTIES:
-:ID:       b90c4069-2c33-4b58-b790-0d4ac8ca6596
-:END:
               echo ' -noimg">';
   ?>
           <a class="x-download"

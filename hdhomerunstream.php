@@ -8,7 +8,6 @@ $languagename = "Dutch";
 # TODO: select free tuner instead of hard coding
 $tuner="tuner3";
 
-$domainname = "192.168.1.29";
 $HDHRID = shell_exec("/usr/bin/sudo /usr/bin/hdhomerun_config discover | cut -d ' ' -f3");
 $HDHRID = str_replace("\n", '', $HDHRID);
 $response = shell_exec("/usr/bin/sudo /usr/bin/mkdir -p ".$channel_path.";");
@@ -555,7 +554,7 @@ else if (isset($_REQUEST["do"]))
             const controls = ui.getControls();
             const player = controls.getPlayer();
 
-            player.configure('streaming.useNativeHlsOnSafari', false);
+            player.configure('streaming.useNativeHlsOnSafari', true);
 
             // Attach player and ui to the window to make it easy to access in the JS console.
             window.player = player;
