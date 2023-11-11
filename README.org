@@ -20,7 +20,7 @@
 HTTP Live streaming support for [[https://www.mythtv.org][MythTV]].
 
 Why:
-- Although support was added for HTTP Live Streaming (=HLS=) to MythTV in v0.25 it
+- Although support was added for HTTP Live Streaming (=HLS=) to [[https://www.mythtv.org][MythTV]] in v0.25 it
   is not usable.
 - [[https://www.mythtv.org/wiki/MythWeb][MythWeb]] is no longer actively developed and is based on Flash technology from
   the days of yore.
@@ -68,14 +68,18 @@ How:
   - version v0.33
 - FFmpeg (for encoding)[fn:1]
   - FFmpeg version 5.1.3
-- GNU screen 4.9.0
+- GNU screen
   - This is to allow monitoring of encoding and to support
-    background processes launched by the web-facing PHP script
+    background processes launched by the web-facing PHP script.
+  - version 4.9.0
 - Shaka player
-  - This is the Javascript-based browser player that plays MPEG DASH content
   - version 4.3.6
-- Mediainfo 23.09
-- HDHomeRun 20230323
+  - This is the built Javascript-based browser player.
+- Mediainfo
+  - Displays technical information about media files.
+  - version 23.09
+- HDHomeRun
+  - Firmware Version 20230713
 
 ** Create apache user
 :PROPERTIES:
@@ -83,9 +87,17 @@ How:
 :END:
 
 #+begin_src shell -n
-sudo useradd -d /var/www/ -g apache -M -N -s /sbin/nologin usera
+sudo useradd -d /var/www/ -g apache -M -N -s /sbin/nologin apache
 sudo chown -R apache:apache /var/www/html
 sudo chmod -R 755 /var/www/html
+#+end_src
+
+** Configure sudo
+
+#+begin_src shell -n
+sudo visudo -f /etc/sudoers.d/apache
+[mythtv@nuc1 ~]$ sudo cat /etc/sudoers.d/apache
+apache ALL=(ALL) NOPASSWD: /usr/bin/hdhomerun_config,/usr/bin/chown,/usr/bin/realpath,/usr/bin/sed, /usr/bin/tail, /usr/bin/ffprobe, /usr/bin/chmod,/usr/bin/screen,/usr/bin/mkfifo, /usr/bin/mediainfo, /usr/bin/screen, /usr/bin/echo, /usr/bin/mkdir, /usr/bin/bash, /usr/bin/ffmpeg, /usr/bin/rm, /usr/bin/awk
 #+end_src
 
 ** Install Shaka-player
@@ -101,6 +113,11 @@ sudo mkdir /var/www/html/dist
 sudo chown apache:apache /var/www/html/dist
 sudo -uapache rsync -avh dist/ /var/www/html/dist/
 #+end_src
+
+** Install mythtv-stream-hls-dash
+
+Put =index.php= and =hdhomerunstream.php= in a directory under the web server root,
+preferably create one at =/var/www/html/mythtv-stream-hls-dash/=.
 
 ** Patch mythweb
 :PROPERTIES:
