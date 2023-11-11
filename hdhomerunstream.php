@@ -10,8 +10,7 @@ $tuner="tuner3";
 
 $HDHRID = shell_exec("/usr/bin/sudo /usr/bin/hdhomerun_config discover | cut -d ' ' -f3");
 $HDHRID = str_replace("\n", '', $HDHRID);
-$response = shell_exec("/usr/bin/sudo /usr/bin/mkdir -p ".$channel_path.";");
-$response = shell_exec("/usr/bin/sudo /usr/bin/chown apache:apache ".$channel_path.";");
+$response = shell_exec("/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$channel_path.";");
 $relative_path = shell_exec("/usr/bin/sudo /usr/bin/realpath --relative-to=$channel_path $live_path");
 $relative_path = str_replace("\n", '', $relative_path);
 $hostname="localhost";
