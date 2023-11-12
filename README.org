@@ -97,7 +97,7 @@ sudo chmod -R 755 /var/www/html
 #+begin_src shell -n
 sudo visudo -f /etc/sudoers.d/apache
 [mythtv@nuc1 ~]$ sudo cat /etc/sudoers.d/apache
-apache ALL=(ALL) NOPASSWD: /usr/bin/hdhomerun_config,/usr/bin/realpath,/usr/bin/sed, /usr/bin/tail, /usr/bin/chmod,/usr/bin/screen, /usr/bin/mediainfo, /usr/bin/screen, /usr/bin/echo, /usr/bin/mkdir, /usr/bin/bash, /usr/bin/ffmpeg, /usr/bin/awk
+apache ALL=(ALL) NOPASSWD: /usr/bin/hdhomerun_config, /usr/bin/ffmpeg, /usr/bin/realpath, /usr/bin/sed, /usr/bin/tail, /usr/bin/chmod, /usr/bin/mediainfo, /usr/bin/screen, /usr/bin/echo, /usr/bin/mkdir, /usr/bin/bash, /usr/bin/awk
 #+end_src
 
 ** Install Shaka-player
@@ -106,7 +106,7 @@ apache ALL=(ALL) NOPASSWD: /usr/bin/hdhomerun_config,/usr/bin/realpath,/usr/bin/
 :END:
 
 #+begin_src shell -n
-git clone git@github.com:shaka-project/shaka-player.git
+git clone https://github.com/shaka-project/shaka-player.git
 cd shaka-player
 python build/all.py
 sudo mkdir /var/www/html/dist
@@ -117,7 +117,7 @@ sudo -uapache rsync -avh dist/ /var/www/html/dist/
 ** Install mythtv-stream-hls-dash
 
 #+begin_src shell -n
-git clone git@github.com:alders/mythtv-stream-hls-dash.git
+git clone https://github.com/alders/mythtv-stream-hls-dash.git
 sudo mkdir /var/www/html/mythtv-stream-hls-dash
 sudo chown apache:apache /var/www/html/mythtv-stream-hls-dash
 sudo -uapache rsync -avnh --exclude='.git/' mythtv-stream-hls-dash/*.php /var/www/html/mythtv-stream-hls-dash/
@@ -129,7 +129,7 @@ sudo -uapache rsync -avnh --exclude='.git/' mythtv-stream-hls-dash/*.php /var/ww
 :END:
 
 Optional final step: modify 2 lines of mythweb code to change ASX Stream button
-on the "Recorded Programs" page to DASH Stream button.
+on the "Recorded Programs" page to =Stream HLS DASH= button.
 
 #+begin_src shell -n
 *** /var/www/html/mythweb/modules/tv/tmpl/default/recorded.php.original
@@ -148,14 +148,171 @@ on the "Recorded Programs" page to DASH Stream button.
               echo ' -noimg">';
   ?>
           <a class="x-download"
-!             target="_blank" href="/mythtv-stream-hls-dash/index.php?filename=<?php echo $show->chanid."_".gmdate('YmdHis', $show->recstartts) ?>" title="<?php echo 'DASH Stream'; ?>"
-!             ><img height="24" width="24" src="<?php echo skin_url ?>/img/play_sm.png" alt="<?php echo 'DASH Stream'; ?>"></a>
+!             target="_blank" href="/mythtv-stream-hls-dash/index.php?filename=<?php echo $show->chanid."_".gmdate('YmdHis', $show->recstartts) ?>" title="<?php echo 'Stream HLS DASH; ?>"
+!             ><img height="24" width="24" src="<?php echo skin_url ?>/img/play_sm.png" alt="<?php echo 'Stream HLS DASH; ?>"></a>
           <a class="x-download"
               href="<?php echo $show->url ?>" title="<?php echo t('Direct Download'); ?>"
               ><img height="24" width="24" src="<?php echo skin_url ?>/img/video_sm.png" alt="<?php echo t('Direct Download'); ?>"></a>
 #+end_src
 
 * HTTP streaming
+** Example
+:PROPERTIES:
+:ID:       9a8352eb-150b-4c83-a0fd-30edde384457
+:END:
+
+*** User interface
+:PROPERTIES:
+:ID:       44b7aab1-f15c-4269-9c76-ff103490740d
+:END:
+
+Figure 1 shows the user interface of =mythtv-stream-hls-dash= after selecting a
+recording in MythWeb.
+
+*Figure 1:* /User interface./
+#+CAPTION: User interface
+#+ATTR_HTML: :alt User selection :title User selection :align right
+#+ATTR_HTML::alt image
+#+ATTR_HTML: :width 350px
+#+ATTR_LATEX: :width 350px :options angle=90
+#+LABEL: user-interface
+[[file:screenshots/user-selection.png]]
+
+User interface options[fn:6]:
+- Select an available recording from the list box[fn:7].
+- Select the =ABR= renditions from the select dropdown list box.
+- Select the HW acceleration from the list box[fn:8].
+- Select if the =Cutlist= should be used using the list box[fn:9].
+- Select using the checkbox if =Subtitles= should be created[fn:10].
+- Select using the checkboxes if playlist type =live= or =event= should be
+  used[fn:11].
+- Select using the checkbox if playlist type =VOD= should be used.
+- Select using the checkbox if a =MP4= file should be created.
+- Press *Encode Video* when you are satisfied with your choices to start
+  encoding.
+
+The selections shown in Figure 1 are used in the descriptions below.
+
+*** Adaptive Bitrate Streaming
+:PROPERTIES:
+:ID:       76506860-1bba-4376-b1e1-891f8181d692
+:END:
+
+Figure 2 shows the user interface (phone interface) to select the renditions for
+Adaptive Bitrate Streaming (ABR). Use Ctrl-Click (Windows), Command-Click
+(Apple) to select the renditions.
+
+*Figure 2:* /Adaptive Bitrate UI./
+#+CAPTION: Adaptive Bitrate UI
+#+ATTR_HTML: :alt Remuxing video :title Remuxing video :align right
+#+ATTR_HTML::alt image
+#+ATTR_HTML: :width 350px
+#+ATTR_LATEX: :width 350px :options angle=90
+#+LABEL: adaptive-bitrate-ui
+[[file:screenshots/abr.png]]
+
+*** Remuxing
+:PROPERTIES:
+:ID:       23f8752d-7be6-49b5-9137-8f92fd69def2
+:END:
+
+Figure 3 shows the user interface while remuxing. In this example, because =Cut
+Commercials= was selected in Figure 1, the video is remuxed to an =MP4= container .
+
+*Figure 3:* /Remuxing UI./
+#+CAPTION: Remuxing UI
+#+ATTR_HTML: :alt Remuxing video :title Remuxing video :align right
+#+ATTR_HTML::alt image
+#+ATTR_HTML: :width 350px
+#+ATTR_LATEX: :width 350px :options angle=90
+#+LABEL: remuxing-video
+[[file:screenshots/remuxing-video.png]]
+
+Three buttons are shown below the available recording list box.
+
+The first button =Delete Video Files= basically does what is says[fn:12],
+
+The second status button displays a dynamic message. Figure 3 shows the =Remuxing
+Video= percentage.
+
+The third button =Shutdown Lock= can be used to prevent MythTV from shutting down.
+In combination with wake-on lan and =mythbackend= this allows one to view all
+recordings.
+
+*** Generating video
+:PROPERTIES:
+:ID:       95d98a33-0176-4f37-a635-c2f9988422b7
+:END:
+
+Figure 4 shows the user interface while encoding the video.
+
+*Figure 4:* /Generating video./
+#+CAPTION: Generating video.
+#+ATTR_HTML: :alt Generating video :title Generating video :align right
+#+ATTR_HTML::alt image
+#+ATTR_HTML: :width 350px
+#+ATTR_LATEX: :width 350px :options angle=90
+#+LABEL: generating-video
+[[file:screenshots/encoding-video.png]]
+
+Progress of the encoding is shown on the status button as a percentage and
+the time of the video available. When there is about 6 seconds of video
+available the player automatically tries to load the video[fn:13].
+
+Next to the =Shutdown Lock= buttons appear dynamically when files become available
+on disk. In Figure 4 this is the case for =HLS event= and =HLS VOD=. Select the
+button to start streaming the playlist.
+
+Old devices not supporting the Shaka video player of the UI, may still be able
+to play media through the buttons provided. The http links can also be used in
+your favorite app.
+
+*** Status button
+:PROPERTIES:
+:ID:       5a91dae1-6e17-4c0a-ba7f-566fa21a06c6
+:END:
+
+Figure 5 shows what happens in case the status button is selected. This will
+trigger a popup message box with a detailed view of the steps involved and the
+status thereof.
+
+*Figure 5:* /Status UI./
+#+CAPTION: Status UI
+#+ATTR_HTML: :alt Status :title Status :align right
+#+ATTR_HTML::alt image
+#+ATTR_HTML: :width 350px
+#+ATTR_LATEX: :width 350px :options angle=90
+#+LABEL: status
+[[file:screenshots/status-button.png]]
+
+*** User interface after encoding
+:PROPERTIES:
+:ID:       c7963ff4-1ee0-40c5-9d2d-8444518b3743
+:END:
+
+Figure 6 shows the interface after encoding is done.
+
+*Figure 6:* /User interface after encoding./
+#+CAPTION: User interface
+#+ATTR_HTML: :alt User interface :title User Interface :align right
+#+ATTR_HTML::alt image
+#+LABEL: user-interface
+#+ATTR_HTML: :width 350px
+#+ATTR_LATEX: :width 350px :options angle=90
+
+[[file:screenshots/encoding-finished.png]]
+
+Two additional buttons appeared in Figure 6 for =Cleanup Video Files= [fn:14] and
+=Download MP4=.
+
+Since both playlists =HLS event= and =HLS VOD= basically provide similar user
+experience for HLS one may decide to remove the playlist =HLS event= files to
+reduce disk space. This is exactly what the =Cleanup Video Files= button does.
+
+The UI also shows a =Download MP4= link as was requested in Figure 1. The latter
+is only visible when the encoding has finished and optionally subtitles are
+mixed in.
+
 ** Features
 :PROPERTIES:
 :ID:       b75aeef0-0fd8-4790-91f5-abc7730e1a94
@@ -238,163 +395,6 @@ network "/automagically/".
 | VOD      | 🔴           | ✅  (off) | 720p,.., 240p | Nederlands | 🔴               |
 | MP4      | ✅           |           | 🔴            | Nederlands | Auto (0 kbits/s) |
 
-** Example
-:PROPERTIES:
-:ID:       9a8352eb-150b-4c83-a0fd-30edde384457
-:END:
-
-*** User interface
-:PROPERTIES:
-:ID:       44b7aab1-f15c-4269-9c76-ff103490740d
-:END:
-
-Figure 1 shows the user interface of =mythtv-stream-hls-dash= after selecting a
-recording in MythWeb.
-
-*Figure 1:* /User interface./
-#+CAPTION: User interface
-#+ATTR_HTML: :alt User selection :title User selection :align right
-#+ATTR_HTML::alt image
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
-#+LABEL: user-interface
-[[file:screenshots/user-selection.png]]
-
-User interface options:
-- Select an available recording from the list box[fn:6].
-- Select the =ABR= renditions from the select dropdown list box.
-- Select the HW acceleration from the list box.
-- Select if the =Cutlist= should be used using the list box[fn:7].
-- Select using the checkbox if =Subtitles= should be created.
-- Select using the checkboxes if playlist type =live= or =event= should be
-  used[fn:8].
-- Select using the checkbox if playlist type =VOD= should be used.
-- Select using the checkbox if a =MP4= file should be created.
-- Press *Encode Video* when you are satisfied with your choices to start
-  encoding.
-
-The selections shown in Figure 1 are used in the descriptions below.
-
-*** Adaptive Bitrate Streaming
-:PROPERTIES:
-:ID:       76506860-1bba-4376-b1e1-891f8181d692
-:END:
-
-Figure 2 shows the user interface (phone interface) to select the renditions for
-Adaptive Bitrate Streaming (ABR). Use Ctrl-Click (Windows), Command-Click
-(Apple) to select the renditions.
-
-*Figure 2:* /Adaptive Bitrate UI./
-#+CAPTION: Adaptive Bitrate UI
-#+ATTR_HTML: :alt Remuxing video :title Remuxing video :align right
-#+ATTR_HTML::alt image
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
-#+LABEL: adaptive-bitrate-ui
-[[file:screenshots/abr.png]]
-
-*** Remuxing
-:PROPERTIES:
-:ID:       23f8752d-7be6-49b5-9137-8f92fd69def2
-:END:
-
-Figure 3 shows the user interface while remuxing. In this example, because =Cut
-Commercials= was selected in Figure 1, the video is remuxed to an =MP4= container .
-
-*Figure 3:* /Remuxing UI./
-#+CAPTION: Remuxing UI
-#+ATTR_HTML: :alt Remuxing video :title Remuxing video :align right
-#+ATTR_HTML::alt image
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
-#+LABEL: remuxing-video
-[[file:screenshots/remuxing-video.png]]
-
-Three buttons are shown below the available recording list box.
-
-The first button =Delete Video Files= basically does what is says[fn:9],
-
-The second status button displays a dynamic message. Figure 3 shows the =Remuxing
-Video= percentage.
-
-The third button =Shutdown Lock= can be used to prevent MythTV from shutting down.
-In combination with wake-on lan and =mythbackend= this allows one to view all
-recordings.
-
-*** Generating video
-:PROPERTIES:
-:ID:       95d98a33-0176-4f37-a635-c2f9988422b7
-:END:
-
-Figure 4 shows the user interface while encoding the video.
-
-*Figure 4:* /Generating video./
-#+CAPTION: Generating video.
-#+ATTR_HTML: :alt Generating video :title Generating video :align right
-#+ATTR_HTML::alt image
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
-#+LABEL: generating-video
-[[file:screenshots/encoding-video.png]]
-
-Progress of the encoding is shown on the status button as a percentage and
-the time of the video available. When there is about 6 seconds of video
-available the player automatically tries to load the video[fn:10].
-
-Next to the =Shutdown Lock= buttons appear dynamically when files become available
-on disk. In Figure 4 this is the case for =HLS event= and =HLS VOD=. Select the
-button to start streaming the playlist.
-
-Old devices not supporting the Shaka video player of the UI, may still be able
-to play media through the buttons provided. The http links can also be used in
-your favorite app.
-
-*** Status button
-:PROPERTIES:
-:ID:       5a91dae1-6e17-4c0a-ba7f-566fa21a06c6
-:END:
-
-Figure 5 shows what happens in case the status button is selected. This will
-trigger a popup message box with a detailed view of the steps involved and the
-status thereof.
-
-*Figure 5:* /Status UI./
-#+CAPTION: Status UI
-#+ATTR_HTML: :alt Status :title Status :align right
-#+ATTR_HTML::alt image
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
-#+LABEL: status
-[[file:screenshots/status-button.png]]
-
-*** User interface after encoding
-:PROPERTIES:
-:ID:       c7963ff4-1ee0-40c5-9d2d-8444518b3743
-:END:
-
-Figure 6 shows the interface after encoding is done.
-
-*Figure 6:* /User interface after encoding./
-#+CAPTION: User interface
-#+ATTR_HTML: :alt User interface :title User Interface :align right
-#+ATTR_HTML::alt image
-#+LABEL: user-interface
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
-
-[[file:screenshots/encoding-finished.png]]
-
-Two additional buttons appeared in Figure 6 for =Cleanup Video Files=[fn:11] and
-=Download MP4=.
-
-Since both playlists =HLS event= and =HLS VOD= basically provide similar user
-experience for HLS one may decide to remove the playlist =HLS event= files to
-reduce disk space. This is exactly what the =Cleanup Video Files= button does.
-
-The UI also shows a =Download MP4= link as was requested in Figure 1. The latter
-is only visible when the encoding has finished and optionally subtitles are
-mixed in.
-
 ** Generated script
 :PROPERTIES:
 :ID:       78c95423-4574-4893-b883-6d7f4836b2ca
@@ -414,7 +414,7 @@ be remuxed to a =MP4= container as shown in the user interface of Figure 3. The
 code block below shows in detail how this is done.
 
 An =MP4= container allows FFmpeg to use the =concat demuxer= later in the
-script[fn:12].
+script[fn:15].
 
 
 #+begin_src shell -n
@@ -786,8 +786,10 @@ done
 sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
 #+end_src
 * Live TV
-** Example
-*** User interface
+** User interface
+
+Figure 7 shows shows the user interface of =hdhomerunstream= while selecting a TV
+channel.
 
 *Figure 7:* /Select TV channel./
 #+CAPTION: Select TV channel.
@@ -798,6 +800,14 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 #+LABEL: select-tv-channel
 [[file:screenshots/select-tv-channel.png]]
 
+User interface options:
+- Select the =ABR= renditions from the select dropdown list box, see Figure 2.
+- Select the HW acceleration from the list box[fn:8].
+- Select the TV channel from the list box[fn:16].
+- Press *Watch TV* when you are satisfied with your choices to start watching.
+
+Figure 8 shows the Live TV user interface.
+
 *Figure 8:* /Live TV user interface./
 #+CAPTION: Live TV user interface.
 #+ATTR_HTML: :alt Live TV interface :title Live TV interface :align right
@@ -806,6 +816,21 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: live-tv-user-interface
 [[file:screenshots/live-tv.png]]
+
+User interface options:
+- Select *Stop streaming* when you are done watching[fn:17].
+- The status button indicates when the =Live stream is ready=.
+- Select =Shutdown Lock= in case one wants to prevent MythTV from shutting down.
+- The dynamic button next it indicates the =HLS= (no DASH support yet) manifest
+  file is generated by showing the selected channel name.
+
+** Limitations
+
+- The HDHomeRun tuner is hardcoded. The tuner is basically assumed to be
+  reserved no checks are implemented.
+- Multiple devices can view the same channel. However, no checks are implemented
+  when one of them stops the stream.
+- Only =HLS= is supported.
 
 * Appendix
 :PROPERTIES:
@@ -831,12 +856,9 @@ MythTV-stream-hls-dash is licensed under the GPLv3, see LICENSE for details.
 :ID:       c9f4af00-b166-42c9-982d-0b85490f1559
 :END:
 
-I love contributions! Patches are welcome!
+Feedback, patches, other contributions and ideas are welcome!
 
 * Footnotes
-:PROPERTIES:
-:ID:       88e5bb8f-808f-4944-9533-3b4195016f43
-:END:
 
 [fn:1] =mythffmpeg= can be used instead, but does not support subtitles.
 
@@ -848,19 +870,25 @@ I love contributions! Patches are welcome!
 
 [fn:5] /One minute of playback./
 
-[fn:6] /Leave as is since we are defining the settings for this recording./
+[fn:6] DEFINITION NOT FOUND.
 
-[fn:13] /This option is only visible when subtitles are available in the video file./
+[fn:7] /Leave as is since we are defining the settings for this recording./
 
-[fn:7] /This option is only visible in the UI when a/ =Cutlist= /is defined in MythTV./
+[fn:8] Only VAAPI and no HW acceleration has been tested. Feedback on acceleration is appreciated.
 
-[fn:8] /Either one of the two or none at all./
+[fn:9] /This option is only visible in the UI when a/ =Cutlist= /is defined in MythTV./
 
-[fn:9] /This will not delete any file from MythTV or change the MySQL database. All files can be recreated as long as the recording is available in MythTV./
+[fn:10] /This option is only visible when subtitles are available in the video file./
 
-[fn:10] /Automatic loading currently only works for live streaming. If no still of the video is shown after 30 seconds, as the case in this example, reload the browser page and start the video for viewing./
+[fn:11] /Either one of the two or none at all./
 
-[fn:11] /This button is only shown when both playlist types/ =event= /and/ =VOD= /were selected as shown in Figure 1./
+[fn:12] /This will not delete any file from MythTV or change the MySQL database. All files can be recreated as long as the recording is available in MythTV./
 
-[fn:12] /The/ =cutlist= /itself was defined in MythTV which is translated into the
+[fn:13] /Automatic loading currently only works for live streaming. If no still of the video is shown after 30 seconds, as the case in this example, reload the browser page and start the video for viewing./
+
+[fn:14] /This button is only shown when both playlist types/ =event= /and/ =VOD= /were selected as shown in Figure 1./
+
+[fn:15] /The/ =cutlist= /itself was defined in MythTV which is translated into the
 inpoint's and outpoint's of the/ =cutlist= /for the video./
+
+[fn:16] The channel information is extracted from MythTV automagically.
