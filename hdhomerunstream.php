@@ -7,10 +7,12 @@ $language = "dut";
 $languagename = "Dutch";
 # TODO: select free tuner instead of hard coding
 $tuner="tuner3";
+$ffmpeg="/usr/bin/ffmpeg";
 
 $HDHRID = shell_exec("/usr/bin/sudo /usr/bin/hdhomerun_config discover | cut -d ' ' -f3");
 $HDHRID = str_replace("\n", '', $HDHRID);
-$response = shell_exec("/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$channel_path.";");
+$response = shell_exec("/usr/bin/sudo /usr/bin/mkdir -p ".$channel_path.";");
+$response = shell_exec("/usr/bin/sudo /usr/bin/chown apache:apache ".$channel_path.";");
 $relative_path = shell_exec("/usr/bin/sudo /usr/bin/realpath --relative-to=$channel_path $live_path");
 $relative_path = str_replace("\n", '', $relative_path);
 $hostname="localhost";
@@ -169,7 +171,7 @@ $select_box .= "<label for=\"quality\">Adaptive Bitrate Streaming (ABR): </label
 $select_box .= "<option value=\"\" disabled hidden>-- Use Ctrl-Click, Command-Click and Shift-Click to compose ABR --</option>";
 foreach ($settings as $setting => $settingset)
 {
-    $select_box .= "<option value=\"".$setting."\"".((strpos($setting, "high720") !== false)?" selected":"").
+    $select_box .= "<option value=\"".$setting."\"".((strpos($setting, "high480") !== false)?" selected":"").
                            ">".preg_replace('/[0-9]+/', '', ucfirst($setting))." Quality ".$settingset["height"]."p".
                            "</option>\n";
 }
@@ -249,7 +251,7 @@ else if (isset($_REQUEST["do"]))
         $fp = fopen($channel_path."/".$channel."/encode.sh", "w");
         fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." set /".$tuner."/channel auto:".$channels[$_REQUEST['channel']]['Frequency'].";\n");
         fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." set /".$tuner."/program ".$channels[$_REQUEST['channel']]['ServiceId'].";\n");
-        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache /usr/bin/ffmpeg \
+        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache ".$ffmpeg." \
                                              -txt_format text -txt_page 888 \
                                              -i - -y \
                                              -c copy \
@@ -282,7 +284,7 @@ else if (isset($_REQUEST["do"]))
                  /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file."; \
                  /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,RESOLUTION.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
         fwrite($fp, "fi\n");
-        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache /usr/bin/ffmpeg \
+        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache ".$ffmpeg." \
                                          -fix_sub_duration \
                                          ".$hwaccels[$_REQUEST["hw"]]["hwaccel"]." \
                                          -txt_format text -txt_page 888 \
@@ -514,6 +516,7 @@ else if (isset($_REQUEST["do"]))
                 var liveButtonId = document.getElementById("liveButtonId");
                 liveButtonId.style.display = 'block';
                 liveButtonId.style.visibility = 'visible';
+                liveButtonId.setAttribute('value',"<?php echo $channel; ?>");
                 liveButtonId.setAttribute('onclick',"window.location.href='../live/<?php echo $channel; ?>/master_live.m3u8'");
             }
 

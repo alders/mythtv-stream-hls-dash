@@ -1,7 +1,7 @@
 #+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:nil arch:headline author:t
-#+options: broken-links:nil c:nil creator:nil d:(not "LOGBOOK") date:t e:t
+#+options: c:nil creator:nil d:(not "LOGBOOK") date:t e:t
 #+options: email:nil f:t inline:t num:t p:nil pri:nil prop:nil stat:t tags:t
-#+options: tasks:t tex:t timestamp:t title:t toc:t todo:t |:t
+#+options: tasks:t tex:t timestamp:t title:t toc:nil todo:t |:t
 #+title: MythTV stream MPEG-DASH and HLS with fMP4 segments
 #+date: <2023-10-15 Sun>
 #+author: Dennis Alders
@@ -25,6 +25,8 @@ Why:
 - [[https://www.mythtv.org/wiki/MythWeb][MythWeb]] is no longer actively developed and is based on Flash technology from
   the days of yore.
 - HTML5 support for [[https://www.mythtv.org/wiki/WebFrontend][WebFrontend]] is work in progress.
+- The new Web Application ([[https://www.mythtv.org/wiki/Web_Application][MythTV v34]]) does not yet provide HTTP streaming
+  support.
 - An attempt to overcome these shortcomings was made in github project [[https://github.com/thecount2a/mythtv-stream-mpeg-dash][MythTV
   stream mpeg DASH]].
 - All lack support for =HLS=, Adaptive Bitrate Streaming (=ABR=), live recording,
@@ -53,19 +55,25 @@ How:
   adaptive playback.
 - A ramdisk can be used for in memory handling of playlist type =live=.
 
+#+TOC: headlines 2
+
 * Installation
 :PROPERTIES:
 :ID:       e32a386c-b67a-4701-ae52-5c145c18d930
 :END:
+
+The installation below is based on Apache and Fedora. When using a different web
+server / distribution locations and content user may be different. Adapting the
+code is left as an exercise to the user.
 
 ** Dependency
 :PROPERTIES:
 :ID:       335b222c-00c0-4151-8365-911272ccbeca
 :END:
 
-- MythTV (for commerical cut info and looking up the name of each recording
-  based on filename)
-  - version v0.33
+- MythTV (for looking up the name of each recording based on filename and
+  optionally for commerical cut info)
+  - Any version up to and including version v0.34
 - FFmpeg (for encoding)[fn:1]
   - FFmpeg version 5.1.3
 - GNU screen
@@ -81,11 +89,15 @@ How:
 - HDHomeRun
   - Firmware Version 20230713
 
+Note: take security measures in case you decide to open your web server to the
+internet. Use at your own risk.
+
 ** Create apache user
 :PROPERTIES:
 :ID:       eff9c934-56c8-4691-bfeb-e39465be8e72
 :END:
 
+Create a web content owner[fn:2]:
 #+begin_src shell -n
 sudo useradd -d /var/www/ -g apache -M -N -s /sbin/nologin apache
 sudo chown -R apache:apache /var/www/html
@@ -94,6 +106,7 @@ sudo chmod -R 755 /var/www/html
 
 ** Configure sudo
 
+The =php= script generates a =bash= script. The commands are run as user =apache= via =sudo=:
 #+begin_src shell -n
 sudo visudo -f /etc/sudoers.d/apache
 [mythtv@nuc1 ~]$ sudo cat /etc/sudoers.d/apache
@@ -123,36 +136,75 @@ sudo chown apache:apache /var/www/html/mythtv-stream-hls-dash
 sudo -uapache rsync -avnh --exclude='.git/' mythtv-stream-hls-dash/*.php /var/www/html/mythtv-stream-hls-dash/
 #+end_src
 
-** Patch mythweb
+** Patch MythWeb
 :PROPERTIES:
 :ID:       4eba13d0-81fc-48e1-9e4d-d1d553fa4783
 :END:
 
-Optional final step: modify 2 lines of mythweb code to change ASX Stream button
-on the "Recorded Programs" page to =Stream HLS DASH= button.
+Optional step, modify 2 lines of MythWeb code to change ASX Stream button on the
+"Recorded Programs" page to =Stream HLS DASH= button.
 
 #+begin_src shell -n
-*** /var/www/html/mythweb/modules/tv/tmpl/default/recorded.php.original
---- /var/www/html/mythweb/modules/tv/tmpl/default/recorded.php
-***************
-*** 158,165 ****
-              echo ' -noimg">';
-  ?>
-          <a class="x-download"
-!             href="<?php echo video_url($show, true) ?>" title="<?php echo t('ASX Stream'); ?>"
-!             ><img height="24" width="24" src="<?php echo skin_url ?>/img/play_sm.png" alt="<?php echo t('ASX Stream'); ?>"></a>
-          <a class="x-download"
-              href="<?php echo $show->url ?>" title="<?php echo t('Direct Download'); ?>"
-              ><img height="24" width="24" src="<?php echo skin_url ?>/img/video_sm.png" alt="<?php echo t('Direct Download'); ?>"></a>
---- 158,165 ----
-              echo ' -noimg">';
-  ?>
-          <a class="x-download"
-!             target="_blank" href="/mythtv-stream-hls-dash/index.php?filename=<?php echo $show->chanid."_".gmdate('YmdHis', $show->recstartts) ?>" title="<?php echo 'Stream HLS DASH; ?>"
-!             ><img height="24" width="24" src="<?php echo skin_url ?>/img/play_sm.png" alt="<?php echo 'Stream HLS DASH; ?>"></a>
-          <a class="x-download"
-              href="<?php echo $show->url ?>" title="<?php echo t('Direct Download'); ?>"
-              ><img height="24" width="24" src="<?php echo skin_url ?>/img/video_sm.png" alt="<?php echo t('Direct Download'); ?>"></a>
+diff --git a/modules/tv/tmpl/default/recorded.php b/modules/tv/tmpl/default/recorded.php
+index 8502305b..7bf3db0b 100644
+--- a/modules/tv/tmpl/default/recorded.php
++++ b/modules/tv/tmpl/default/recorded.php
+@@ -158,8 +158,8 @@ EOM;
+             echo ' -noimg">';
+ ?>
+         <a class="x-download"
+-            href="<?php echo video_url($show, true) ?>" title="<?php echo t('ASX Stream'); ?>"
+-            ><img height="24" width="24" src="<?php echo skin_url ?>/img/play_sm.png" alt="<?php echo t('ASX Stream'); ?>"></a>
++            target="_blank" href="/mythtv-stream-hls-dash/index.php?filename=<?php echo $show->chanid."_".gmdate('YmdHis', $show->recstartts) ?>" title="<?php echo 'Stream HLS DASH'; ?>"
++            ><img height="24" width="24" src="<?php echo skin_url ?>/img/play_sm.png" alt="<?php echo 'Stream HLS DASH'; ?>"></a>
+         <a class="x-download"
+             href="<?php echo $show->url ?>" title="<?php echo t('Direct Download'); ?>"
+             ><img height="24" width="24" src="<?php echo skin_url ?>/img/video_sm.png" alt="<?php echo t('Direct Download'); ?>"></a>
+#+end_src
+
+** Patch Web Application
+
+Alternatively, change two lines in the =backend Web App=[fn:3] to allow recording
+selection from any device. Replace =mydomain= in the patches below:
+#+begin_src shell -n
+diff --git a/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html b/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html
+index 4618e41aa8..8bae11e03a 100644
+--- a/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html
++++ b/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html
+@@ -76,7 +76,8 @@
+                     <td style="flex-basis: 12%" class="p-1 overflow-hidden">
+                         <i class="pi pi-exclamation-triangle p-1" *ngIf="program.VideoPropNames.indexOf('DAMAGED') > -1"
+                             pTooltip="{{ 'dashboard.recordings.damaged' | translate }}" tooltipPosition="top"></i>
+-                        {{program.Title}}
++			            <a href="{{URLencode('http://mydomain/mythtv-stream-hls-dash/index.php?filename=' + program.Recording.FileName.split('.').slice(0, -1).join('.'))}}" target="_blank">{{program.Title}}</a></td>
++
+                     </td>
+                     <td style="flex-basis: 2%" class="p-1">
+                         <i class="pi pi-eye" *ngIf="program.ProgramFlagNames.indexOf('WATCHED') > -1"
+#+end_src
+
+Run the npm build script and install the web application:
+#+begin_src shell -n
+cd mythtv/mythtv/html/backend/
+npm run-script build
+cd ..
+sudo make install
+#+end_src
+
+#+begin_src shell -n
+diff --git a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
+index 2d75b5e0ab..cca056c338 100644
+--- a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
++++ b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
+@@ -68,7 +68,7 @@
+                                 (click)="onDirectory(video.Title)" label="{{video.Title}}"></button>
+                         </div>
+                         <ng-template #title>
+-                            {{video.Title}}
++                            <a href="{{URLencode('http://mydomain/mythtv-stream-hls-dash/index.php?filename=' + video.FileName)}}" target="_blank">{{video.Title}}</a>
+                         </ng-template>
+                     </td>
+                     <td style="flex-basis: 3%" class="p-1">
 #+end_src
 
 * HTTP streaming
@@ -178,14 +230,14 @@ recording in MythWeb.
 #+LABEL: user-interface
 [[file:screenshots/user-selection.png]]
 
-User interface options[fn:6]:
-- Select an available recording from the list box[fn:7].
+User interface options:
+- Select an available recording from the list box[fn:4].
 - Select the =ABR= renditions from the select dropdown list box.
-- Select the HW acceleration from the list box[fn:8].
-- Select if the =Cutlist= should be used using the list box[fn:9].
-- Select using the checkbox if =Subtitles= should be created[fn:10].
+- Select the HW acceleration from the list box[fn:5].
+- Select if the =Cutlist= should be used using the list box[fn:6].
+- Select using the checkbox if =Subtitles= should be created[fn:7].
 - Select using the checkboxes if playlist type =live= or =event= should be
-  used[fn:11].
+  used[fn:8].
 - Select using the checkbox if playlist type =VOD= should be used.
 - Select using the checkbox if a =MP4= file should be created.
 - Press *Encode Video* when you are satisfied with your choices to start
@@ -230,7 +282,7 @@ Commercials= was selected in Figure 1, the video is remuxed to an =MP4= containe
 
 Three buttons are shown below the available recording list box.
 
-The first button =Delete Video Files= basically does what is says[fn:12],
+The first button =Delete Video Files= basically does what is says[fn:9],
 
 The second status button displays a dynamic message. Figure 3 shows the =Remuxing
 Video= percentage.
@@ -257,7 +309,7 @@ Figure 4 shows the user interface while encoding the video.
 
 Progress of the encoding is shown on the status button as a percentage and
 the time of the video available. When there is about 6 seconds of video
-available the player automatically tries to load the video[fn:13].
+available the player automatically tries to load the video[fn:10].
 
 Next to the =Shutdown Lock= buttons appear dynamically when files become available
 on disk. In Figure 4 this is the case for =HLS event= and =HLS VOD=. Select the
@@ -302,7 +354,7 @@ Figure 6 shows the interface after encoding is done.
 
 [[file:screenshots/encoding-finished.png]]
 
-Two additional buttons appeared in Figure 6 for =Cleanup Video Files= [fn:14] and
+Two additional buttons appeared in Figure 6 for =Cleanup Video Files= [fn:11] and
 =Download MP4=.
 
 Since both playlists =HLS event= and =HLS VOD= basically provide similar user
@@ -326,7 +378,7 @@ all playlist types. Subtitles are supported by all.
 #+caption: Feature support for live broadcast and recorded video.
 #+label: feature-types
 #+attr_latex: :width 350px :options angle=90
-| Playlist | HLS | DASH | subtitle[fn:2] | subtitle[fn:3] | ABR |
+| Playlist | HLS | DASH | subtitle[fn:12] | subtitle[fn:13] | ABR |
 |----------+-----+------+----------------+----------------+-----|
 | live     | ✅  |      | ✅             |                | ✅  |
 | event    | ✅  |      | ✅             |                | ✅  |
@@ -334,7 +386,7 @@ all playlist types. Subtitles are supported by all.
 | MP4      |     |      |                | ✅             |     |
 
 All possible UI combinations of playlist types and MP4 that can be chosen by the
-user are shown in table 2[fn:4].
+user are shown in table 2[fn:14].
 
 *Table 2:* /All possible UI combinations of playlist types and MP4./
 #+caption: All possible combinations of playlist types and MP4.
@@ -379,7 +431,7 @@ network "/automagically/".
 #+attr_latex: :width 350px :options angle=90
 | Playlist | Progress bar | Captions   | Resolution   | Language                                   | Quality          |
 |----------+--------------+------------+--------------+--------------------------------------------+------------------|
-| live     | ✅ [fn:5]    | Nederlands | Auto (nullp) | Nederlands                                 | 🔴               |
+| live     | ✅ [fn:15]    | Nederlands | Auto (nullp) | Nederlands                                 | 🔴               |
 | event    | ✅           | Nederlands | Auto (nullp) | Nederlands                                 | 🔴               |
 | VOD      | ✅           | Nederlands | Auto (nullp) | Nederlands,Nederlands  (2 out of 3 tracks) | 🔴               |
 | MP4      | ✅           |            | 🔴           | Nederlands                                 | Auto (0 kbits/s) |
@@ -414,7 +466,7 @@ be remuxed to a =MP4= container as shown in the user interface of Figure 3. The
 code block below shows in detail how this is done.
 
 An =MP4= container allows FFmpeg to use the =concat demuxer= later in the
-script[fn:15].
+script[fn:16].
 
 
 #+begin_src shell -n
@@ -497,46 +549,45 @@ cd /var/www/html/hls/;
      \
      \
     -f concat -async 1 -safe 0 -i /var/www/html/hls/10100_20231101212100/cutlist.txt \  # Use cutlist
-    -progress 10100_20231101212100/progress-log.txt \                                   # Track progress of encoding
-    -live_start_index 0 \                                                               # Segment index to start live streams at
-    -force_key_frames "expr:gte(t,n_forced*2)" \                                        # Fixed key frame interval is needed to avoid variable segment duration.
-    -tune movie \
+    -progress 10100_20231101212100/progress-log.txt \ # Track progress of encoding
+    -live_start_index 0 \                             # Segment index to start live streams at
+    -force_key_frames "expr:gte(t,n_forced*2)" \      # Fixed key frame interval is needed to avoid variable segment duration.
+    -tune film \                                      # use for high quality movie content; lowers deblocking
     -metadata title="De Avondshow met Arjen Lubach" \
     -filter_complex "[0:v]split=3[v1][v2][v3];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out];[v3]scale_vaapi=w=640:h=360[v3out]" \ # Resize A Video To Multiple Resolutions
-    -map [v1out] -c:v:0 \                                                               # Rendition 1
-        h264_vaapi \                                                                    # Use H264 VAAPI (Video Acceleration API) hardware acceleration
-        -b:v:0 3200k \                                                                  # Transcode Video 1 to a user selected bitrate
-        -maxrate:v:0 3200k \                                                            # Maximum bitrate
-        -bufsize:v:0 1.5*3200k \                                                        # Buffer size
-        -crf 23 \                                                                       #
-        -preset veryslow \                                                              #
-        -g 48 \                                                                         #
-        -keyint_min 48 \                                                                # Set minimum interval between IDR-frame
-        -sc_threshold 0 \                                                               # Sets the threshold for the scene change detection.
-        -flags +global_header \                                                         # Set global header in the bitstream.
-    -map [v2out] -c:v:1 \                                                               # Rendition 2
-        h264_vaapi \                                                                    # Use H264 VAAPI (Video Acceleration API) hardware acceleration
-        -b:v:1 1600k \                                                                  # Transcode Video 2 to a derived lower resolution based on a user selected bitrate
-        -maxrate:v:1 1600k \                                                            # Maximum bitrate
-        -bufsize:v:1 1.5*1600k \                                                        # Buffer size
-        -crf 23 \                                                                       #
-        -preset veryslow \                                                              #
-        -g 48 \                                                                         #
-        -keyint_min 48 \                                                                # Set minimum interval between IDR-frame
-        -sc_threshold 0 \                                                               # Sets the threshold for the scene change detection.
-        -flags +global_header \                                                         # Set global header in the bitstream.
-    -map [v3out] -c:v:2 \                                                               # Rendition 1
-        h264_vaapi \                                                                    # Use H264 VAAPI (Video Acceleration API) hardware acceleration
-        -b:v:2 900k \                                                                   # Transcode Video 3 to a derived lower resolution based on a user selected bitrate
-        -maxrate:v:2 900k \                                                             # Maximum bitrate
-        -bufsize:v:2 1.5*900k \                                                         # Buffer size
-        -crf 23 \                                                                       #
-        -preset veryslow \                                                              #
-        -g 48 \                                                                         #
-        -keyint_min 48 \                                                                # Set minimum interval between IDR-frame
-        -sc_threshold 0 \                                                               # Sets the threshold for the scene change detection.
-        -flags +global_header \                                                         # Set global header in the bitstream.
-        -flags +global_header \
+    -map [v1out] -c:v:0 \        # Rendition 1
+        h264_vaapi \             # Use H264 VAAPI (Video Acceleration API) hardware acceleration
+        -b:v:0 3200k \           # Transcode Video 1 to a user selected bitrate
+        -maxrate:v:0 3200k \     # Maximum bitrate
+        -bufsize:v:0 1.5*3200k \ # Buffer size
+        -crf 23 \                # Constant Rate Factor
+        -preset veryslow \       #
+        -g 48 \                  #
+        -keyint_min 48 \         # Set minimum interval between IDR-frame
+        -sc_threshold 0 \        # Sets the threshold for the scene change detection.
+        -flags +global_header \  # Set global header in the bitstream.
+    -map [v2out] -c:v:1 \        # Rendition 2
+        h264_vaapi \             # Use H264 VAAPI (Video Acceleration API) hardware acceleration
+        -b:v:1 1600k \           # Transcode Video 2 to a derived lower resolution based on a user selected bitrate
+        -maxrate:v:1 1600k \     # Maximum bitrate
+        -bufsize:v:1 1.5*1600k \ # Buffer size
+        -crf 23 \                # Constant Rate Factor
+        -preset veryslow \       #
+        -g 48 \                  #
+        -keyint_min 48 \         # Set minimum interval between IDR-frame
+        -sc_threshold 0 \        # Sets the threshold for the scene change detection.
+        -flags +global_header \  # Set global header in the bitstream.
+    -map [v3out] -c:v:2 \        # Rendition 1
+        h264_vaapi \             # Use H264 VAAPI (Video Acceleration API) hardware acceleration
+        -b:v:2 900k \            # Transcode Video 3 to a derived lower resolution based on a user selected bitrate
+        -maxrate:v:2 900k \      # Maximum bitrate
+        -bufsize:v:2 1.5*900k \  # Buffer size
+        -crf 23 \                # Constant Rate Factor
+        -preset veryslow \       #
+        -g 48 \                  #
+        -keyint_min 48 \         # Set minimum interval between IDR-frame
+        -sc_threshold 0 \        # Sets the threshold for the scene change detection.
+        -flags +global_header \  # Set global header in the bitstream.
  \
     -map a:0 -c:a:0 aac -b:a:0 128k -ac 2 \
         -metadata:s:a:0 language=dut \
@@ -625,6 +676,12 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 :PROPERTIES:
 :ID:       1a02094d-b373-4321-9575-7e0ac529b6b9
 :END:
+
+#+begin_html
+  <details>
+    <summary>
+    Click me
+    </summary>
 
 For completeness the whole script is:
 
@@ -785,6 +842,9 @@ done
 /usr/bin/sudo /usr/bin/rm /var/www/html/hls/10100_20231101212100/video.mp4
 sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
 #+end_src
+
+  </details>
+#+end_html
 * Live TV
 ** User interface
 
@@ -802,8 +862,8 @@ channel.
 
 User interface options:
 - Select the =ABR= renditions from the select dropdown list box, see Figure 2.
-- Select the HW acceleration from the list box[fn:8].
-- Select the TV channel from the list box[fn:16].
+- Select the HW acceleration from the list box[fn:5].
+- Select the TV channel from the list box[fn:17].
 - Press *Watch TV* when you are satisfied with your choices to start watching.
 
 Figure 8 shows the Live TV user interface.
@@ -818,7 +878,7 @@ Figure 8 shows the Live TV user interface.
 [[file:screenshots/live-tv.png]]
 
 User interface options:
-- Select *Stop streaming* when you are done watching[fn:17].
+- Select *Stop streaming* when you are done watching[fn:18].
 - The status button indicates when the =Live stream is ready=.
 - Select =Shutdown Lock= in case one wants to prevent MythTV from shutting down.
 - The dynamic button next it indicates the =HLS= (no DASH support yet) manifest
@@ -862,33 +922,37 @@ Feedback, patches, other contributions and ideas are welcome!
 
 [fn:1] =mythffmpeg= can be used instead, but does not support subtitles.
 
-[fn:2] /Realtime./
+[fn:2] May depend on your distribution (e.g. 'data-www' is used for Ubuntu). May require one to adapt the =php= script.
 
-[fn:3] /After /Post-processing./
+[fn:3] This requires mythtv v34.
 
-[fn:4] /All can be combined with/ =ABR=, =Cut commercials= /and/ =subtitles= /selection/.
+[fn:4] Leave as is since we are defining the settings for this recording.
 
-[fn:5] /One minute of playback./
+[fn:5] Only VAAPI and no HW acceleration has been tested. Feedback on untested acceleration is appreciated.
 
-[fn:6] DEFINITION NOT FOUND.
+[fn:6] This option is only visible in the UI when a =Cutlist= is defined in MythTV.
 
-[fn:7] /Leave as is since we are defining the settings for this recording./
+[fn:7] This option is only visible when subtitles are available in the video file.
 
-[fn:8] Only VAAPI and no HW acceleration has been tested. Feedback on acceleration is appreciated.
+[fn:8] Either one of the two or none at all.
 
-[fn:9] /This option is only visible in the UI when a/ =Cutlist= /is defined in MythTV./
+[fn:9] This will not delete any file from MythTV or change the MySQL database. All files can be recreated as long as the recording is available in MythTV.
 
-[fn:10] /This option is only visible when subtitles are available in the video file./
+[fn:10] Automatic loading currently only works for live streaming. If no still of the video is shown after 30 seconds, as the case in this example, reload the browser page and start the video for viewing.
 
-[fn:11] /Either one of the two or none at all./
+[fn:11] This button is only shown when both playlist types =event= and =VOD= were selected as shown in Figure 1.
 
-[fn:12] /This will not delete any file from MythTV or change the MySQL database. All files can be recreated as long as the recording is available in MythTV./
+[fn:12] Realtime.
 
-[fn:13] /Automatic loading currently only works for live streaming. If no still of the video is shown after 30 seconds, as the case in this example, reload the browser page and start the video for viewing./
+[fn:13] After Post-processing.
 
-[fn:14] /This button is only shown when both playlist types/ =event= /and/ =VOD= /were selected as shown in Figure 1./
+[fn:14] All can be combined with =ABR=, =Cut commercials= and =subtitles= selection.
 
-[fn:15] /The/ =cutlist= /itself was defined in MythTV which is translated into the
-inpoint's and outpoint's of the/ =cutlist= /for the video./
+[fn:15] One minute of playback.
 
-[fn:16] The channel information is extracted from MythTV automagically.
+[fn:16] The =cutlist= itself was defined in MythTV which is translated into the
+inpoint's and outpoint's of the =cutlist= for the video.
+
+[fn:17] The channel information is extracted from MythTV automagically.
+
+[fn:18] FFmpeg encoding is stopped without checking if other users are watching the stream.

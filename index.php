@@ -12,7 +12,7 @@ $vod_path = "$webroot/$voddir";
 $program_path = "/home/mythtv";
 $language = "dut";
 $languagename = "Dutch";
-
+$ffmpeg="/usr/bin/ffmpeg";
 $dbserver = "localhost";
 $domainname = "192.168.1.29";
 $dbuser = "mythtv";
@@ -407,7 +407,7 @@ if (file_exists($video_path."/".$_REQUEST["filename"].".$extension") ||
             {
                 // Transmuxing from one container/format to mp4 – without re-encoding:
                 fwrite($fp,"/usr/bin/sudo /usr/bin/screen -S ".$filename."_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$filename."/status.txt;
-/usr/bin/sudo -uapache /usr/bin/ffmpeg \
+/usr/bin/sudo -uapache ".$ffmpeg." \
           -y \
           ".$hwaccels[$_REQUEST["hw"]]["hwaccel"]." \
           -txt_format text -txt_page 888 \
@@ -855,7 +855,7 @@ done\n");
 ".$create_live_dir."
 ".$create_hls_dir."
 cd ".$hls_path."/;
-/usr/bin/sudo -uapache /usr/bin/ffmpeg \
+/usr/bin/sudo -uapache ".$ffmpeg." \
     -fix_sub_duration \
     ".$sub_format." \
     ".$hwaccel." \
@@ -864,7 +864,7 @@ cd ".$hls_path."/;
     ".$fileinput." \
     -progress ".$filename."/progress-log.txt \
     -live_start_index 0 \
-    -tune movie \
+    -tune film \
     -metadata title=\"".$title_subtitle."\" \
     -force_key_frames \"expr:gte(t,n_forced*2)\" \
     ".$filter_complex." \
@@ -888,7 +888,7 @@ done\n");
                 fwrite($fp, "cd ".$hls_path."/".$filename.";
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$filename."/status.txt';
 cd ".$hls_path."/".$filename.";
-/usr/bin/sudo -uapache /usr/bin/ffmpeg \
+/usr/bin/sudo -uapache ".$ffmpeg." \
     -i \"".$filename." - ".$title_subtitle.".mp4\" \
     -i subtitles.vtt \
     -c:s mov_text -metadata:s:s:0 language=".$language." -disposition:s:0 default \
@@ -1056,10 +1056,8 @@ done\n");
                   }
               }
 
-              var fileExists = checkFileExists("../vod/<?php echo $filename; ?>/manifest_vod.mpd");
-
               // TODO: add extra check if transcoding is finished?
-              if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
+              if (checkFileExists("../vod/<?php echo $filename; ?>/manifest_vod.mpd")) {
                   message_string = "DASH VOD Available";
                   // Show button to play DASH on Windows Edge browser
                   var dashVodButtonId = document.getElementById("dashVodButtonId");
@@ -1067,7 +1065,7 @@ done\n");
                   dashVodButtonId.style.visibility = 'visible';
                   dashVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $filename; ?>/manifest_vod.mpd'");
               }
-              if (fileExists) {
+              if (checkFileExists("../vod/<?php echo $filename; ?>/master_vod.m3u8")) {
                   message_string = "HLS VOD Available";
                   // Show button to play VOD stream
                   var hlsVodButtonId = document.getElementById("hlsVodButtonId");
@@ -1096,7 +1094,7 @@ done\n");
                   eventButtonId.setAttribute('onclick',"window.location.href='../hls/<?php echo $filename; ?>/master_event.m3u8'");
               }
               if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8") &&
-                  fileExists &&
+                  checkFileExists("../vod/<?php echo $filename; ?>/master_vod.m3u8") &&
                   currentStatus.indexOf("encode finish success") >= 0) {
                   // Show button to delete event video leaving VOD intact
                   var cleanupEventId = document.getElementById('cleanupEventId');
@@ -1173,23 +1171,23 @@ done\n");
 
             if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
                 // Play DASH on Windows Edge browser
-                manifestUri = '../vod/<?php echo $filename; ?>/manifest_vod.mpd';
+                manifestUri = "../vod/<?php echo $filename; ?>/manifest_vod.mpd";
             } else if (fileExists) {
                 // Play VOD stream
-                manifestUri = '../vod/<?php echo $filename; ?>/master_vod.m3u8';
+                manifestUri = "../vod/<?php echo $filename; ?>/master_vod.m3u8";
             } else if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8")) {
                 // Play HLS event stream
-                manifestUri = '../hls/<?php echo $filename; ?>/master_event.m3u8';
+                manifestUri = "../hls/<?php echo $filename; ?>/master_event.m3u8";
             } else if (checkFileExists("../live/<?php echo $filename; ?>/master_live.m3u8")) {
                 // Play live stream
-                manifestUri = '../live/<?php echo $filename; ?>/master_live.m3u8';
+                manifestUri = "../live/<?php echo $filename; ?>/master_live.m3u8";
             } else if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                        currentStatus.indexOf("encode finish success") >= 0) {
                 // Play MP4 file
-                manifestUri = '../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4';
+                manifestUri = "../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
             } else if (extension == "mp4") {
                 // Play existing mp4, no encoding required
-                manifestUri = '../hls/<?php echo $filename; ?>.mp4';
+                manifestUri = "../hls/<?php echo $filename; ?>.mp4";
             } else {
                     return false;
             }
@@ -1504,7 +1502,7 @@ done\n");
                     // TODO: remove hack adding 300, need to be even higher?
                     if ($settingset["height"] <= $videoheight + 300)
                     {
-                        echo "            <option value=\"".$setting."\"".((strpos($setting, "high720") !== false)?" selected=\"selected\"":"").">".preg_replace('/[0-9]+/', '', ucfirst($setting))." Quality ".$settingset["height"]."p</option>\n";
+                        echo "            <option value=\"".$setting."\"".((strpos($setting, "high480") !== false)?" selected=\"selected\"":"").">".preg_replace('/[0-9]+/', '', ucfirst($setting))." Quality ".$settingset["height"]."p</option>\n";
                     }
                 }
              ?>
