@@ -1,6 +1,4 @@
 <?php
-define('MARK_CUT_START',1);
-define('MARK_CUT_END',0);
 
 $hlsdir = "hls";
 $livedir = "live";
@@ -56,12 +54,11 @@ $settings = array(
 );
 $keys = array_keys($settings);
 
-if (isset($_REQUEST["filename"]))
+if (isset($_REQUEST["videoid"]))
 {
-    $parts = explode("_", $_REQUEST["filename"]);
-    if (count($parts) != 2 || !ctype_digit($parts[0]) || !ctype_digit($parts[1]))
+    if (!ctype_digit($_REQUEST["videoid"]))
     {
-        throw new InvalidArgumentException('Invalid filename');
+        throw new InvalidArgumentException('Invalid videoid');
     }
 }
 if (isset($_REQUEST["quality"]))
@@ -87,7 +84,7 @@ if (isset($_REQUEST["length"]))
 }
 
 $file_list = scandir($hls_path);
-$file_list[] = $_REQUEST["filename"];
+$file_list[] = $_REQUEST["videoid"];
 $query_parts = array();
 $ids = array();
 for ($i = 0; $i < count($file_list); $i++)
@@ -96,58 +93,44 @@ for ($i = 0; $i < count($file_list); $i++)
     if (array_search($fn, $ids) === false)
     {
         $ids[] = $fn;
-        preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/', $fn, $filedetails);
+        preg_match_all('/^(\d{4})$/', $fn, $filedetails);
         if (isset($filedetails[1][0])){
-           $chanid=$filedetails[1][0];
-           if ($chanid)
-           {
-              $year=$filedetails[2][0];
-              $month=$filedetails[3][0];
-              $day=$filedetails[4][0];
-              $hour=$filedetails[5][0];
-              $minute=$filedetails[6][0];
-              $second=$filedetails[7][0];
-              $starttime="$year-$month-$day $hour:$minute:$second";
-              $query_parts[] = "(chanid=".$chanid." and starttime=\"".$starttime."\")";
-           }
+            $query_parts[] = "(intid=\"".$filedetails[1][0]."\")";
         }
     }
 }
 
-// TODO: when the user removes the file from mythtv, the name in the dropdown list is unknown
 $query_parts_string=implode(" OR ", $query_parts);
 $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
 $dbconn->set_charset("utf8");
 mysqli_select_db($dbconn,$dbname);
-$getnames = sprintf("select title,subtitle,chanid,starttime,basename from recorded where %s;",
+$getnames = sprintf("select title,subtitle,filename,intid from videometadata where %s;",
                     $query_parts_string);
 $result=mysqli_query($dbconn,$getnames);
 $names = array();
 $extension = "";
 $dirname = "";
 $title_subtitle = "";
+$read_rate = "";
 while ($row = mysqli_fetch_assoc($result))
 {
-    $starttime = str_replace(":", "", str_replace(" ", "", str_replace("-", "", $row['starttime'])));
-    $names[$row['chanid']."_".$starttime] = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
-    if ($_REQUEST["filename"] === pathinfo($row['basename'], PATHINFO_FILENAME))
+    $names[$row['intid']] = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
+    $extension = pathinfo($row['filename'], PATHINFO_EXTENSION);
+    $filename = pathinfo($row['filename'], PATHINFO_FILENAME);
+    $get_storage_dirs = sprintf("select dirname from storagegroup where groupname=\"Videos\"");
+    $q=mysqli_query($dbconn,$get_storage_dirs);
+    while ($row_q = mysqli_fetch_assoc($q))
     {
-        $extension = pathinfo($row['basename'], PATHINFO_EXTENSION);
-        $get_storage_dirs = sprintf("select dirname from storagegroup where groupname=\"Default\"");
-        $q=mysqli_query($dbconn,$get_storage_dirs);
-        while ($row_q = mysqli_fetch_assoc($q))
+        if (file_exists($row_q["dirname"]."/".$row["filename"].""))
         {
-            if (file_exists($row_q["dirname"]."/".$_REQUEST["filename"].".$extension"))
-            {
-                $dirname= $row_q["dirname"];
-                $title_subtitle = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
-            }
+            $dirname= $row_q["dirname"].pathinfo($row['filename'], PATHINFO_DIRNAME);
+            $title_subtitle = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
         }
     }
 }
 
 $done = array();
-$select_box = "<form><select onChange=\"window.location.href='index.php?filename='+this.value;\">\n";
+$select_box = "<form><select onChange=\"window.location.href='video.php?videoid='+this.value;\">\n";
 $file_list = array_reverse($file_list);
 for ($i = 0; $i < count($file_list); $i++)
 {
@@ -155,18 +138,10 @@ for ($i = 0; $i < count($file_list); $i++)
     if (array_search($fn, $done) === false)
     {
         $done[] = $fn;
-        preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/', $fn, $filedetails);
-
+        preg_match_all('/^(\d{4})$/', $fn, $filedetails);
         if (isset($filedetails[1][0]))
         {
-           $chanid=$filedetails[1][0];
-           if ($chanid)
-           {
-               $year=$filedetails[2][0];
-               $month=$filedetails[3][0];
-               $day=$filedetails[4][0];
-               $select_box .= "          <option value=\"".$fn."\">".(array_key_exists($fn, $names)?$names[$fn]:"Unknown Title")." (".$month."/".$day."/".$year.")</option>\n";
-           }
+            $select_box .= "          <option value=\"".$fn."\">".(array_key_exists($fn, $names)?$names[$fn]:"Unknown Title")."</option>\n";
         }
     }
 }
@@ -178,74 +153,73 @@ $hw_box .= "<option value=\"\" disabled hidden>-- Please choose your HW Accelera
      foreach ($hwaccels as $hwaccel => $hwaccelset)
      {
          $hw_box .= "<option value=\"".$hwaccel."\"".((strpos($hwaccel, "vaapi") !== false)?" selected=\"selected\"":"").
-                                ">".$hwaccelset["encoder"]."".
+                                ">".$hwaccelset["decoder"]."".
                                 "</option>\n";
      }
 $hw_box .= "</select>";
 
-if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
-    file_exists($vod_path."/".$_REQUEST["filename"]."/master_vod.m3u8") ||
-    file_exists($live_path."/".$_REQUEST["filename"]."/master_live.m3u8") ||
-    file_exists($hls_path."/".$_REQUEST["filename"]."/".$_REQUEST["filename"].".mp4") ||
-    file_exists($hls_path."/".$_REQUEST["filename"]."/master_event.m3u8"))
+if (file_exists($dirname."/".$filename.".".$extension) ||
+    file_exists($vod_path."/".$_REQUEST["videoid"]."/master_vod.m3u8") ||
+    file_exists($live_path."/".$_REQUEST["videoid"]."/master_live.m3u8") ||
+    file_exists($hls_path."/".$filename.".mp4") ||
+    file_exists($hls_path."/".$_REQUEST["videoid"]."/master_event.m3u8"))
 {
-    $filename = $_REQUEST["filename"];
     if (isset($_REQUEST['action']) && $_REQUEST["action"] === "delete")
     {
         // delete hls and vod files
-        if (file_exists($hls_path."/".$filename))
+        if (file_exists($hls_path."/".$_REQUEST["videoid"]))
         {
             // Shut down all screen sessions
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_remux  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
+            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$_REQUEST["videoid"]."_remux  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
+            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$_REQUEST["videoid"]."_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
             // kill dead screens
             $response = shell_exec('/usr/bin/sudo /usr/bin/screen -wipe');
             // // Delete files
-            array_map('unlink', glob($hls_path."/".$filename."/*.log*"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.sh*"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.m4s*"));
-            array_map('unlink', glob($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/video.mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/init*.mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.txt*"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.vtt"));
-            array_map('unlink', glob($hls_path."/".$filename."/sub.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/sub_0.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/sub_0_vtt.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/master_event.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/stream_event_*.m3u8"));
-            array_map('unlink', glob($vod_path."/".$filename."/*.mpd"));
-            array_map('unlink', glob($vod_path."/".$filename."/init.mp4"));
-            array_map('unlink', glob($vod_path."/".$filename."/*.vtt"));
-            array_map('unlink', glob($vod_path."/".$filename."/sub_0.m3u8"));
-            array_map('unlink', glob($vod_path."/".$filename."/sub_0_vtt.m3u8"));
-            array_map('unlink', glob($vod_path."/".$filename."/sub.m3u8"));
-            array_map('unlink', glob($vod_path."/".$filename."/manifest_vod*.mp4*"));
-            array_map('unlink', glob($vod_path."/".$filename."/master_vod.m3u8"));
-            array_map('unlink', glob($vod_path."/".$filename."/media_*.m3u8"));
-            array_map('unlink', glob($live_path."/".$filename."/*.mp4"));
-            array_map('unlink', glob($live_path."/".$filename."/*.m4s"));
-            array_map('unlink', glob($live_path."/".$filename."/*.vtt"));
-            array_map('unlink', glob($live_path."/".$filename."/sub_0.m3u8"));
-            array_map('unlink', glob($live_path."/".$filename."/sub_0_vtt.m3u8"));
-            array_map('unlink', glob($live_path."/".$filename."/sub.m3u8"));
-            array_map('unlink', glob($live_path."/".$filename."/stream_live_*.m3u8"));
-            array_map('unlink', glob($live_path."/".$filename."/manifest_live*.mp4*"));
-            array_map('unlink', glob($live_path."/".$filename."/master_live.m3u8"));
-            //array_map('unlink', glob($live_path."/".$filename."/media_*.m3u8"));
-            rmdir($hls_path."/".$filename);
-            if (is_dir($live_path."/".$filename))
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/*.log*"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/*.sh*"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/*.m4s*"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/".$_REQUEST["videoid"]." - ".$title_subtitle.".mp4"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/video.mp4"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/init*.mp4"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/*.txt*"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/*.vtt"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/sub.m3u8"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/sub_0.m3u8"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/sub_0_vtt.m3u8"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/master_event.m3u8"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/stream_event_*.m3u8"));
+            array_map('unlink', glob($vod_path."/".$_REQUEST["videoid"]."/*.mpd"));
+            array_map('unlink', glob($vod_path."/".$_REQUEST["videoid"]."/init.mp4"));
+            array_map('unlink', glob($vod_path."/".$_REQUEST["videoid"]."/*.vtt"));
+            array_map('unlink', glob($vod_path."/".$_REQUEST["videoid"]."/sub_0.m3u8"));
+            array_map('unlink', glob($vod_path."/".$_REQUEST["videoid"]."/sub_0_vtt.m3u8"));
+            array_map('unlink', glob($vod_path."/".$_REQUEST["videoid"]."/sub.m3u8"));
+            array_map('unlink', glob($vod_path."/".$_REQUEST["videoid"]."/manifest_vod*.mp4*"));
+            array_map('unlink', glob($vod_path."/".$_REQUEST["videoid"]."/master_vod.m3u8"));
+            array_map('unlink', glob($vod_path."/".$_REQUEST["videoid"]."/media_*.m3u8"));
+            array_map('unlink', glob($live_path."/".$_REQUEST["videoid"]."/*.mp4"));
+            array_map('unlink', glob($live_path."/".$_REQUEST["videoid"]."/*.m4s"));
+            array_map('unlink', glob($live_path."/".$_REQUEST["videoid"]."/*.vtt"));
+            array_map('unlink', glob($live_path."/".$_REQUEST["videoid"]."/sub_0.m3u8"));
+            array_map('unlink', glob($live_path."/".$_REQUEST["videoid"]."/sub_0_vtt.m3u8"));
+            array_map('unlink', glob($live_path."/".$_REQUEST["videoid"]."/sub.m3u8"));
+            array_map('unlink', glob($live_path."/".$_REQUEST["videoid"]."/stream_live_*.m3u8"));
+            array_map('unlink', glob($live_path."/".$_REQUEST["videoid"]."/manifest_live*.mp4*"));
+            array_map('unlink', glob($live_path."/".$_REQUEST["videoid"]."/master_live.m3u8"));
+            //array_map('unlink', glob($live_path."/".$_REQUEST["videoid"]."/media_*.m3u8"));
+            rmdir($hls_path."/".$_REQUEST["videoid"]);
+            if (is_dir($live_path."/".$_REQUEST["videoid"]))
             {
-                rmdir($live_path."/".$filename);
+                rmdir($live_path."/".$_REQUEST["videoid"]);
             }
-            if (is_dir($vod_path."/".$filename) && $extension != "mp4")
+            if (is_dir($vod_path."/".$_REQUEST["videoid"]) && $extension != "mp4")
             {
-               rmdir($vod_path."/".$filename);
+               rmdir($vod_path."/".$_REQUEST["videoid"]);
             }
          }
-        if (file_exists($hls_path."/".$filename.".mp4"))
+        if (file_exists($hls_path."/".$_REQUEST["videoid"].".mp4"))
         {
-            array_map('unlink', glob($hls_path."/".$filename.".mp4"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"].".mp4"));
         }
         echo "<html><head><title>Video Deleted</title></head><body>".$select_box."<h2>Video Deleted</h2></html>";
     }
@@ -253,71 +227,55 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
     {
         // If both HLS and VOD files are available, delete the HLS files only.
         // The VOD files remain on disk and can still be played.
-        if (file_exists($hls_path."/".$filename))
+        if (file_exists($hls_path."/".$_REQUEST["videoid"]))
         {
             // Shut down all screen sessions
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_encode  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_remux  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
+            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$_REQUEST["videoid"]."_encode  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
+            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$_REQUEST["videoid"]."_remux  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
             // Delete files
-            array_map('unlink', glob($hls_path."/".$filename."/*.log*"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.sh*"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.vtt"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.m4s*"));
-            array_map('unlink', glob($hls_path."/".$filename."/init_*.mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/video.mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/sub.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/master_event.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/stream_event_*.m3u8"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/*.log*"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/*.sh*"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/*.vtt"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/*.m4s*"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/init_*.mp4"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/video.mp4"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/sub.m3u8"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/master_event.m3u8"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/stream_event_*.m3u8"));
         }
-        if (file_exists($hls_path."/".$filename.".mp4"))
+        if (file_exists($hls_path."/".$_REQUEST["videoid"].".mp4"))
         {
-            array_map('unlink', glob($hls_path."/".$filename.".mp4"));
+            array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"].".mp4"));
         }
-        header("Location: /mythtv-stream-hls-dash/index.php?filename=".$filename);
+        header("Location: /mythtv-stream-hls-dash/video.php?videoid=".$_REQUEST["videoid"]);
     }
     else if (isset($_REQUEST['action']) && $_REQUEST["action"] === "status")
     {
         $status = array();
-        if (file_exists($hls_path."/".$filename."/status.txt"))
+        if (file_exists($hls_path."/".$_REQUEST["videoid"]."/status.txt"))
         {
-            $status["status"] = file($hls_path."/".$filename."/status.txt");
+            $status["status"] = file($hls_path."/".$_REQUEST["videoid"]."/status.txt");
         }
-        if (file_exists($hls_path."/".$filename."/video.mp4"))
+        if (file_exists($hls_path."/".$_REQUEST["videoid"]."/video.mp4"))
         {
-            $status["remuxBytesDone"] = filesize($hls_path."/".$filename."/video.mp4");
+            $status["remuxBytesDone"] = filesize($hls_path."/".$_REQUEST["videoid"]."/video.mp4");
             $status["remuxBytesTotal"] = filesize($dirname."/".$filename.".".$extension);
         }
-        if (file_exists($hls_path."/".$filename."/progress-log.txt"))
+        if (file_exists($hls_path."/".$_REQUEST["videoid"]."/progress-log.txt"))
         {
-            $file = $hls_path."/".$filename."/state.txt";
-            $config = file_get_contents("".$hls_path."/".$filename."/status.txt");
-            if (file_exists($hls_path."/".$filename."/state.txt") &&
+            $file = $hls_path."/".$_REQUEST["videoid"]."/state.txt";
+            $config = file_get_contents("".$hls_path."/".$_REQUEST["videoid"]."/status.txt");
+            if (file_exists($hls_path."/".$_REQUEST["videoid"]."/state.txt") &&
                 !preg_match("/encode finish success/", $config, $matches) &&
                 preg_match("/remux finish success/", $config, $matches))
             {
-                array_map('unlink', glob($hls_path."/".$filename."/state.txt"));
+                array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/state.txt"));
             }
-            if (!file_exists($hls_path."/".$filename."/state.txt"))
+            if (!file_exists($hls_path."/".$_REQUEST["videoid"]."/state.txt"))
             {
                 $length = 0;
                 $framerate = 0;
-                if (preg_match("/remux finish success/", $config, $matches) && $extension != "avi")
-                {
-                    // thus $_REQUEST["removecut"]==on
-                    $mediainfo = shell_exec("/usr/bin/mediainfo ".$hls_path."/".$filename."/video.mp4");
-                    preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
-
-                    $link = file_get_contents($hls_path."/".$filename."/cutlist.txt");
-                    preg_match_all('/inpoint\s*(\b[0-9]{2,}[.]?[0-9]{1,})/', $link, $incontent, PREG_PATTERN_ORDER);
-                    preg_match_all('/outpoint\s*(\b[0-9]{2,}[.]?[0-9]{1,})/', $link, $outcontent, PREG_PATTERN_ORDER);
-                    foreach($outcontent[1] as $k => $v){
-                        $length += $v - $incontent[1][$k];
-                    }
-                }
-                else
-                {
-                    // thus $_REQUEST["removecut"]==off or avi in which case the cutlist will be empty
-                    $mediainfo = shell_exec("/usr/bin/mediainfo ".$dirname."/".$filename.".$extension");
+                    $mediainfo = shell_exec("/usr/bin/mediainfo \"".$dirname."/".$filename.".$extension"."\"");
                     preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
 
                     preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
@@ -334,7 +292,6 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
                     {
                         $length += ((int) $durationdetails[6][0]);
                     }
-                }
                 preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
                 if(isset($ratedetails[1][0])) {
                     $framerate = ((double)  $ratedetails[1][0]);
@@ -350,7 +307,7 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
             $length = $content["length"];
             // TODO: would be nice to replace these shell commands with php
             // TODO: adapt number 23 into a search from the end of the file, it may go wrong in case of may renditions no progress number is shown.
-            $frameNumber = shell_exec("/usr/bin/sudo -uapache /usr/bin/tail -n 23 ".$hls_path."/".$filename."/progress-log.txt | sudo -uapache /usr/bin/sed -n '/^frame=/p' | sudo -uapache sed -n 's/frame=//p'");
+            $frameNumber = shell_exec("/usr/bin/sudo -uapache /usr/bin/tail -n 23 ".$hls_path."/".$_REQUEST["videoid"]."/progress-log.txt | sudo -uapache /usr/bin/sed -n '/^frame=/p' | sudo -uapache sed -n 's/frame=//p'");
             $status["presentationDuration"] = (int) $length;
             $status["available"] = $frameNumber / $framerate;
         }
@@ -367,46 +324,38 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
     else if (isset($_REQUEST["do"]))
     {
         // Encode
-        if ($extension === "mp4" && !file_exists($hls_path."/".$filename.".".$extension))
+        if ($extension === "mp4" && !file_exists($hls_path."/".$_REQUEST["videoid"].".".$extension))
         {
-            symlink($dirname."/".$filename.".".$extension, $hls_path."/".$filename.".".$extension);
+            symlink($dirname."/".$filename.".".$extension, $hls_path."/".$_REQUEST["videoid"].".".$extension);
         }
-        else if (!file_exists($vod_path."/".$filename."/master_vod.m3u8") &&
-                 !file_exists($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4") &&
-                 !file_exists($hls_path."/".$filename.".mp4") &&
-                 !file_exists($hls_path."/".$filename."/master_event.m3u8") &&
-                 !file_exists($live_path."/".$filename."/master_live.m3u8"))
+        else if (!file_exists($hls_path."/".$filename.".".$extension) &&
+                 !file_exists($vod_path."/".$_REQUEST["videoid"]."/master_vod.m3u8") &&
+                 !file_exists($hls_path."/".$_REQUEST["videoid"]."/".$_REQUEST["videoid"]." - ".$title_subtitle.".mp4") &&
+                 !file_exists($hls_path."/".$_REQUEST["videoid"].".mp4") &&
+                 !file_exists($hls_path."/".$_REQUEST["videoid"]."/master_event.m3u8") &&
+                 !file_exists($live_path."/".$_REQUEST["videoid"]."/master_live.m3u8"))
         {
             $mustencode = false;
             $fileinput = "";
             if ($extension === "avi")
             {
-                $fileinput = "-i ".$hls_path."/".$filename."/video.mp4";
+                $fileinput = "-i ".$hls_path."/".$_REQUEST["videoid"]."/video.mp4";
                 $length = (int) $_REQUEST["length"];
-                $cut = "uncut";
-                $mustencode = true;
-            }
-            else if (ISSET($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and $_REQUEST["cutcount"] > 0)
-            {
-                $fileinput = "-f concat -async 1 -safe 0 -i ".$hls_path."/".$filename."/cutlist.txt";
-                $length = (int) $_REQUEST["clippedlength"];
-                $cut = "cut";
                 $mustencode = true;
             }
             else
             {
                 $fileinput = "-i \"".$dirname."/".$filename.".".$extension."\"";
                 $length = (int) $_REQUEST["length"];
-                $cut = "uncut";
             }
             # Write encode script (just for cleanup, if no encode necessary)
-            $fp = fopen($hls_path."/".$filename."/encode.sh", "w");
-            fwrite($fp, "cd ".$hls_path."/".$filename."\n");
+            $fp = fopen($hls_path."/".$_REQUEST["videoid"]."/encode.sh", "w");
+            fwrite($fp, "cd ".$hls_path."/".$_REQUEST["videoid"]."\n");
             $STARTTIME= "";
             if ($mustencode)
             {
                 // Transmuxing from one container/format to mp4 – without re-encoding:
-                fwrite($fp,"/usr/bin/sudo /usr/bin/screen -S ".$filename."_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$filename."/status.txt;
+                fwrite($fp,"/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST["videoid"]."_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$_REQUEST["videoid"]."/status.txt;
 /usr/bin/sudo -uapache ".$ffmpeg." \
           -y \
           ".$hwaccels[$_REQUEST["hw"]]["hwaccel"]." \
@@ -415,10 +364,10 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
           -i \"".$dirname."/".$filename.".$extension\" \
           -c copy \
           -c:s mov_text \
-          ".$hls_path."/".$filename."/video.mp4 && \
-/usr/bin/echo `date`: remux finish success >> ".$hls_path."/".$filename."/status.txt || \
-/usr/bin/echo `date`: remux finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
-                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'remux finish success'`\" ] ; \
+          ".$hls_path."/".$_REQUEST["videoid"]."/video.mp4 && \
+/usr/bin/echo `date`: remux finish success >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt || \
+/usr/bin/echo `date`: remux finish failed >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt'\n");
+                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$_REQUEST["videoid"]."/status.txt | /usr/bin/grep 'remux finish success'`\" ] ; \
 do \
     sleep 1; \
 done\n");
@@ -432,25 +381,8 @@ done\n");
             {
                 $hls_playlist_type = "undefined";
             }
-            // TODO: As of v34.0 the RecStatus can be checked using the Service API, see https://www.mythtv.org/wiki/Recording_Status
-            $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
-            $dbconn->set_charset("utf8");
-            mysqli_select_db($dbconn,$dbname);
-            $recstatus = sprintf("select recstatus from oldrecorded where starttime=(select starttime from recorded where basename='".$filename.".".$extension."') OR title=(select title from recorded where basename='".$filename.".".$extension."') AND subtitle=(select subtitle from recorded where basename='".$filename.".".$extension."');");
-            $result=mysqli_query($dbconn,$recstatus);
-            $read_rate = "";
-            $is_liverecording = "false";
-            while ($row_s = mysqli_fetch_assoc($result))
-            {
-                if ($row_s["recstatus"] === "-2")
-                {
-                    $is_liverecording= "true";
-                    // read input at native frame rate
-                    $read_rate = "-re";
-                }
-            }
             // TODO: think about this hls dir contains meta data, thus should always exist
-            $create_hls_dir  = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$hls_path."/".$filename.";";
+            $create_hls_dir  = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$hls_path."/".$_REQUEST["videoid"].";";
             $create_live_dir = "";
             $create_vod_dir  = "";
             $option_hls  = "/dev/null";
@@ -476,7 +408,7 @@ done\n");
             {
                 $read_rate = "-re";
                 // TODO: make language configurable
-                $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$live_path."/".$filename.";";
+                $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$live_path."/".$_REQUEST["videoid"].";";
                 $option_live  = "[select=\'";
                 $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -543,7 +475,7 @@ done\n");
                     }
                 }
                 $option_live .= "\\': \\\n          master_pl_name=master_live.m3u8: \
-          hls_segment_filename=../live/$filename/stream_live_%v_data%02d.m4s]../live/$filename/stream_live_%v.m3u8";
+          hls_segment_filename=../live/".$_REQUEST["videoid"]."/stream_live_%v_data%02d.m4s]../live/".$_REQUEST["videoid"]."/stream_live_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -556,13 +488,13 @@ done\n");
           hls_list_size=10: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../live/$filename/sub_%v.m3u8";
-                    $master_file = "$live_path/$filename/master_live.m3u8";
+          hls_segment_filename=\'/dev/null\']../live/".$_REQUEST["videoid"]."/sub_%v.m3u8";
+                    $master_file = "$live_path/".$_REQUEST["videoid"]."/master_live.m3u8";
                     // This command is delayed until master_live.m3u8 is created by FFmpeg!!!
                     // NOTE: Add subtitles
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$live_path."/".$filename.";
+        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$live_path."/".$_REQUEST["videoid"].";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
@@ -637,7 +569,7 @@ done\n");
                 }
                 $option_hls .= "\\': \
           master_pl_name=master_event.m3u8: \
-          hls_segment_filename=$filename/stream_event_%v_data%02d.m4s]$filename/stream_event_%v.m3u8";
+          hls_segment_filename=".$_REQUEST["videoid"]."/stream_event_%v_data%02d.m4s]".$_REQUEST["videoid"]."/stream_event_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -650,14 +582,14 @@ done\n");
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']$filename/sub_%v.m3u8";
-                    $master_file = "$hls_path/$filename/master_event.m3u8";
+          hls_segment_filename=\'/dev/null\']".$_REQUEST["videoid"]."/sub_%v.m3u8";
+                    $master_file = "$hls_path/".$_REQUEST["videoid"]."/master_event.m3u8";
                     // This command is delayed until master_event.m3u8 is created by FFmpeg!!!
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Add subtitles
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\"  ".$hls_path."/".$filename.";
+        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\"  ".$hls_path."/".$_REQUEST["videoid"].";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
@@ -665,12 +597,12 @@ done\n");
                 }
                 else
                 {
-                    $master_file = "$hls_path/$filename/master_event.m3u8";
+                    $master_file = "$hls_path/".$_REQUEST["videoid"]."/master_event.m3u8";
                     // This command is delayed until master_event.m3u8 is created by FFmpeg!!!
                     // NOTE: Start playing the video at the beginning.
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$hls_path."/".$filename.";
+        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$hls_path."/".$_REQUEST["videoid"].";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";) & \n");
 
@@ -678,7 +610,7 @@ done\n");
             }
             if (isset($_REQUEST["vod"]))
             {
-                $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$vod_path."/".$filename.";";
+                $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$vod_path."/".$_REQUEST["videoid"].";";
                 $option_vod  = "[select=\'";
                 $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -717,8 +649,8 @@ done\n");
           single_file=true: \
           adaptation_sets=\'id=0,streams=a id=1,streams=v\' : \
           media_seg_name=\'stream_vod_\$RepresentationID\$-\$Number%05d\$.\$ext\$\': \
-          hls_master_name=master_vod.m3u8]../".$voddir."/".$filename."/manifest_vod.mpd";
-                $master_file = "".$vod_path."/".$filename."/master_vod.m3u8";
+          hls_master_name=master_vod.m3u8]../".$voddir."/".$_REQUEST["videoid"]."/manifest_vod.mpd";
+                $master_file = "".$vod_path."/".$_REQUEST["videoid"]."/master_vod.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls event is used here to segment the subtitles, adding subtitle "streams" to dash is not implemented in FFmpeg
@@ -731,7 +663,7 @@ done\n");
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../vod/".$filename."/sub_%v.m3u8";
+          hls_segment_filename=\'/dev/null\']../vod/".$_REQUEST["videoid"]."/sub_%v.m3u8";
                     // TODO: make language configurable
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
@@ -739,7 +671,7 @@ done\n");
                     // NOTE: The execution of this command is delayed, till the master file is created later in time by FFmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
+        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$_REQUEST["videoid"].";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
@@ -755,7 +687,7 @@ done\n");
                     // NOTE: The execution of this command is delayed, till the master file is created later in time by FFmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
+        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$_REQUEST["videoid"].";
  done;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."\"/' ".$master_file.";) & \n");
@@ -765,11 +697,11 @@ done\n");
             {
                 $option_mp4 = "[select=\'v:0,a:0\': \
           f=mp4: \
-          movflags=+faststart]".$filename."/".$filename." - ".$title_subtitle.".mp4";
+          movflags=+faststart]".$_REQUEST["videoid"]."/".$_REQUEST["videoid"]." - ".$title_subtitle.".mp4";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     $option_mp4 .= "| \
-          [select=\'s:0\']".$filename."/subtitles.vtt";
+          [select=\'s:0\']".$_REQUEST["videoid"]."/subtitles.vtt";
                 }
             }
             if ($extension === "avi")
@@ -850,7 +782,7 @@ done\n");
                 $audio_stream_number++;
             }
         }
-        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt';
+        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt';
 ".$create_vod_dir."
 ".$create_live_dir."
 ".$create_hls_dir."
@@ -862,7 +794,7 @@ cd ".$hls_path."/;
     ".$STARTTIME." \
     ".$read_rate." \
     ".$fileinput." \
-    -progress ".$filename."/progress-log.txt \
+    -progress ".$_REQUEST["videoid"]."/progress-log.txt \
     -live_start_index 0 \
     -tune film \
     -metadata title=\"".$title_subtitle."\" \
@@ -875,48 +807,48 @@ cd ".$hls_path."/;
           ".$option_mp4."| \
           ".$option_live."| \
           ".$option_hls."\" \
-2>>/tmp/ffmpeg-".$hlsdir."-".$filename.".log && \
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || \
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
+2>>/tmp/ffmpeg-".$hlsdir."-".$_REQUEST["videoid"].".log && \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt' || \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt'\n");
             if (isset($_REQUEST["checkbox_subtitles"]) && isset($_REQUEST["mp4"]))
             {
                 // post processing: add subtitles to mp4 file
-                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ;
+                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$_REQUEST["videoid"]."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ;
 do
     sleep 1;
 done\n");
-                fwrite($fp, "cd ".$hls_path."/".$filename.";
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$filename."/status.txt';
-cd ".$hls_path."/".$filename.";
+                fwrite($fp, "cd ".$hls_path."/".$_REQUEST["videoid"].";
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt';
+cd ".$hls_path."/".$_REQUEST["videoid"].";
 /usr/bin/sudo -uapache ".$ffmpeg." \
-    -i \"".$filename." - ".$title_subtitle.".mp4\" \
+    -i \"".$_REQUEST["videoid"]." - ".$title_subtitle.".mp4\" \
     -i subtitles.vtt \
     -c:s mov_text -metadata:s:s:0 language=".$language." -disposition:s:0 default \
     -c:v copy \
     -c:a copy \
-    \"".$filename." - ".$title_subtitle.".tmp.mp4\" \
-2>>/tmp/ffmpeg-subtitle-merge-".$hlsdir."-".$filename.".log && \
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$filename."/status.txt' || \
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> ".$hls_path."/".$filename."/status.txt';
-/usr/bin/sudo /usr/bin/mv -f \"".$filename." - ".$title_subtitle.".tmp.mp4\" \"".$filename." - ".$title_subtitle.".mp4\" \n");
+    \"".$_REQUEST["videoid"]." - ".$title_subtitle.".tmp.mp4\" \
+2>>/tmp/ffmpeg-subtitle-merge-".$hlsdir."-".$_REQUEST["videoid"].".log && \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt' || \
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt';
+/usr/bin/sudo /usr/bin/mv -f \"".$_REQUEST["videoid"]." - ".$title_subtitle.".tmp.mp4\" \"".$_REQUEST["videoid"]." - ".$title_subtitle.".mp4\" \n");
        	    }
             if ($mustencode)
             {
-                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ;
+                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$_REQUEST["videoid"]."/status.txt | /usr/bin/grep 'encode finish success'`\" ] ;
 do
     sleep 1;
 done\n");
-                fwrite($fp, "/usr/bin/sudo /usr/bin/rm ".$hls_path."/".$filename."/video.mp4\n");
+                fwrite($fp, "/usr/bin/sudo /usr/bin/rm ".$hls_path."/".$_REQUEST["videoid"]."/video.mp4\n");
             }
-            fwrite($fp, "sleep 3 && /usr/bin/sudo /usr/bin/screen -ls ".$filename."_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done\n");
+            fwrite($fp, "sleep 3 && /usr/bin/sudo /usr/bin/screen -ls ".$_REQUEST["videoid"]."_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done\n");
             fclose($fp);
 
-            $response = shell_exec("/usr/bin/sudo /usr/bin/chmod a+x ".$hls_path."/".$filename."/encode.sh");
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$filename."_encode -dm /bin/bash");
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$filename."_encode -X eval 'chdir ".$hls_path."/".$filename."'");
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$filename."_encode -X logfile '".$hls_path."/".$filename."/encode.log'");
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$filename."_encode -X log on");
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$filename."_encode -X stuff '".$hls_path."/".$filename."/encode.sh\n'");
+            $response = shell_exec("/usr/bin/sudo /usr/bin/chmod a+x ".$hls_path."/".$_REQUEST["videoid"]."/encode.sh");
+            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST["videoid"]."_encode -dm /bin/bash");
+            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST["videoid"]."_encode -X eval 'chdir ".$hls_path."/".$_REQUEST["videoid"]."'");
+            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST["videoid"]."_encode -X logfile '".$hls_path."/".$_REQUEST["videoid"]."/encode.log'");
+            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST["videoid"]."_encode -X log on");
+            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$_REQUEST["videoid"]."_encode -X stuff '".$hls_path."/".$_REQUEST["videoid"]."/encode.sh\n'");
         }
         ?>
 
@@ -947,7 +879,7 @@ done\n");
         <script>
           var manifestUri = "";
           var statusInterval = null;
-          var filename = "<?php echo $filename; ?>";
+          var videoid = "<?php echo $_REQUEST["videoid"]; ?>";
           var playerInitDone = false;
           var currentStatus = "";
           var message_string = "";
@@ -1057,59 +989,59 @@ done\n");
               }
 
               // TODO: add extra check if transcoding is finished?
-              if (checkFileExists("../vod/<?php echo $filename; ?>/manifest_vod.mpd")) {
+              if (checkFileExists("../vod/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd")) {
                   message_string = "DASH VOD Available";
                   // Show button to play DASH on Windows Edge browser
                   var dashVodButtonId = document.getElementById("dashVodButtonId");
                   dashVodButtonId.style.display = 'block';
                   dashVodButtonId.style.visibility = 'visible';
-                  dashVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $filename; ?>/manifest_vod.mpd'");
+                  dashVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd'");
               }
-              if (checkFileExists("../vod/<?php echo $filename; ?>/master_vod.m3u8")) {
+              if (checkFileExists("../vod/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8")) {
                   message_string = "HLS VOD Available";
                   // Show button to play VOD stream
                   var hlsVodButtonId = document.getElementById("hlsVodButtonId");
                   hlsVodButtonId.style.display = 'block';
                   hlsVodButtonId.style.visibility = 'visible';
-                  hlsVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $filename; ?>/master_vod.m3u8'");
+                  hlsVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8'");
               }
               if (extension === "mp4" &&
-                  checkFileExists("../hls/<?php echo $filename; ?>.mp4")) {
+                  checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>.mp4")) {
                   message_string = "Linked MP4 Available";
                   // Show button to play available mp4 (no encoding necessary)
                   var linkButtonId = document.getElementById("linkButtonId");
                   linkButtonId.style.display = 'block';
                   linkButtonId.style.visibility = 'visible';
                   linkButtonId.addEventListener("click", function() {
-                      var url = "http://<?php echo $domainname; ?>/hls/<?php echo $filename; ?>.mp4";
+                      var url = "http://<?php echo $domainname; ?>/hls/<?php echo $_REQUEST["videoid"]; ?>.mp4";
                       copyToClipboard(url);
                   }, false);
               }
-              if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8")) {
+              if (checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8")) {
                   message_string = "HLS Available";
                   // Show button to play HLS event stream
                   var eventButtonId = document.getElementById("eventButtonId");
                   eventButtonId.style.display = 'block';
                   eventButtonId.style.visibility = 'visible';
-                  eventButtonId.setAttribute('onclick',"window.location.href='../hls/<?php echo $filename; ?>/master_event.m3u8'");
+                  eventButtonId.setAttribute('onclick',"window.location.href='../hls/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8'");
               }
-              if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8") &&
-                  checkFileExists("../vod/<?php echo $filename; ?>/master_vod.m3u8") &&
+              if (checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8") &&
+                  checkFileExists("../vod/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8") &&
                   currentStatus.indexOf("encode finish success") >= 0) {
                   // Show button to delete event video leaving VOD intact
                   var cleanupEventId = document.getElementById('cleanupEventId');
                   cleanupEventId.style.display = 'block';
                   cleanupEventId.style.visibility = 'visible';
               }
-              if (checkFileExists("../live/<?php echo $filename; ?>/master_live.m3u8")) {
+              if (checkFileExists("../live/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8")) {
                   message_string = "LIVE Available";
                   // Show button to play live stream
                   var liveButtonId = document.getElementById("liveButtonId");
                   liveButtonId.style.display = 'block';
                   liveButtonId.style.visibility = 'visible';
-                  liveButtonId.setAttribute('onclick',"window.location.href='../live/<?php echo $filename; ?>/master_live.m3u8'");
+                  liveButtonId.setAttribute('onclick',"window.location.href='../live/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8'");
               }
-              if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+              if (checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                   currentStatus.indexOf("encode finish success") >= 0) {
                   message_string = "MP4 Video Available";
                   // Show button to play MP4 stream
@@ -1117,7 +1049,7 @@ done\n");
                   mp4ButtonId.style.display = 'block';
                   mp4ButtonId.style.visibility = 'visible';
                   mp4ButtonId.addEventListener("click", function() {
-                      var url = "http://<?php echo $domainname; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                      var url = "http://<?php echo $domainname; ?>/hls/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4";
                       download(url);
                           }, false);
               }
@@ -1144,7 +1076,7 @@ done\n");
               var oReq = new XMLHttpRequest();
               var newHandle = function(event) { handle(event, myArgument); };
               oReq.addEventListener("load", checkStatusListener);
-              oReq.open("GET", "index.php?filename="+filename+"&action=status");
+              oReq.open("GET", "video.php?videoid="+videoid+"&action=status");
               oReq.send();
           }
 
@@ -1167,27 +1099,27 @@ done\n");
           // async does not work on Edge
           //async function initPlayer() {
           function initPlayer() {
-            var fileExists = checkFileExists("../vod/<?php echo $filename; ?>/manifest_vod.mpd");
+            var fileExists = checkFileExists("../vod/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd");
 
             if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
                 // Play DASH on Windows Edge browser
-                manifestUri = "../vod/<?php echo $filename; ?>/manifest_vod.mpd";
+                manifestUri = "../vod/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd";
             } else if (fileExists) {
                 // Play VOD stream
-                manifestUri = "../vod/<?php echo $filename; ?>/master_vod.m3u8";
-            } else if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8")) {
+                manifestUri = "../vod/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8";
+            } else if (checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8")) {
                 // Play HLS event stream
-                manifestUri = "../hls/<?php echo $filename; ?>/master_event.m3u8";
-            } else if (checkFileExists("../live/<?php echo $filename; ?>/master_live.m3u8")) {
+                manifestUri = "../hls/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8";
+            } else if (checkFileExists("../live/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8")) {
                 // Play live stream
-                manifestUri = "../live/<?php echo $filename; ?>/master_live.m3u8";
-            } else if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+                manifestUri = "../live/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8";
+            } else if (checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                        currentStatus.indexOf("encode finish success") >= 0) {
                 // Play MP4 file
-                manifestUri = "../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                manifestUri = "../hls/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4";
             } else if (extension == "mp4") {
                 // Play existing mp4, no encoding required
-                manifestUri = "../hls/<?php echo $filename; ?>.mp4";
+                manifestUri = "../hls/<?php echo $_REQUEST["videoid"]; ?>.mp4";
             } else {
                     return false;
             }
@@ -1315,8 +1247,8 @@ done\n");
         <table cellspacing="10">
           <tr>
             <td>
-              <form action="index.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
-                <input type="hidden" name="filename" value="<?php echo $filename; ?>">
+              <form action="video.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
+                <input type="hidden" name="videoid" value="<?php echo $_REQUEST["videoid"]; ?>">
                 <input type="hidden" name="action" value="delete">
                 <input type="submit" value="Delete Video Files">
               </form>
@@ -1327,8 +1259,8 @@ done\n");
               </form>
             </td>
             <td>
-              <form action="index.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
-                <input type="hidden" name="filename" value="<?php echo $filename; ?>">
+              <form action="video.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
+                <input type="hidden" name="videoid" value="<?php echo $_REQUEST["videoid"]; ?>">
                 <input type="hidden" name="action" value="clean">
                 <input type="submit" style="display: none; visibility: hidden;" id="cleanupEventId" value="Cleanup Video Files">
               </form>
@@ -1375,11 +1307,11 @@ done\n");
     }
     else
     {
-        if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") && $extension !== "mp4")
+        if (file_exists($dirname."/".$filename.".".$extension) && $extension !== "mp4")
         {
-            if (!file_exists($hls_path."/".$filename))
+            if (!file_exists($hls_path."/".$_REQUEST["videoid"]))
             {
-                mkdir($hls_path."/".$filename);
+                mkdir($hls_path."/".$_REQUEST["videoid"]);
             }
             // Get mediainfo
             $mediainfo = shell_exec("/usr/bin/mediainfo \"".$dirname."/".$filename.".$extension"."\"");
@@ -1403,84 +1335,32 @@ done\n");
             if(isset($ratedetails[1][0])) {
                $framerate = ((double) $ratedetails[1][0]);
             }
-            // Fetch any cut marks
-            preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/',$filename,$filedetails);
-
-            $chanid=$filedetails[1][0];
-            $year=$filedetails[2][0];
-            $month=$filedetails[3][0];
-            $day=$filedetails[4][0];
-            $hour=$filedetails[5][0];
-            $minute=$filedetails[6][0];
-            $second=$filedetails[7][0];
-            $starttime="$year-$month-$day $hour:$minute:$second";
-
-            $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
-            $dbconn->set_charset("utf8");
-            mysqli_select_db($dbconn,$dbname);
-            $sqlselect="select * from recordedmarkup where (chanid=$chanid and starttime='$starttime' and (type=".MARK_CUT_START." or type=".MARK_CUT_END.")) order by mark;";
-            $result=mysqli_query($dbconn,$sqlselect);
-            $fp = fopen($hls_path."/".$filename."/cutlist.txt", "w");
-            fprintf($fp, "ffconcat version 1.0\n");
-            $firstrow = true;
-            $midsegment = false;
-            $startsegment = 0;
-            $clippedlength = 0;
-            $cutcount = 0;
-            while ($row = mysqli_fetch_assoc($result))
-            {
-                $cutcount++;
-                $mark = (double) $row['mark'];
-                $mark = ($mark / $framerate);
-                if ($row['type']==MARK_CUT_START)
-                {
-                    if ($firstrow && $mark > 1)
-                    {
-                        fprintf($fp, "file ".$hls_path."/".$filename."/video.mp4\n");
-                        fprintf($fp, "inpoint 0\n");
-                        fprintf($fp, "outpoint %0.2f\n", $mark);
-                        $clippedlength = $mark + 1;
-                    }
-                    else if ($midsegment)
-                    {
-                        fprintf($fp, "outpoint %0.2f\n", $mark);
-                        $midsegment = false;
-                        $clippedlength += ($mark - $startsegment) + 1;
-                    }
-                }
-                else if ($row['type']==MARK_CUT_END)
-                {
-                    if ($length - $mark > 10)
-                    {
-                        fprintf($fp, "file ".$hls_path."/".$filename."/video.mp4\n");
-                        fprintf($fp, "inpoint %0.2f\n", $mark);
-                        $midsegment = true;
-                        $startsegment = $mark;
-                    }
-                }
-                $firstrow = false;
-            }
-            if ($midsegment)
-            {
-                fprintf($fp, "outpoint %0.2f\n", $length);
-                $clippedlength += (($length - $startsegment) > 0 ? ($length - $startsegment) : 0) + 1;
-            }
-            fclose($fp);
         }
             ?>
             <html>
             <head><title>Select Video Settings</title></head>
             <body>
 <?php echo $select_box; ?>
-            <form name="FC" action="index.php" method="GET">
+            <form name="FC" action="video.php" method="GET">
+<?php
+            if (isset($_REQUEST["videoid"]))
+            {
+            ?>
+            <input type="hidden" name="videoid" value="<?php echo $_REQUEST["videoid"]; ?>">
+<?php
+            }
+            else
+            {
+            ?>
             <input type="hidden" name="filename" value="<?php echo $filename; ?>">
 <?php
-        if (file_exists($vod_path."/".$filename."/master_vod.m3u8") ||
-            file_exists($hls_path."/".$filename."/master_event.m3u8") ||
+            }
+        if (file_exists($vod_path."/".$_REQUEST["videoid"]."/master_vod.m3u8") ||
+            file_exists($hls_path."/".$_REQUEST["videoid"]."/master_event.m3u8") ||
             file_exists($dirname."/".$filename.".mp4") ||
-            file_exists($hls_path."/".$filename."/video.mp4") ||
-            file_exists($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4") ||
-            file_exists($live_path."/".$filename."/master_live.m3u8"))
+            file_exists($hls_path."/".$_REQUEST["videoid"]."/video.mp4") ||
+            file_exists($hls_path."/".$_REQUEST["videoid"]."/".$_REQUEST["videoid"]." - ".$title_subtitle.".mp4") ||
+            file_exists($live_path."/".$_REQUEST["videoid"]."/master_live.m3u8"))
         {
             // ready for streaming
             ?>
@@ -1510,17 +1390,10 @@ done\n");
              <?php echo $hw_box; ?>
              <br>
             <?php
-            if ($cutcount > 0)
-            {
-             ?>
-                <select name="removecut"><option value="on">Cut Commercials (<?php echo $cutcount/2; ?> found)</option><option value="off" selected="selected">Leave Uncut</option></select>
-            <?php
-                }
-            ?>
-            <br>
-            <?php
-            $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=Text;%Format%\" ".$dirname."/".$filename.".$extension");
-            if (preg_match('/(Teletext)/',$mediainfo,$subtitle) || (preg_match('/(Subtitle)/',$mediainfo,$subtitle)))
+            $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=Text;%Format%\" \"".$dirname."/".$filename.".$extension"."\"");
+            if (preg_match('/(Teletext)/',$mediainfo,$subtitle) ||
+                (preg_match('/(Subtitle)/',$mediainfo,$subtitle))  ||
+                (preg_match('/UTF-8/',$mediainfo,$subtitle)))
             {
             ?>
                    <input type="checkbox" action="" name="checkbox_subtitles" id="agree" value="yes">
@@ -1532,8 +1405,6 @@ done\n");
             <input type="hidden" name="height" value="<?php echo $videoheight; ?>">
             <input type="hidden" name="framerate" value="<?php echo $framerate; ?>">
             <input type="hidden" name="length" value="<?php echo $length; ?>">
-            <input type="hidden" name="clippedlength" value="<?php echo (int)$clippedlength; ?>">
-            <input type="hidden" name="cutcount" value="<?php echo (int)$cutcount/2; ?>">
             <input type="checkbox" name="hls_playlist_type[]" value="live" onclick="return KeepCount()" checked='checked' id="option"><label for="option"> live</label>
             <input type="checkbox" name="hls_playlist_type[]" value="event" onclick="return KeepCount()" id="option"><label for="option"> event</label><br>
             <input type="checkbox" name="vod" id="option"><label for="option">vod</label><br>
@@ -1579,6 +1450,7 @@ done\n");
 else
 {
     echo "No such file:\n";
+    echo $dirname."/".$filename.".".$extension;
     $filename = $_REQUEST["filename"];
     echo $dirname."/".$_REQUEST["filename"].".$extension";
     if (file_exists($dirname."".$_REQUEST["filename"].".$extension"))
