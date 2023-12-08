@@ -8,8 +8,13 @@ $hls_path = "$webroot/$hlsdir";
 $live_path = "$webroot/$livedir";
 $vod_path = "$webroot/$voddir";
 $program_path = "/home/mythtv";
-$language = "dut";
-$languagename = "Dutch";
+// NOTE: ISO 639-2/B language codes, the first match of the subtitle language preference is used
+$sublangpref = array(
+    "dut" => array("name" => "Dutch",        "ISO" => "dut"),
+    "dum" => array("name" => "dum",          "ISO" => "dum"),
+    "eng" => array("name" => "English",      "ISO" => "eng"),
+    "ger" => array("name" => "German",       "ISO" => "ger"),
+);
 $ffmpeg="/usr/bin/ffmpeg";
 $dbserver = "localhost";
 $domainname = "192.168.1.29";
@@ -20,15 +25,14 @@ $dbpass = trim($lines[0]);
 $dbname = "mythconverg";
 
 // Different hw acceleration options
-// NOTE: only "vaapi" and "nohwaccel" have been tested and are known to work
+// NOTE: only "h264" and "nohwaccel" have been tested and are known to work
 $hwaccels = array(
-    "h264_vaapi"     => array("encoder" => "h264_vaapi", "decoder" => "h264_vaapi", "scale" => "format=nv12|vaapi,hwupload,scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128"),
+    "h264"      => array("encoder" => "h264_vaapi", "decoder" => "h264_vaapi", "scale" => "format=nv12|vaapi,hwupload,scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128"),
     "h265"      => array("encoder" => "hevc_vaapi", "decoder" => "hevc_vaapi", "scale" => "scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi"),
     "qsv"       => array("encoder" => "h264_qsv",   "decoder" => "h264_qsv",   "scale" => "scale_qsv",   "hwaccel" => "-hwaccel qsv  -qsv_device -hwaccel_device /dev/dri/renderD128 -c:v h264_qsv"),
     "nvenc"     => array("encoder" => "h264_nvenc", "decoder" => "h264_nvenc", "scale" => "scale",       "hwaccel" => "-hwaccel cuda -vaapi_device /dev/dri/renderD128 -hwaccel_output_format nvenc"),
     "nohwaccel" => array("encoder" => "libx264",    "decoder" => "libx264",    "scale" => "scale",       "hwaccel" => ""),
 );
-
 
 // Ladder from which the user may choose, Aspect ratio 16:9
 // https://medium.com/@peer5/creating-a-production-ready-multi-bitrate-hls-vod-stream-dff1e2f1612c
@@ -68,20 +72,6 @@ if (isset($_REQUEST["quality"]))
         throw new InvalidArgumentException('Invalid quality');
     }
 }
-if (isset($_REQUEST["clippedlength"]))
-{
-    if (!ctype_digit($_REQUEST["clippedlength"]))
-    {
-        throw new InvalidArgumentException('Invalid clippedlength');
-    }
-}
-if (isset($_REQUEST["length"]))
-{
-    if (!ctype_digit($_REQUEST["length"]))
-    {
-        throw new InvalidArgumentException('Invalid length');
-    }
-}
 
 $file_list = scandir($hls_path);
 $file_list[] = $_REQUEST["videoid"];
@@ -100,6 +90,7 @@ for ($i = 0; $i < count($file_list); $i++)
     }
 }
 
+// TODO: when the user removes the file from mythtv, the name in the dropdown list is unknown
 $query_parts_string=implode(" OR ", $query_parts);
 $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
 $dbconn->set_charset("utf8");
@@ -115,16 +106,19 @@ $read_rate = "";
 while ($row = mysqli_fetch_assoc($result))
 {
     $names[$row['intid']] = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
-    $extension = pathinfo($row['filename'], PATHINFO_EXTENSION);
-    $filename = pathinfo($row['filename'], PATHINFO_FILENAME);
-    $get_storage_dirs = sprintf("select dirname from storagegroup where groupname=\"Videos\"");
-    $q=mysqli_query($dbconn,$get_storage_dirs);
-    while ($row_q = mysqli_fetch_assoc($q))
+    if ($_REQUEST["videoid"] === $row['intid'])
     {
-        if (file_exists($row_q["dirname"]."/".$row["filename"].""))
+        $extension = pathinfo($row['filename'], PATHINFO_EXTENSION);
+        $filename = pathinfo($row['filename'], PATHINFO_FILENAME);
+        $get_storage_dirs = sprintf("select dirname from storagegroup where groupname=\"Videos\"");
+        $q=mysqli_query($dbconn,$get_storage_dirs);
+        while ($row_q = mysqli_fetch_assoc($q))
         {
-            $dirname= $row_q["dirname"].pathinfo($row['filename'], PATHINFO_DIRNAME);
-            $title_subtitle = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
+            if (file_exists($row_q["dirname"]."/".$row["filename"].""))
+            {
+                $dirname= $row_q["dirname"].pathinfo($row['filename'], PATHINFO_DIRNAME);
+                $title_subtitle = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
+            }
         }
     }
 }
@@ -152,8 +146,8 @@ $hw_box .= "<label for=\"hwaccel\">HW acceleration: </label><select class=\"sele
 $hw_box .= "<option value=\"\" disabled hidden>-- Please choose your HW Acceleration --</option>";
      foreach ($hwaccels as $hwaccel => $hwaccelset)
      {
-         $hw_box .= "<option value=\"".$hwaccel."\"".((strpos($hwaccel, "vaapi") !== false)?" selected=\"selected\"":"").
-                                ">".$hwaccelset["decoder"]."".
+         $hw_box .= "<option value=\"".$hwaccel."\"".((strpos($hwaccel, "h264") !== false)?" selected=\"selected\"":"").
+                                ">".$hwaccelset["encoder"]."".
                                 "</option>\n";
      }
 $hw_box .= "</select>";
@@ -264,44 +258,46 @@ if (file_exists($dirname."/".$filename.".".$extension) ||
         if (file_exists($hls_path."/".$_REQUEST["videoid"]."/progress-log.txt"))
         {
             $file = $hls_path."/".$_REQUEST["videoid"]."/state.txt";
-            $config = file_get_contents("".$hls_path."/".$_REQUEST["videoid"]."/status.txt");
-            if (file_exists($hls_path."/".$_REQUEST["videoid"]."/state.txt") &&
-                !preg_match("/encode finish success/", $config, $matches) &&
-                preg_match("/remux finish success/", $config, $matches))
-            {
-                array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/state.txt"));
-            }
-            if (!file_exists($hls_path."/".$_REQUEST["videoid"]."/state.txt"))
-            {
-                $length = 0;
-                $framerate = 0;
-                    $mediainfo = shell_exec("/usr/bin/mediainfo \"".$dirname."/".$filename.".$extension"."\"");
-                    preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
+//             $config = file_get_contents("".$hls_path."/".$_REQUEST["videoid"]."/status.txt");
+//             if (file_exists($hls_path."/".$_REQUEST["videoid"]."/state.txt") &&
+//                 !preg_match("/encode finish success/", $config, $matches) &&
+//                 preg_match("/remux finish success/", $config, $matches))
+//             {
+//                 array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/state.txt"));
+//             }
+//             if (!file_exists($hls_path."/".$_REQUEST["videoid"]."/state.txt"))
+//             {
+//                 $length = 0;
+//                 $framerate = 0;
+//                 $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=General; Duration : %Duration/String%\r
+// Video; Width : %Width%\r Height : %Height%\r Frame rate : %FrameRate/String%\r
+// Text; Sub : %Language/String%\r\n\" \"".$dirname."/".$filename.".$extension"."\"");
+//                     preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
 
-                    preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
+//                     preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
 
-                    if ($durationdetails[1][0])
-                    {
-                        $length += ((int) $durationdetails[2][0]) * 3600;
-                    }
-                    if ($durationdetails[3][0])
-                    {
-                        $length += ((int) $durationdetails[4][0]) * 60;
-                    }
-                    if ($durationdetails[5][0])
-                    {
-                        $length += ((int) $durationdetails[6][0]);
-                    }
-                preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
-                if(isset($ratedetails[1][0])) {
-                    $framerate = ((double)  $ratedetails[1][0]);
-                }
-                $state = array();
-                $state["framerate"] = $framerate;
-                $state["length"] = $length;
-                $content = json_encode($state);
-                file_put_contents($file, $content);
-            }
+//                     if ($durationdetails[1][0])
+//                     {
+//                         $length += ((int) $durationdetails[2][0]) * 3600;
+//                     }
+//                     if ($durationdetails[3][0])
+//                     {
+//                         $length += ((int) $durationdetails[4][0]) * 60;
+//                     }
+//                     if ($durationdetails[5][0])
+//                     {
+//                         $length += ((int) $durationdetails[6][0]);
+//                     }
+//                 preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
+//                 if(isset($ratedetails[1][0])) {
+//                     $framerate = ((double)  $ratedetails[1][0]);
+//                 }
+//                 $state = array();
+//                 $state["framerate"] = $framerate;
+//                 $state["length"] = $length;
+//                 $content = json_encode($state);
+//                 file_put_contents($file, $content);
+//             }
             $content = json_decode(file_get_contents($file), TRUE);
             $framerate = $content["framerate"];
             $length = $content["length"];
@@ -335,18 +331,24 @@ if (file_exists($dirname."/".$filename.".".$extension) ||
                  !file_exists($hls_path."/".$_REQUEST["videoid"]."/master_event.m3u8") &&
                  !file_exists($live_path."/".$_REQUEST["videoid"]."/master_live.m3u8"))
         {
+            $file = $hls_path."/".$_REQUEST["videoid"]."/state.txt";
+            $content = json_decode(file_get_contents($file), TRUE);
+            $framerate = $content["framerate"];
+            $length = $content["length"];
+            $height = $content["height"];
+            $language = $content["language"];
+            $languagename = $content["languagename"];
+            $stream = $content["stream"];
             $mustencode = false;
             $fileinput = "";
             if ($extension === "avi")
             {
                 $fileinput = "-i ".$hls_path."/".$_REQUEST["videoid"]."/video.mp4";
-                $length = (int) $_REQUEST["length"];
                 $mustencode = true;
             }
             else
             {
                 $fileinput = "-i \"".$dirname."/".$filename.".".$extension."\"";
-                $length = (int) $_REQUEST["length"];
             }
             # Write encode script (just for cleanup, if no encode necessary)
             $fp = fopen($hls_path."/".$_REQUEST["videoid"]."/encode.sh", "w");
@@ -401,7 +403,7 @@ done\n");
             }
             if (isset($_REQUEST["checkbox_subtitles"]))
             {
-                $sub_mapping = "-map 0:s:0? -c:s webvtt";
+                $sub_mapping = "-map 0:s:".$stream." -c:s webvtt -metadata:s:s:0 language=".$language."";
                 $sub_format = "-txt_format text -txt_page 888";
             }
             if ($hls_playlist_type === "live")
@@ -956,7 +958,6 @@ done\n");
 
                       message = message + " available";
                       // NOTE: 6 seconds is equal to 3x segment size is just an empirical guess, works without subtitles
-                      // NOTE: 20 seconds is equal to 10x segment size is just an empirical guess, works with subtitles
                       if (!playerInitDone && Math.ceil(status["available"] > 6))
                       {
                           playerInitDone = initPlayer();
@@ -1313,27 +1314,74 @@ done\n");
             {
                 mkdir($hls_path."/".$_REQUEST["videoid"]);
             }
-            // Get mediainfo
-            $mediainfo = shell_exec("/usr/bin/mediainfo \"".$dirname."/".$filename.".$extension"."\"");
-            preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
-            $length = 0;
-            if ($durationdetails[1][0])
+            $file = $hls_path."/".$_REQUEST["videoid"]."/state.txt";
+            if (!file_exists($file))
             {
-                $length += ((int) $durationdetails[2][0]) * 3600;
-            }
-            if ($durationdetails[3][0])
-            {
-                $length += ((int) $durationdetails[4][0]) * 60;
-            }
-            if ($durationdetails[5][0])
-            {
-                $length += ((int) $durationdetails[6][0]);
-            }
-            preg_match_all('/Height[ ]*: (\d*[ ]?\d*) pixels/',$mediainfo,$heightdetails);
-            $videoheight = ((int) str_replace(" ", "", $heightdetails[1][0]));
-            preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
-            if(isset($ratedetails[1][0])) {
-               $framerate = ((double) $ratedetails[1][0]);
+                $length = 0;
+                $framerate = 0;
+                // Get mediainfo
+                $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=General; Duration : %Duration/String%\r
+Video; Width : %Width% pixels\r Height : %Height% pixels\r Frame rate : %FrameRate/String%\r
+Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename.".$extension"."\"");
+                preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
+                $length = 0;
+                if ($durationdetails[1][0])
+                {
+                    $length += ((int) $durationdetails[2][0]) * 3600;
+                }
+                if ($durationdetails[3][0])
+                {
+                    $length += ((int) $durationdetails[4][0]) * 60;
+                }
+                if ($durationdetails[5][0])
+                {
+                    $length += ((int) $durationdetails[6][0]);
+                }
+                preg_match_all('/Height[ ]*: (\d*[ ]?\d*) pixels/',$mediainfo,$heightdetails);
+                $height = ((int) str_replace(" ", "", $heightdetails[1][0]));
+                preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) (.*?)FPS/',$mediainfo,$ratedetails);
+                if(isset($ratedetails[1][0])) {
+                    if ($ratedetails[1][0] == "") {
+                        $framerate = (double)25.0;
+                    }
+                    else {
+                        $framerate = ((double) $ratedetails[1][0]);
+                    }
+                }
+                $language = "";
+                $languagename = "";
+                $stream = "-1";
+                preg_match_all('/Format[ ]*:[ ]+([a-zA-Z\-8]+|[a-zA-Z]+[ ][a-zA-Z]+)[ ]+Sub[ ]*: ([a-zA-Z]+)/',$mediainfo,$subtitlesfound);
+                $formatsub = array();
+                foreach ($subtitlesfound[1] as $key => $value){
+                    $formatsub[] = array_merge((array)$subtitlesfound[2][$key], (array)$value);
+                }
+                foreach ($sublangpref as $prefkey => $prefvalue) {
+                    foreach ($formatsub as $key => $value) {
+                        if ($prefvalue['name'] == $value[0] && ($value[1] == "ASS" || $value[1] == "UTF-8" || $value[1] == "Teletext Subtitle"))
+                        {
+                            $language = $prefvalue["ISO"];
+                            $languagename = $prefvalue["name"];
+                            $stream = $key;
+                            break 2;
+                        }
+                    }
+                }
+                if ($language == "")
+                {
+                    // if no language is found assume the first preferred language
+                    $language = $sublangpref[array_key_first($sublangpref)]["ISO"];
+                    $languagename = $sublangpref[array_key_first($sublangpref)]["name"];
+                }
+                $state = array();
+                $state["framerate"] = $framerate;
+                $state["length"] = $length;
+                $state["height"] = $height;
+                $state["language"] = $language;
+                $state["languagename"] = $languagename;
+                $state["stream"] = $stream;
+                $content = json_encode($state);
+                file_put_contents($file, $content);
             }
         }
             ?>
@@ -1342,19 +1390,8 @@ done\n");
             <body>
 <?php echo $select_box; ?>
             <form name="FC" action="video.php" method="GET">
-<?php
-            if (isset($_REQUEST["videoid"]))
-            {
-            ?>
             <input type="hidden" name="videoid" value="<?php echo $_REQUEST["videoid"]; ?>">
 <?php
-            }
-            else
-            {
-            ?>
-            <input type="hidden" name="filename" value="<?php echo $filename; ?>">
-<?php
-            }
         if (file_exists($vod_path."/".$_REQUEST["videoid"]."/master_vod.m3u8") ||
             file_exists($hls_path."/".$_REQUEST["videoid"]."/master_event.m3u8") ||
             file_exists($dirname."/".$filename.".mp4") ||
@@ -1377,10 +1414,12 @@ done\n");
             <select name="quality[]" size=4 multiple required>
             <option value="" disabled hidden>-- Use Ctrl-Click, Command-Click and Shift-Click to compose ABR --</option>
             <?php
+                $content = json_decode(file_get_contents($file), TRUE);
+                $height = $content["height"];
                 foreach ($settings as $setting => $settingset)
                 {
                     // TODO: remove hack adding 300, need to be even higher?
-                    if ($settingset["height"] <= $videoheight + 300)
+                    if ($settingset["height"] <= $height + 300)
                     {
                         echo "            <option value=\"".$setting."\"".((strpos($setting, "high480") !== false)?" selected=\"selected\"":"").">".preg_replace('/[0-9]+/', '', ucfirst($setting))." Quality ".$settingset["height"]."p</option>\n";
                     }
@@ -1390,10 +1429,9 @@ done\n");
              <?php echo $hw_box; ?>
              <br>
             <?php
-            $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=Text;%Format%\" \"".$dirname."/".$filename.".$extension"."\"");
-            if (preg_match('/(Teletext)/',$mediainfo,$subtitle) ||
-                (preg_match('/(Subtitle)/',$mediainfo,$subtitle))  ||
-                (preg_match('/UTF-8/',$mediainfo,$subtitle)))
+            $content = json_decode(file_get_contents($file), TRUE);
+            $stream = $content["height"];
+            if ($content["stream"] != -1)
             {
             ?>
                    <input type="checkbox" action="" name="checkbox_subtitles" id="agree" value="yes">
@@ -1402,9 +1440,6 @@ done\n");
             <?php
             }
             ?>
-            <input type="hidden" name="height" value="<?php echo $videoheight; ?>">
-            <input type="hidden" name="framerate" value="<?php echo $framerate; ?>">
-            <input type="hidden" name="length" value="<?php echo $length; ?>">
             <input type="checkbox" name="hls_playlist_type[]" value="live" onclick="return KeepCount()" checked='checked' id="option"><label for="option"> live</label>
             <input type="checkbox" name="hls_playlist_type[]" value="event" onclick="return KeepCount()" id="option"><label for="option"> event</label><br>
             <input type="checkbox" name="vod" id="option"><label for="option">vod</label><br>
@@ -1449,17 +1484,17 @@ done\n");
 }
 else
 {
-    echo "No such file:\n";
-    echo $dirname."/".$filename.".".$extension;
-    $filename = $_REQUEST["filename"];
-    echo $dirname."/".$_REQUEST["filename"].".$extension";
-    if (file_exists($dirname."".$_REQUEST["filename"].".$extension"))
+    if (file_exists($dirname."".$filename.".$extension"))
     {
-        echo " file exists";
+        echo "Video file exists, but is not supported.\n";
+    }
+    else if ($extension == "")
+    {
+        echo "No extension found, probably a DVD which is not supported\n";
     }
     else
     {
-        echo " file does not exist or permission as apache user is denied";
+        echo "File does not exist or permission as apache user is denied.\n";
     }
 }
 ?>

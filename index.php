@@ -10,8 +10,13 @@ $hls_path = "$webroot/$hlsdir";
 $live_path = "$webroot/$livedir";
 $vod_path = "$webroot/$voddir";
 $program_path = "/home/mythtv";
-$language = "dut";
-$languagename = "Dutch";
+// NOTE: ISO 639-2/B language codes, the first match of the subtitle language preference is used
+$sublangpref = array(
+    "dut" => array("name" => "Dutch",        "ISO" => "dut"),
+    "dum" => array("name" => "dum",          "ISO" => "dum"),
+    "eng" => array("name" => "English",      "ISO" => "eng"),
+    "ger" => array("name" => "German",       "ISO" => "ger"),
+);
 $ffmpeg="/usr/bin/ffmpeg";
 $dbserver = "localhost";
 $domainname = "192.168.1.29";
@@ -22,9 +27,9 @@ $dbpass = trim($lines[0]);
 $dbname = "mythconverg";
 
 // Different hw acceleration options
-// NOTE: only "vaapi" and "nohwaccel" have been tested and are known to work
+// NOTE: only "h264" and "nohwaccel" have been tested and are known to work
 $hwaccels = array(
-    "h264_vaapi"     => array("encoder" => "h264_vaapi", "decoder" => "h264_vaapi", "scale" => "format=nv12|vaapi,hwupload,scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128"),
+    "h264"      => array("encoder" => "h264_vaapi", "decoder" => "h264_vaapi", "scale" => "format=nv12|vaapi,hwupload,scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128"),
     "h265"      => array("encoder" => "hevc_vaapi", "decoder" => "hevc_vaapi", "scale" => "scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi"),
     "qsv"       => array("encoder" => "h264_qsv",   "decoder" => "h264_qsv",   "scale" => "scale_qsv",   "hwaccel" => "-hwaccel qsv  -qsv_device -hwaccel_device /dev/dri/renderD128 -c:v h264_qsv"),
     "nvenc"     => array("encoder" => "h264_nvenc", "decoder" => "h264_nvenc", "scale" => "scale",       "hwaccel" => "-hwaccel cuda -vaapi_device /dev/dri/renderD128 -hwaccel_output_format nvenc"),
@@ -177,7 +182,7 @@ $hw_box .= "<label for=\"hwaccel\">HW acceleration: </label><select class=\"sele
 $hw_box .= "<option value=\"\" disabled hidden>-- Please choose your HW Acceleration --</option>";
      foreach ($hwaccels as $hwaccel => $hwaccelset)
      {
-         $hw_box .= "<option value=\"".$hwaccel."\"".((strpos($hwaccel, "vaapi") !== false)?" selected=\"selected\"":"").
+         $hw_box .= "<option value=\"".$hwaccel."\"".((strpos($hwaccel, "h264") !== false)?" selected=\"selected\"":"").
                                 ">".$hwaccelset["encoder"]."".
                                 "</option>\n";
      }
@@ -290,61 +295,61 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
         if (file_exists($hls_path."/".$filename."/progress-log.txt"))
         {
             $file = $hls_path."/".$filename."/state.txt";
-            $config = file_get_contents("".$hls_path."/".$filename."/status.txt");
-            if (file_exists($hls_path."/".$filename."/state.txt") &&
-                !preg_match("/encode finish success/", $config, $matches) &&
-                preg_match("/remux finish success/", $config, $matches))
-            {
-                array_map('unlink', glob($hls_path."/".$filename."/state.txt"));
-            }
-            if (!file_exists($hls_path."/".$filename."/state.txt"))
-            {
-                $length = 0;
-                $framerate = 0;
-                if (preg_match("/remux finish success/", $config, $matches) && $extension != "avi")
-                {
-                    // thus $_REQUEST["removecut"]==on
-                    $mediainfo = shell_exec("/usr/bin/mediainfo ".$hls_path."/".$filename."/video.mp4");
-                    preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
+            // $config = file_get_contents("".$hls_path."/".$filename."/status.txt");
+            // if (file_exists($hls_path."/".$filename."/state.txt") &&
+            //     !preg_match("/encode finish success/", $config, $matches) &&
+            //     preg_match("/remux finish success/", $config, $matches))
+            // {
+            //     array_map('unlink', glob($hls_path."/".$filename."/state.txt"));
+            // }
+            // if (!file_exists($hls_path."/".$filename."/state.txt"))
+            // {
+            //     $length = 0;
+            //     $framerate = 0;
+            //     if (preg_match("/remux finish success/", $config, $matches) && $extension != "avi")
+            //     {
+            //         // thus $_REQUEST["removecut"]==on
+            //         $mediainfo = shell_exec("/usr/bin/mediainfo ".$hls_path."/".$filename."/video.mp4");
+            //         preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
 
-                    $link = file_get_contents($hls_path."/".$filename."/cutlist.txt");
-                    preg_match_all('/inpoint\s*(\b[0-9]{2,}[.]?[0-9]{1,})/', $link, $incontent, PREG_PATTERN_ORDER);
-                    preg_match_all('/outpoint\s*(\b[0-9]{2,}[.]?[0-9]{1,})/', $link, $outcontent, PREG_PATTERN_ORDER);
-                    foreach($outcontent[1] as $k => $v){
-                        $length += $v - $incontent[1][$k];
-                    }
-                }
-                else
-                {
-                    // thus $_REQUEST["removecut"]==off or avi in which case the cutlist will be empty
-                    $mediainfo = shell_exec("/usr/bin/mediainfo ".$dirname."/".$filename.".$extension");
-                    preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
+            //         $link = file_get_contents($hls_path."/".$filename."/cutlist.txt");
+            //         preg_match_all('/inpoint\s*(\b[0-9]{2,}[.]?[0-9]{1,})/', $link, $incontent, PREG_PATTERN_ORDER);
+            //         preg_match_all('/outpoint\s*(\b[0-9]{2,}[.]?[0-9]{1,})/', $link, $outcontent, PREG_PATTERN_ORDER);
+            //         foreach($outcontent[1] as $k => $v){
+            //             $length += $v - $incontent[1][$k];
+            //         }
+            //     }
+            //     else
+            //     {
+            //         // thus $_REQUEST["removecut"]==off or avi in which case the cutlist will be empty
+            //         $mediainfo = shell_exec("/usr/bin/mediainfo ".$dirname."/".$filename.".$extension");
+            //         preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
 
-                    preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
+            //         preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
 
-                    if ($durationdetails[1][0])
-                    {
-                        $length += ((int) $durationdetails[2][0]) * 3600;
-                    }
-                    if ($durationdetails[3][0])
-                    {
-                        $length += ((int) $durationdetails[4][0]) * 60;
-                    }
-                    if ($durationdetails[5][0])
-                    {
-                        $length += ((int) $durationdetails[6][0]);
-                    }
-                }
-                preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
-                if(isset($ratedetails[1][0])) {
-                    $framerate = ((double)  $ratedetails[1][0]);
-                }
-                $state = array();
-                $state["framerate"] = $framerate;
-                $state["length"] = $length;
-                $content = json_encode($state);
-                file_put_contents($file, $content);
-            }
+            //         if ($durationdetails[1][0])
+            //         {
+            //             $length += ((int) $durationdetails[2][0]) * 3600;
+            //         }
+            //         if ($durationdetails[3][0])
+            //         {
+            //             $length += ((int) $durationdetails[4][0]) * 60;
+            //         }
+            //         if ($durationdetails[5][0])
+            //         {
+            //             $length += ((int) $durationdetails[6][0]);
+            //         }
+            //     }
+            //     preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
+            //     if(isset($ratedetails[1][0])) {
+            //         $framerate = ((double)  $ratedetails[1][0]);
+            //     }
+            //     $state = array();
+            //     $state["framerate"] = $framerate;
+            //     $state["length"] = $length;
+            //     $content = json_encode($state);
+            //     file_put_contents($file, $content);
+            // }
             $content = json_decode(file_get_contents($file), TRUE);
             $framerate = $content["framerate"];
             $length = $content["length"];
@@ -377,26 +382,31 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
                  !file_exists($hls_path."/".$filename."/master_event.m3u8") &&
                  !file_exists($live_path."/".$filename."/master_live.m3u8"))
         {
+            $file = $hls_path."/".$filename."/state.txt";
+            $content = json_decode(file_get_contents($file), TRUE);
+            $framerate = $content["framerate"];
+            $length = $content["length"];
+            $height = $content["height"];
+            $language = $content["language"];
+            $languagename = $content["languagename"];
+            $stream = $content["stream"];
             $mustencode = false;
             $fileinput = "";
             if ($extension === "avi")
             {
                 $fileinput = "-i ".$hls_path."/".$filename."/video.mp4";
-                $length = (int) $_REQUEST["length"];
                 $cut = "uncut";
                 $mustencode = true;
             }
             else if (ISSET($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and $_REQUEST["cutcount"] > 0)
             {
                 $fileinput = "-f concat -async 1 -safe 0 -i ".$hls_path."/".$filename."/cutlist.txt";
-                $length = (int) $_REQUEST["clippedlength"];
                 $cut = "cut";
                 $mustencode = true;
             }
             else
             {
                 $fileinput = "-i \"".$dirname."/".$filename.".".$extension."\"";
-                $length = (int) $_REQUEST["length"];
                 $cut = "uncut";
             }
             # Write encode script (just for cleanup, if no encode necessary)
@@ -469,7 +479,7 @@ done\n");
             }
             if (isset($_REQUEST["checkbox_subtitles"]))
             {
-                $sub_mapping = "-map 0:s:0? -c:s webvtt";
+                $sub_mapping = "-map 0:s:".$stream." -c:s webvtt -metadata:s:s:0 language=".$language."";
                 $sub_format = "-txt_format text -txt_page 888";
             }
             if ($hls_playlist_type === "live")
@@ -1024,7 +1034,6 @@ done\n");
 
                       message = message + " available";
                       // NOTE: 6 seconds is equal to 3x segment size is just an empirical guess, works without subtitles
-                      // NOTE: 20 seconds is equal to 10x segment size is just an empirical guess, works with subtitles
                       if (!playerInitDone && Math.ceil(status["available"] > 6))
                       {
                           playerInitDone = initPlayer();
@@ -1381,27 +1390,79 @@ done\n");
             {
                 mkdir($hls_path."/".$filename);
             }
-            // Get mediainfo
-            $mediainfo = shell_exec("/usr/bin/mediainfo \"".$dirname."/".$filename.".$extension"."\"");
-            preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
-            $length = 0;
-            if ($durationdetails[1][0])
+            $file = $hls_path."/".$_REQUEST["filename"]."/state.txt";
+            if (!file_exists($file))
             {
-                $length += ((int) $durationdetails[2][0]) * 3600;
+                $length = 0;
+                $framerate = 0;
+                // Get mediainfo
+                $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=General; Duration : %Duration/String%\r
+Video; Width : %Width% pixels\r Height : %Height% pixels\r Frame rate : %FrameRate/String%\r
+Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename.".$extension"."\"");
+                preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
+                $length = 0;
+                if ($durationdetails[1][0])
+                {
+                    $length += ((int) $durationdetails[2][0]) * 3600;
+                }
+                if ($durationdetails[3][0])
+                {
+                    $length += ((int) $durationdetails[4][0]) * 60;
+                }
+                if ($durationdetails[5][0])
+                {
+                    $length += ((int) $durationdetails[6][0]);
+                }
+                preg_match_all('/Height[ ]*: (\d*[ ]?\d*) pixels/',$mediainfo,$heightdetails);
+                $height = ((int) str_replace(" ", "", $heightdetails[1][0]));
+                preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) (.*?)FPS/',$mediainfo,$ratedetails);
+                if(isset($ratedetails[1][0])) {
+                    if ($ratedetails[1][0] == "") {
+                        $framerate = (double)25.0;
+                    }
+                    else {
+                        $framerate = ((double) $ratedetails[1][0]);
+                    }
+                }
+                $language = "";
+                $languagename = "";
+                $stream = "-1";
+                preg_match_all('/Format[ ]*:[ ]+([a-zA-Z\-8]+|[a-zA-Z]+[ ][a-zA-Z]+)[ ]+Sub[ ]*: ([a-zA-Z]+)/',$mediainfo,$subtitlesfound);
+                $formatsub = array();
+                foreach ($subtitlesfound[1] as $key => $value){
+                    $formatsub[] = array_merge((array)$subtitlesfound[2][$key], (array)$value);
+                }
+                foreach ($sublangpref as $prefkey => $prefvalue) {
+                    foreach ($formatsub as $key => $value) {
+                        if ($prefvalue['name'] == $value[0] && ($value[1] == "ASS" || $value[1] == "UTF-8" || $value[1] == "Teletext Subtitle"))
+                        {
+                            $language = $prefvalue["ISO"];
+                            $languagename = $prefvalue["name"];
+                            $stream = $key;
+                            break 2;
+                        }
+                    }
+                }
+                if ($language == "")
+                {
+                    // if no language is found assume the first preferred language
+                    $language = $sublangpref[array_key_first($sublangpref)]["ISO"];
+                    $languagename = $sublangpref[array_key_first($sublangpref)]["name"];
+                }
+                $state = array();
+                $state["framerate"] = $framerate;
+                $state["length"] = $length;
+                $state["height"] = $height;
+                $state["language"] = $language;
+                $state["languagename"] = $languagename;
+                $state["stream"] = $stream;
+                $content = json_encode($state);
+                file_put_contents($file, $content);
             }
-            if ($durationdetails[3][0])
-            {
-                $length += ((int) $durationdetails[4][0]) * 60;
-            }
-            if ($durationdetails[5][0])
-            {
-                $length += ((int) $durationdetails[6][0]);
-            }
-            preg_match_all('/Height[ ]*: (\d*[ ]?\d*) pixels/',$mediainfo,$heightdetails);
-            $videoheight = ((int) str_replace(" ", "", $heightdetails[1][0]));
-            preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
-            if(isset($ratedetails[1][0])) {
-               $framerate = ((double) $ratedetails[1][0]);
+            else {
+                $content = json_decode(file_get_contents($file), TRUE);
+                $framerate = $content["framerate"];
+                $length = $content["length"];
             }
             // Fetch any cut marks
             preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/',$filename,$filedetails);
@@ -1443,9 +1504,9 @@ done\n");
                     }
                     else if ($midsegment)
                     {
-                        fprintf($fp, "outpoint %0.2f\n", $mark);
-                        $midsegment = false;
-                        $clippedlength += ($mark - $startsegment) + 1;
+                            fprintf($fp, "outpoint %0.2f\n", $mark);
+                            $midsegment = false;
+                            $clippedlength += ($mark - $startsegment) + 1;
                     }
                 }
                 else if ($row['type']==MARK_CUT_END)
@@ -1497,10 +1558,12 @@ done\n");
             <select name="quality[]" size=4 multiple required>
             <option value="" disabled hidden>-- Use Ctrl-Click, Command-Click and Shift-Click to compose ABR --</option>
             <?php
+                $content = json_decode(file_get_contents($file), TRUE);
+                $height = $content["height"];
                 foreach ($settings as $setting => $settingset)
                 {
                     // TODO: remove hack adding 300, need to be even higher?
-                    if ($settingset["height"] <= $videoheight + 300)
+                    if ($settingset["height"] <= $height + 300)
                     {
                         echo "            <option value=\"".$setting."\"".((strpos($setting, "high480") !== false)?" selected=\"selected\"":"").">".preg_replace('/[0-9]+/', '', ucfirst($setting))." Quality ".$settingset["height"]."p</option>\n";
                     }
@@ -1515,12 +1578,13 @@ done\n");
              ?>
                 <select name="removecut"><option value="on">Cut Commercials (<?php echo $cutcount/2; ?> found)</option><option value="off" selected="selected">Leave Uncut</option></select>
             <?php
-                }
+            }
             ?>
             <br>
             <?php
-            $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=Text;%Format%\" ".$dirname."/".$filename.".$extension");
-            if (preg_match('/(Teletext)/',$mediainfo,$subtitle) || (preg_match('/(Subtitle)/',$mediainfo,$subtitle)))
+            $content = json_decode(file_get_contents($file), TRUE);
+            $stream = $content["height"];
+            if ($content["stream"] != -1)
             {
             ?>
                    <input type="checkbox" action="" name="checkbox_subtitles" id="agree" value="yes">
@@ -1529,9 +1593,6 @@ done\n");
             <?php
             }
             ?>
-            <input type="hidden" name="height" value="<?php echo $videoheight; ?>">
-            <input type="hidden" name="framerate" value="<?php echo $framerate; ?>">
-            <input type="hidden" name="length" value="<?php echo $length; ?>">
             <input type="hidden" name="clippedlength" value="<?php echo (int)$clippedlength; ?>">
             <input type="hidden" name="cutcount" value="<?php echo (int)$cutcount/2; ?>">
             <input type="checkbox" name="hls_playlist_type[]" value="live" onclick="return KeepCount()" checked='checked' id="option"><label for="option"> live</label>
@@ -1578,16 +1639,13 @@ done\n");
 }
 else
 {
-    echo "No such file:\n";
-    $filename = $_REQUEST["filename"];
-    echo $dirname."/".$_REQUEST["filename"].".$extension";
     if (file_exists($dirname."".$_REQUEST["filename"].".$extension"))
     {
-        echo " file exists";
+        echo "Video file exists, but is not supported.\n";
     }
     else
     {
-        echo " file does not exist or permission as apache user is denied";
+        echo "File does not exist or permission as apache user is denied.\n";
     }
 }
 ?>

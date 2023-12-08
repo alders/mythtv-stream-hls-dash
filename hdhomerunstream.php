@@ -18,15 +18,17 @@ $relative_path = str_replace("\n", '', $relative_path);
 $hostname="localhost";
 
 // Different hw acceleration options
-// NOTE: only "vaapi" and "nohwaccel" have been tested and are known to work
+// NOTE: only "h264" and "nohwaccel" have been tested and are known to work
 $hwaccels = array(
-    "vaapi"     => array("encoder" => "h264_vaapi", "decoder" => "h264_vaapi", "scale" => "scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi"),
+    "h264"      => array("encoder" => "h264_vaapi", "decoder" => "h264_vaapi", "scale" => "format=nv12|vaapi,hwupload,scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128"),
+    "h265"      => array("encoder" => "hevc_vaapi", "decoder" => "hevc_vaapi", "scale" => "scale_vaapi", "hwaccel" => "-hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi"),
     "qsv"       => array("encoder" => "h264_qsv",   "decoder" => "h264_qsv",   "scale" => "scale_qsv",   "hwaccel" => "-hwaccel qsv  -qsv_device -hwaccel_device /dev/dri/renderD128 -c:v h264_qsv"),
     "nvenc"     => array("encoder" => "h264_nvenc", "decoder" => "h264_nvenc", "scale" => "scale",       "hwaccel" => "-hwaccel cuda -vaapi_device /dev/dri/renderD128 -hwaccel_output_format nvenc"),
     "nohwaccel" => array("encoder" => "libx264",    "decoder" => "libx264",    "scale" => "scale",       "hwaccel" => ""),
 );
 
 // Ladder from which the user may choose, Aspect ratio 16:9
+// https://medium.com/@peer5/creating-a-production-ready-multi-bitrate-hls-vod-stream-dff1e2f1612c
 $settings = array(
                 "high1440" =>   array("height" => 1440, "width" => 2560, "vbitrate" => 8000, "abitrate" => 192),
                 "normal1440" => array("height" => 1440, "width" => 2560, "vbitrate" => 6000, "abitrate" => 192),
@@ -59,7 +61,9 @@ function http_request($method, $endpoint, $rest) {
 
     $context = stream_context_create($params);
 
-    $fp = @fopen("http://$hostname:6544/$endpoint", "rb", false, $context);
+    // prior to v34 use port 6544
+    // TODO: adapt to Service API v2
+    $fp = @fopen("http://$hostname:6550/$endpoint", "rb", false, $context);
 
     if (!$fp) {
         echo "fopen() failed\n";
@@ -102,10 +106,10 @@ function get_videomultiplexlist() {
 }
 
 function get_channel_info_list ($VideoMultiplexList) {
-   #http://$hostname:6544/Channel/GetChannelInfoList?SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true
+    #http://$hostname:6544/Channel/GetChannelInfoList?SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true
 
     $xml_response = http_request("GET" ,"Channel/GetChannelInfoList",
-                             "SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true");
+                                 "SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true");
 
     $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
     $json = json_encode($xml);
@@ -289,7 +293,7 @@ else if (isset($_REQUEST["do"]))
                                          ".$hwaccels[$_REQUEST["hw"]]["hwaccel"]." \
                                          -txt_format text -txt_page 888 \
                                          -i - -y \
-                                         -tune movie \
+                                         -tune film \
                                          -live_start_index 0 \
                                          -force_key_frames \"expr:gte(t,n_forced*2)\" \\\n");
         fwrite($fp, "                                     -filter_complex \"[0:v]");

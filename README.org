@@ -40,14 +40,15 @@ What:
 - Support for live broadcasts and prerecorded video.
 - Support for offline viewing.
 - Support for MythTV cutlist (commercial cut) created using Mythfrontend.
+- Support for MythVideo.
 - Support for live HDHomeRun streaming without MythTV.
 
 How:
+- Encode MythTV recordings and MythVideo providing playlist types =live=, =event= and =VOD=.
 - MPEG-DASH and HLS with fragmented MP4 (fMP4) makes both compatible, therefore
   only the manifest file (playlist) is different.
 - Transcode to =MP4= for playback on mobile devices without internet.
 - Video is codified in H.264 format and audio in AAC.
-- Encode MythTV content providing playlist types =live=, =event= and =VOD=.
 - HW supported transcoding for VAAPI (support for QSV and NVEC remains
   untested).
 - Simple PHP browser UI.
@@ -91,6 +92,13 @@ code is left as an exercise to the user.
 
 Note: take security measures in case you decide to open your web server to the
 internet. Use at your own risk.
+
+** Install dependencies
+
+On Fedora install:
+#+begin_src shell -n
+sudo dnf install ffmpeg mediainfo inotify-tools screen hdhomerun-devel sed
+#+end_src
 
 ** Create apache user
 :PROPERTIES:
@@ -164,8 +172,10 @@ index 8502305b..7bf3db0b 100644
 
 ** Patch Web Application
 
-Alternatively, change two lines in the =backend Web App=[fn:3] to allow recording
-selection from any device. Replace =mydomain= in the patches below:
+Optionally change a few lines in the =backend Web App=[fn:3] to allow recording
+and / or video selection from any device. Replace =mydomain= in the patches below.
+
+To allow recording selection for playback on any device:
 #+begin_src shell -n
 diff --git a/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html b/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html
 index 4618e41aa8..8bae11e03a 100644
@@ -183,6 +193,52 @@ index 4618e41aa8..8bae11e03a 100644
                          <i class="pi pi-eye" *ngIf="program.ProgramFlagNames.indexOf('WATCHED') > -1"
 #+end_src
 
+To allow video selection for playback on any device.
+#+begin_src shell -n
+diff --git a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
+index 2d75b5e0ab..42abea28ac 100644
+--- a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
++++ b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
+@@ -68,7 +68,7 @@
+                                 (click)="onDirectory(video.Title)" label="{{video.Title}}"></button>
+                         </div>
+                         <ng-template #title>
+-                            {{video.Title}}
++                            <a href="{{URLencode('http://mydomain/mythtv-stream-hls-dash/index.php?videoid=' + video.Id)}}" target="_blank">{{video.Title}}</a>
+                         </ng-template>
+                     </td>
+                     <td style="flex-basis: 3%" class="p-1">
+#+end_src
+
+To allow tv channel selection for playback on any device.
+#+begin_src shell -n
+diff --git a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.html b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.html
+index 44abe96fea..c17429ef6c 100644
+--- a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.html
++++ b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.html
+@@ -4,6 +4,6 @@
+         <ng-template #nullIcon><img height="0" width="0"></ng-template>
+     </div>
+     <div class="channelText">
+-        <span>{{ channel.ChanNum}} {{ channel.CallSign }}</span>
++        <span><a href="{{URLencode('http://192.168.1.29/mythtv-stream-hls-dash/hdhomerunstream.php?quality[]=high480&hw=h264&channel=' + channel.CallSign + '&do=Watch+TV')}}" target="_blank">{{channel.ChanNum}} {{ channel.CallSign }}</a></span>
+     </div>
+</div>
+diff --git a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts
+index 97ae71efa8..f088012f94 100644
+--- a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts
++++ b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts
+@@ -16,4 +16,8 @@ export class ChannelIconComponent implements OnInit {
+   ngOnInit(): void {
+   }
+
++  URLencode(x: string): string {
++      let trimmed = x.replace(/\s+/g, '');
++      return encodeURI(trimmed);
++  }
+ }
+#+end_src
+
 Run the npm build script and install the web application:
 #+begin_src shell -n
 cd mythtv/mythtv/html/backend/
@@ -191,21 +247,6 @@ cd ..
 sudo make install
 #+end_src
 
-#+begin_src shell -n
-diff --git a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
-index 2d75b5e0ab..cca056c338 100644
---- a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
-+++ b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
-@@ -68,7 +68,7 @@
-                                 (click)="onDirectory(video.Title)" label="{{video.Title}}"></button>
-                         </div>
-                         <ng-template #title>
--                            {{video.Title}}
-+                            <a href="{{URLencode('http://mydomain/mythtv-stream-hls-dash/index.php?filename=' + video.FileName)}}" target="_blank">{{video.Title}}</a>
-                         </ng-template>
-                     </td>
-                     <td style="flex-basis: 3%" class="p-1">
-#+end_src
 
 * HTTP streaming
 ** Example
