@@ -64,6 +64,9 @@ How:
 The installation below is based on Fedora and Apache as web server. Adapting the
 code to your distribution / web server is left as an exercise to the user.
 
+Note: take additional security measures in case you decide to open your web
+server to the internet. Use at your own risk.
+
 ** Dependency
 :PROPERTIES:
 :ID:       335b222c-00c0-4151-8365-911272ccbeca
@@ -88,9 +91,6 @@ code to your distribution / web server is left as an exercise to the user.
 - HDHomeRun
   - Firmware Version 20230713
 
-Note: take security measures in case you decide to open your web server to the
-internet. Use at your own risk.
-
 ** Install dependencies
 
 #+begin_src shell -n
@@ -111,7 +111,7 @@ sudo chmod -R 755 /var/www/html
 
 ** Configure sudo
 
-The backend code generates =bash= scripts. The commands in the scripts are run as user =apache= using =sudo=:
+The backend code generates =bash= scripts. The commands in the scripts are run as user =apache= using =sudo=.
 #+begin_src shell -n
 sudo visudo -f /etc/sudoers.d/apache
 [mythtv@nuc1 ~]$ sudo cat /etc/sudoers.d/apache
@@ -146,13 +146,13 @@ sudo -uapache rsync -avnh --exclude='.git/' mythtv-stream-hls-dash/*.php /var/ww
 :ID:       4eba13d0-81fc-48e1-9e4d-d1d553fa4783
 :END:
 
-Optional step, modify 2 lines of MythWeb code to change ASX Stream button on the
+Optional step, modify 2 lines of [[https://www.mythtv.org/wiki/MythWeb][MythWeb]] code to change ASX Stream button on the
 "Recorded Programs" page to =Stream HLS DASH= button.
 
 #+begin_html
 <details>
 <summary>
-Click me to configure MythWeb.
+Click me to configure [[https://www.mythtv.org/wiki/MythWeb][MythWeb]].
 </summary>
 #+end_html
 
@@ -280,7 +280,7 @@ index 97ae71efa8..f088012f94 100644
 </details>
 #+end_html
 
-To apply these optional [[https://www.mythtv.org/wiki/Web_Application][Web Application]] changes run the npm build script and install the web application:
+To apply these optional [[https://www.mythtv.org/wiki/Web_Application][Web Application]] changes run the npm build script and install the web application.
 
 #+begin_html
 <details>
@@ -336,10 +336,9 @@ Allow JavaScript in your browser.
 :END:
 
 Figure 1 shows the user interface of =mythtv-stream-hls-dash= after selecting a
-recording in MythWeb or the new Web_Application[fn:4].
+recording in [[https://www.mythtv.org/wiki/MythWeb][MythWeb]] or the new [[https://www.mythtv.org/wiki/Web_Application][Web Application]][fn:4].
 
 *Figure 1:* /User interface./
-#+CAPTION: User interface
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: user-interface
@@ -358,7 +357,8 @@ User interface options from top to bottom:
 - Press *Encode Video* when you are satisfied with your choices to start
   encoding.
 
-The selections shown in Figure 1 are used in the descriptions below.
+The selections shown in Figure 1 are used in the descriptions below as a running
+example.
 
 *** Adaptive Bitrate Streaming
 :PROPERTIES:
@@ -370,7 +370,6 @@ renditions for Adaptive Bitrate Streaming (ABR). Use Ctrl-Click (Windows),
 Command-Click (Apple) to select the renditions.
 
 *Figure 2:* /Adaptive Bitrate UI./
-#+CAPTION: Adaptive Bitrate UI
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: adaptive-bitrate-ui
@@ -381,12 +380,13 @@ Command-Click (Apple) to select the renditions.
 :ID:       23f8752d-7be6-49b5-9137-8f92fd69def2
 :END:
 
-This step is only shown when [[https://www.mythtv.org/wiki/Editing_Recordings][commercials are manually cut]] in =mythfrontend=.
-Figure 3 shows the user interface while remuxing. Because =Cut Commercials= was
-selected in Figure 1, the video is remuxed to an =MP4= container.
+This remux step is performed since the [[https://www.mythtv.org/wiki/Editing_Recordings][commercials were manually cut]] in
+=mythfrontend= for this recording. Remuxing may also be required when otherwise
+the input video format cannot be processed (e.g. =avi=). Figure 3 shows the user
+interface while remuxing. Because =Cut Commercials= was selected in Figure 1, the
+video is remuxed to an =MP4= container.
 
 *Figure 3:* /Remuxing UI./
-#+CAPTION: Remuxing UI
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: remuxing-video
@@ -411,7 +411,6 @@ machine this allows one to have full control from your browser.
 Figure 4 shows the user interface while encoding the video.
 
 *Figure 4:* /Generating video./
-#+CAPTION: Generating video.
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: generating-video
@@ -421,11 +420,11 @@ Progress of the encoding is shown on the status button as a percentage and
 the time of the video available. When there is about 6 seconds of video
 available the player automatically tries to load the video[fn:11].
 
-At the right hand side of the =Shutdown Lock= buttons appear dynamically, when
-files become available on disk. In Figure 4 this is the case for =HLS event= and
-=HLS VOD=. The video should load automagically within 30 seconds. If this does not
-happen, select either of the buttons to start playing. As a last resort one
-could reload the web page.
+At the right hand side of the =Shutdown Lock= button dynamically appear additional
+buttons when files become available on disk. In Figure 4 this is the case for
+=HLS event= and =HLS VOD=. The video should load automagically within 30 seconds. If
+this does not happen, select either of the buttons to start playing. As a last
+resort one could reload the web page.
 
 Old devices not supporting the Shaka video player of the UI, may still be able
 to play media through the buttons provided. The http links can also be copied
@@ -441,7 +440,6 @@ trigger a popup message box with a detailed view of the steps involved and the
 status thereof.
 
 *Figure 5:* /Status UI./
-#+CAPTION: Status UI
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: status
@@ -455,14 +453,13 @@ status thereof.
 Figure 6 shows the interface after encoding is done.
 
 *Figure 6:* /User interface after encoding./
-#+CAPTION: User interface
 #+LABEL: user-interface
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 
 [[file:screenshots/encoding-finished.png]]
 
-Two additional buttons appeared in Figure 6 for =Cleanup Video Files= [fn:12] and
+Two additional buttons appeared in Figure 6, =Cleanup Video Files= [fn:12] and
 =Download MP4=.
 
 Since both playlists =HLS event= and =HLS VOD= basically provide similar user
@@ -483,7 +480,6 @@ shown in table 1. =DASH= is only supported by =VOD=, whereas =HLS= (and =ABR=) i
 supported by all playlist types. Subtitles are supported by all.
 
 *Table 1:* /Playlist and MP4 support for live broadcast and recorded video./
-#+caption: Feature support for live broadcast and recorded video.
 #+label: feature-types
 #+attr_latex: :width 350px :options angle=90
 | Playlist | HLS | DASH | subtitle[fn:13] | subtitle[fn:14] | ABR |
@@ -497,7 +493,6 @@ All possible UI combinations of playlist types and MP4 that can be chosen by the
 user are shown in table 2[fn:15].
 
 *Table 2:* /All possible UI combinations of playlist types and MP4./
-#+caption: All possible combinations of playlist types and MP4.
 #+label: feature-types
 #+attr_latex: :width 350px :options angle=90
 | live | event | VOD | MP4 |
@@ -523,7 +518,6 @@ Hopefully the players really do provide the best possible bitrate for the
 network "/automagically/".
 
 *Table 3:* /Safari m3u8 player UI playlist support during Live Broadcasting (while encoding)./
-#+caption: Safari m3u8 player.
 #+label: usenativehlsonsafari-true-safari-m3u8e
 #+attr_latex: :width 350px :options angle=90
 | Playlist | Progress bar | Subtitles | Resolution | Language                             |
@@ -534,7 +528,6 @@ network "/automagically/".
 | MP4      | ✅           |           | 🔴         | 🔴                                   |
 
 *Table 4:* /Shaka player (configuration ("useNativeHlsOnSafari" : true)) UI playlist support during Live Broadcasting (while encoding)./
-#+caption: Shaka player configuration src_sh[:exports code]{("useNativeHlsOnSafari" : true)} playlist support.
 #+label: usenativehlsonsafari-true-safari-shaka-player
 #+attr_latex: :width 350px :options angle=90
 | Playlist | Progress bar | Captions   | Resolution   | Language                                   | Quality          |
@@ -545,7 +538,6 @@ network "/automagically/".
 | MP4      | ✅           |            | 🔴           | Nederlands                                 | Auto (0 kbits/s) |
 
 *Table 5:* /Safari Player (configuration ("useNativeHlsOnSafari" : false)) UI playlist support during Live Broadcasting (while encoding)./
-#+caption: Shaka Player src_sh[:exports code]{("useNativeHlsOnSafari" : false)} playlist support.
 #+label: usenativehlsonsafari-false-safari-shaka-player
 #+attr_latex: :width 350px :options angle=90
 | Playlist | Progress bar | Captions  | Resolution    | Language   | Quality          |
@@ -1010,6 +1002,13 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 </details>
 #+end_html
 
+*** Limitations
+
+- Code needs to be refactored to remove duplicate code.
+- No support for DVD menus.
+- A design choice has been made to symlink =mp4= files rather than to encode them.
+- Integrate HTTP streaming into new [[https://www.mythtv.org/wiki/Web_Application][Web Application]] UI.
+
 * Live TV
 ** User interface
 
@@ -1017,7 +1016,6 @@ Figure 7 shows shows the user interface of =hdhomerunstream= while selecting a T
 channel.
 
 *Figure 7:* /Select TV channel./
-#+CAPTION: Select TV channel.
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: select-tv-channel
@@ -1032,7 +1030,6 @@ User interface options:
 Figure 8 shows the Live TV user interface.
 
 *Figure 8:* /Live TV user interface./
-#+CAPTION: Live TV user interface.
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: live-tv-user-interface
