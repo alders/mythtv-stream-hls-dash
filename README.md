@@ -347,7 +347,7 @@ Figure 1, the video is remuxed to an `MP4` container.
 **Figure 3:** *Remuxing UI.*
 
 <img src="screenshots/remuxing-video.png" id="remuxing-video"
-width="450" />
+width="600" />
 
 Three buttons are shown below the available recording list box.
 
@@ -370,7 +370,7 @@ Figure 4 shows the user interface while encoding the video.
 **Figure 4:** *Generating video.*
 
 <img src="screenshots/encoding-video.png" id="generating-video"
-width="450" />
+width="500" />
 
 Progress of the encoding is shown on the status button as a percentage
 and the time of the video available. When there is about 6 seconds of
@@ -378,20 +378,27 @@ video available the player automatically tries to load the video[^11].
 
 At the right hand side of the `Shutdown Lock` button dynamically appear
 additional buttons when files become available on disk. In Figure 4 this
-is the case for `HLS event` and `HLS VOD`. The video should load
-automagically within 30 seconds. If this does not happen, select either
-of the buttons to start playing. As a last resort one could reload the
-web page.
+is the case for `HLS event,` `HLS VOD`, and `DASH VOD`. The video should
+load automagically within 30 seconds. If this does not happen, select
+either of the buttons to start playing. As a last resort one could
+reload the web page.
 
 Old devices not supporting the Shaka video player of the UI, may still
-be able to play media through the buttons provided. The http links can
-also be copied and used in your favorite app.
+be able to play media through the buttons provided. The buttons link to
+the various manifest files. The http links can also be copied and used
+in your favorite app.
 
 ### Status button
 
 Figure 5 shows what happens in case the status button is selected. This
 will trigger a popup message box with a detailed view of the steps
 involved and the status thereof.
+
+In this example three processing steps were required:
+
+1.  Remux to `mp4` container for commercial cut.
+2.  Encoding to the various playlists.
+3.  Subtitle merge into the `mp4` file.
 
 **Figure 5:** *Status UI.*
 
