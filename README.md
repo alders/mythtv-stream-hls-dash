@@ -676,7 +676,9 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 
 ### Complete script
 
-\<details\> \<summary\> Click me \</summary\>
+<details>
+
+<summary> Click me </summary>
 
 For completeness the whole script is:
 
@@ -838,7 +840,7 @@ done
 sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
 ```
 
-\</details\>
+</details>
 
 # Live TV
 
