@@ -72,10 +72,9 @@ server to the internet. Use at your own risk.
 :ID:       335b222c-00c0-4151-8365-911272ccbeca
 :END:
 
-- MythTV (for looking up the recording / video name, tv channels info and for
-  using commercial cut)
-  - Any version up to and including version v0.34 (the latter is required for
-    MythVideo support via [[https://www.mythtv.org/wiki/Web_Application][Web Application]])
+- MythTV
+  - Basically any version can be used. However, version v0.34 provides the best
+    UI experience via the new [[https://www.mythtv.org/wiki/Web_Application][Web Application]].
 - FFmpeg (for encoding)[fn:1]
   - FFmpeg version 5.1.3
 - GNU screen

@@ -60,11 +60,10 @@ web server to the internet. Use at your own risk.
 
 ## Dependency
 
-- MythTV (for looking up the recording / video name, tv channels info
-  and for using commercial cut)
-  - Any version up to and including version v0.34 (the latter is
-    required for MythVideo support via [Web
-    Application](https://www.mythtv.org/wiki/Web_Application))
+- MythTV
+  - Basically any version can be used. However, version v0.34 provides
+    the best UI experience via the new [Web
+    Application](https://www.mythtv.org/wiki/Web_Application).
 - FFmpeg (for encoding)[^1]
   - FFmpeg version 5.1.3
 - GNU screen
@@ -168,7 +167,7 @@ sources](https://www.mythtv.org/wiki/Build_from_Source).
 Optionally change a few lines in the [Web
 Application](https://www.mythtv.org/wiki/Web_Application)[^3] to allow
 recording and / or video and / or live tv selection from your browser.
-Replace `mydomain` in the patches below to point to your combined web
+Replace `yourserver` in the patches below to point to your combined web
 server / `Mythbackend` address.
 
 <details>
@@ -186,7 +185,7 @@ index 4618e41aa8..8bae11e03a 100644
                          <i class="pi pi-exclamation-triangle p-1" *ngIf="program.VideoPropNames.indexOf('DAMAGED') > -1"
                              pTooltip="{{ 'dashboard.recordings.damaged' | translate }}" tooltipPosition="top"></i>
 -                        {{program.Title}}
-+                       <a href="{{URLencode('http://mydomain/mythtv-stream-hls-dash/index.php?filename=' + program.Recording.FileName.split('.').slice(0, -1).join('.'))}}" target="_blank">{{program.Title}}</a></td>
++                       <a href="{{URLencode('http://yourserver/mythtv-stream-hls-dash/index.php?filename=' + program.Recording.FileName.split('.').slice(0, -1).join('.'))}}" target="_blank">{{program.Title}}</a></td>
 +
                      </td>
                      <td style="flex-basis: 2%" class="p-1">
@@ -210,7 +209,7 @@ index 2d75b5e0ab..42abea28ac 100644
                          </div>
                          <ng-template #title>
 -                            {{video.Title}}
-+                            <a href="{{URLencode('http://mydomain/mythtv-stream-hls-dash/index.php?videoid=' + video.Id)}}" target="_blank">{{video.Title}}</a>
++                            <a href="{{URLencode('http://yourserver/mythtv-stream-hls-dash/index.php?videoid=' + video.Id)}}" target="_blank">{{video.Title}}</a>
                          </ng-template>
                      </td>
                      <td style="flex-basis: 3%" class="p-1">
@@ -233,7 +232,7 @@ index 44abe96fea..c17429ef6c 100644
      </div>
      <div class="channelText">
 -        <span>{{ channel.ChanNum}} {{ channel.CallSign }}</span>
-+        <span><a href="{{URLencode('http://mydomain/mythtv-stream-hls-dash/hdhomerunstream.php?quality[]=high480&hw=h264&channel=' + channel.CallSign + '&do=Watch+TV')}}" target="_blank">{{channel.ChanNum}} {{ channel.CallSign }}</a></span>
++        <span><a href="{{URLencode('http://yourserver/mythtv-stream-hls-dash/hdhomerunstream.php?quality[]=high480&hw=h264&channel=' + channel.CallSign + '&do=Watch+TV')}}" target="_blank">{{channel.ChanNum}} {{ channel.CallSign }}</a></span>
      </div>
 </div>
 diff --git a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts
@@ -301,7 +300,22 @@ Allow JavaScript in your browser.
 Figure 1 shows the user interface of `mythtv-stream-hls-dash` after
 selecting a recording in [MythWeb](https://www.mythtv.org/wiki/MythWeb)
 or the new [Web
-Application](https://www.mythtv.org/wiki/Web_Application)[^4].
+Application](https://www.mythtv.org/wiki/Web_Application)[^4]. The user
+interface after selecting a video from [Web
+Application](https://www.mythtv.org/wiki/Web_Application) is similar in
+look and feel. However, the functionality is a subset of what is shown
+in this example. For example commercial cut is not available for
+MythVideo.
+
+In case you do not want to patch
+[MythWeb](https://www.mythtv.org/wiki/MythWeb) and the new [Web
+Application](https://www.mythtv.org/wiki/Web_Application) find the
+filename in your recording directory, remove the extension from the
+filename and browse to
+<http://yourserver/mythtv-stream-hls-dash/index.php?filename=NNNN_NNNNNNNNNNNNNN>.
+For video extract the videoid from the download link in [Web
+Application](https://www.mythtv.org/wiki/Web_Application) and browse to
+<http://yourserver/mythtv-stream-hls-dash/video.php?videoid=NNNN>.
 
 **Figure 1:** *User interface.*
 
@@ -347,7 +361,7 @@ Figure 1, the video is remuxed to an `MP4` container.
 **Figure 3:** *Remuxing UI.*
 
 <img src="screenshots/remuxing-video.png" id="remuxing-video"
-width="600" />
+width="700" />
 
 Three buttons are shown below the available recording list box.
 
