@@ -1,7 +1,12 @@
 <?php
 
+/**
+ * Configure hdhomerunstream.php
+ *
+ *
+ */
 $webroot = "/var/www/html";
-# live_path may be configured as a ramdisk
+# NOTE: configure live_path as a ramdisk in /etc/fstab
 $live_path = "$webroot/live";
 $channel_path = "$webroot/channel";
 // // NOTE: ISO 639-2/B language codes, the first match of the subtitle language preference is used
@@ -16,14 +21,7 @@ $languagename = "Dutch";
 # TODO: select free tuner instead of hard coding
 $tuner="tuner3";
 $ffmpeg="/usr/bin/ffmpeg";
-
-$HDHRID = shell_exec("/usr/bin/sudo /usr/bin/hdhomerun_config discover | cut -d ' ' -f3");
-$HDHRID = str_replace("\n", '', $HDHRID);
-$response = shell_exec("/usr/bin/sudo /usr/bin/mkdir -p ".$channel_path.";");
-$response = shell_exec("/usr/bin/sudo /usr/bin/chown apache:apache ".$channel_path.";");
-$relative_path = shell_exec("/usr/bin/sudo /usr/bin/realpath --relative-to=$channel_path $live_path");
-$relative_path = str_replace("\n", '', $relative_path);
-$hostname="localhost";
+$yourserver="localhost";
 
 // Different hw acceleration options
 // NOTE: only "h264" and "nohwaccel" have been tested and are known to work
@@ -57,11 +55,19 @@ $settings = array(
                 "normal240" =>  array("height" =>  240, "width" =>  426, "vbitrate" =>  500, "abitrate" =>  64),
                 "low240" =>     array("height" =>  240, "width" =>  426, "vbitrate" =>  400, "abitrate" =>  48),
 );
+/*********** DO NOT CHANGE ANYTHING BELOW THIS LINE UNLESS YOU KNOW WHAT YOU ARE DOING **********/
+
+$HDHRID = shell_exec("/usr/bin/sudo /usr/bin/hdhomerun_config discover | cut -d ' ' -f3");
+$HDHRID = str_replace("\n", '', $HDHRID);
+$response = shell_exec("/usr/bin/sudo /usr/bin/mkdir -p ".$channel_path.";");
+$response = shell_exec("/usr/bin/sudo /usr/bin/chown apache:apache ".$channel_path.";");
+$relative_path = shell_exec("/usr/bin/sudo /usr/bin/realpath --relative-to=$channel_path $live_path");
+$relative_path = str_replace("\n", '', $relative_path);
 $keys = array_keys($settings);
 
 function http_request($method, $endpoint, $rest) {
 
-    global $hostname;
+    global $yourserver;
     $params = array("http" => array(
         "method" => $method,
         "content" => $rest
@@ -71,7 +77,7 @@ function http_request($method, $endpoint, $rest) {
 
     // prior to v34 use port 6544
     // TODO: adapt to Service API v2
-    $fp = @fopen("http://$hostname:6550/$endpoint", "rb", false, $context);
+    $fp = @fopen("http://$yourserver:6550/$endpoint", "rb", false, $context);
 
     if (!$fp) {
         echo "fopen() failed\n";
@@ -103,7 +109,7 @@ function parse_xml_response($xml_response, $pattern) {
 }
 
 function get_videomultiplexlist() {
-    #http://$hostname:6544/Channel/GetVideoMultiplexList?SourceID=1&StartIndex=0&Count=100
+    #http://$yourserver:6544/Channel/GetVideoMultiplexList?SourceID=1&StartIndex=0&Count=100
 
     $xml_response = http_request("GET" ,"Channel/GetVideoMultiplexList",
                                  "SourceID=1&StartIndex=0&Count=100");
@@ -114,7 +120,7 @@ function get_videomultiplexlist() {
 }
 
 function get_channel_info_list ($VideoMultiplexList) {
-    #http://$hostname:6544/Channel/GetChannelInfoList?SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true
+    #http://$yourserver:6544/Channel/GetChannelInfoList?SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true
 
     $xml_response = http_request("GET" ,"Channel/GetChannelInfoList",
                                  "SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true");
@@ -654,7 +660,7 @@ else if (isset($_REQUEST["do"]))
           </tr>
           <tr>
             <td>
-              <a href='./shutdownlock.php' target='_blank'><button type="button">Shutdown Lock</button></a>
+              <a href='./shutdownlock.php' target='_blank' rel="noopener noreferrer"><button type="button">Shutdown Lock</button></a>
             </td>
             <td>
               <input type="button" style="display: none; visibility: hidden;" id="liveButtonId" value="LIVE" />

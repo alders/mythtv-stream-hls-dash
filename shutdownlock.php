@@ -3,11 +3,11 @@
 <title>Control Shutdown Lock</title>
 <?php
 
-$hostname="localhost";
+$yourserver="localhost";
 
 function http_request($method, $endpoint, $rest) {
 
-    global $hostname;
+    global $yourserver;
     $params = array("http" => array(
         "method" => $method,
         "content" => $rest
@@ -16,7 +16,7 @@ function http_request($method, $endpoint, $rest) {
     $context = stream_context_create($params);
 
     // prior to v34 use port 6544
-    $fp = @fopen("http://$hostname:6550/$endpoint", "rb", false, $context);
+    $fp = @fopen("http://$yourserver:6550/$endpoint", "rb", false, $context);
 
     if (!$fp) {
         echo "fopen() failed\n";
@@ -60,7 +60,7 @@ function adjust_lock($increment) {
     if($sd_lock_value < 0) {
         $sd_lock_value = 0;
     }
-    // POST on hostname NULL or - All Hosts - in mythweb
+    // POST on yourserver NULL or - All Hosts - in mythweb
     $xml_response = http_request("POST", "Myth/PutSetting",
                                  "Key=MythShutdownLock&Value=$sd_lock_value");
     $sd_lock_bool = parse_xml_response($xml_response, "bool");

@@ -1,4 +1,10 @@
 <?php
+
+/**
+ * Configure index.php
+ *
+ *
+ */
 define('MARK_CUT_START',1);
 define('MARK_CUT_END',0);
 
@@ -19,7 +25,7 @@ $sublangpref = array(
 );
 $ffmpeg="/usr/bin/ffmpeg";
 $dbserver = "localhost";
-$domainname = "192.168.1.29";
+$yourserver = "192.168.1.29";
 $dbuser = "mythtv";
 // Read password from clear text file ;-(
 $lines = file($program_path."/mythdb.txt");
@@ -35,7 +41,6 @@ $hwaccels = array(
     "nvenc"     => array("encoder" => "h264_nvenc", "decoder" => "h264_nvenc", "scale" => "scale",       "hwaccel" => "-hwaccel cuda -vaapi_device /dev/dri/renderD128 -hwaccel_output_format nvenc"),
     "nohwaccel" => array("encoder" => "libx264",    "decoder" => "libx264",    "scale" => "scale",       "hwaccel" => ""),
 );
-
 
 // Ladder from which the user may choose, Aspect ratio 16:9
 // https://medium.com/@peer5/creating-a-production-ready-multi-bitrate-hls-vod-stream-dff1e2f1612c
@@ -59,6 +64,8 @@ $settings = array(
                 "normal240" =>  array("height" =>  240, "width" =>  426, "vbitrate" =>  500, "abitrate" =>  64),
                 "low240" =>     array("height" =>  240, "width" =>  426, "vbitrate" =>  400, "abitrate" =>  48),
 );
+/*********** DO NOT CHANGE ANYTHING BELOW THIS LINE UNLESS YOU KNOW WHAT YOU ARE DOING **********/
+
 $keys = array_keys($settings);
 
 if (isset($_REQUEST["filename"]))
@@ -1090,7 +1097,7 @@ done\n");
                   linkButtonId.style.display = 'block';
                   linkButtonId.style.visibility = 'visible';
                   linkButtonId.addEventListener("click", function() {
-                      var url = "http://<?php echo $domainname; ?>/hls/<?php echo $filename; ?>.mp4";
+                      var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>.mp4";
                       copyToClipboard(url);
                   }, false);
               }
@@ -1126,7 +1133,7 @@ done\n");
                   mp4ButtonId.style.display = 'block';
                   mp4ButtonId.style.visibility = 'visible';
                   mp4ButtonId.addEventListener("click", function() {
-                      var url = "http://<?php echo $domainname; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                      var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
                       download(url);
                           }, false);
               }
@@ -1347,7 +1354,7 @@ done\n");
         <table cellspacing="10"
           <tr>
             <td>
-              <a href='./shutdownlock.php' target='_blank'><button type="button">Shutdown Lock</button></a>
+              <a href='./shutdownlock.php' target='_blank' rel="noopener noreferrer"><button type="button">Shutdown Lock</button></a>
             </td>
             <td>
               <input type="button" style="display: none; visibility: hidden;" id="linkButtonId" value="Video link" />

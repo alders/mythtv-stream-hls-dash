@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * Configure video.php
+ *
+ *
+ */
 $hlsdir = "hls";
 $livedir = "live";
 $voddir = "vod";
@@ -17,7 +22,7 @@ $sublangpref = array(
 );
 $ffmpeg="/usr/bin/ffmpeg";
 $dbserver = "localhost";
-$domainname = "192.168.1.29";
+$yourserver = "192.168.1.29";
 $dbuser = "mythtv";
 // Read password from clear text file ;-(
 $lines = file($program_path."/mythdb.txt");
@@ -56,6 +61,8 @@ $settings = array(
                 "normal240" =>  array("height" =>  240, "width" =>  426, "vbitrate" =>  500, "abitrate" =>  64),
                 "low240" =>     array("height" =>  240, "width" =>  426, "vbitrate" =>  400, "abitrate" =>  48),
 );
+/*********** DO NOT CHANGE ANYTHING BELOW THIS LINE UNLESS YOU KNOW WHAT YOU ARE DOING **********/
+
 $keys = array_keys($settings);
 
 if (isset($_REQUEST["videoid"]))
@@ -1014,7 +1021,7 @@ done\n");
                   linkButtonId.style.display = 'block';
                   linkButtonId.style.visibility = 'visible';
                   linkButtonId.addEventListener("click", function() {
-                      var url = "http://<?php echo $domainname; ?>/hls/<?php echo $_REQUEST["videoid"]; ?>.mp4";
+                      var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $_REQUEST["videoid"]; ?>.mp4";
                       copyToClipboard(url);
                   }, false);
               }
@@ -1050,7 +1057,7 @@ done\n");
                   mp4ButtonId.style.display = 'block';
                   mp4ButtonId.style.visibility = 'visible';
                   mp4ButtonId.addEventListener("click", function() {
-                      var url = "http://<?php echo $domainname; ?>/hls/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4";
+                      var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4";
                       download(url);
                           }, false);
               }
@@ -1271,7 +1278,7 @@ done\n");
         <table cellspacing="10"
           <tr>
             <td>
-              <a href='./shutdownlock.php' target='_blank'><button type="button">Shutdown Lock</button></a>
+              <a href='./shutdownlock.php' target='_blank' rel="noopener noreferrer"><button type="button">Shutdown Lock</button></a>
             </td>
             <td>
               <input type="button" style="display: none; visibility: hidden;" id="linkButtonId" value="Video link" />
