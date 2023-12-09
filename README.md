@@ -135,7 +135,7 @@ button on the "Recorded Programs" page to `Stream HLS DASH` button.
 
 <details>
 <summary>
-Click me to configure [[https://www.mythtv.org/wiki/MythWeb][MythWeb]].
+Click me to configure MythWeb.
 </summary>
 
 ``` shell
@@ -273,8 +273,8 @@ sudo make install
 
 ## In memory processing
 
-Optional step, add these (or similar) lines to `/etc/fstab` to create a
-ramdisk.
+Optional step, add these (or similar) lines depending on your
+installation to `/etc/fstab` to create a ramdisk.
 
 <details>
 <summary>
@@ -306,7 +306,7 @@ Application](https://www.mythtv.org/wiki/Web_Application)[^4].
 **Figure 1:** *User interface.*
 
 <img src="screenshots/user-selection.png" id="user-interface"
-width="350" />
+width="400" />
 
 User interface options from top to bottom:
 
@@ -333,7 +333,7 @@ Ctrl-Click (Windows), Command-Click (Apple) to select the renditions.
 
 **Figure 2:** *Adaptive Bitrate UI.*
 
-<img src="screenshots/abr.png" id="adaptive-bitrate-ui" width="350" />
+<img src="screenshots/abr.png" id="adaptive-bitrate-ui" width="250" />
 
 ### Remuxing
 
@@ -347,7 +347,7 @@ Figure 1, the video is remuxed to an `MP4` container.
 **Figure 3:** *Remuxing UI.*
 
 <img src="screenshots/remuxing-video.png" id="remuxing-video"
-width="350" />
+width="450" />
 
 Three buttons are shown below the available recording list box.
 
@@ -370,7 +370,7 @@ Figure 4 shows the user interface while encoding the video.
 **Figure 4:** *Generating video.*
 
 <img src="screenshots/encoding-video.png" id="generating-video"
-width="350" />
+width="450" />
 
 Progress of the encoding is shown on the status button as a percentage
 and the time of the video available. When there is about 6 seconds of
@@ -395,7 +395,7 @@ involved and the status thereof.
 
 **Figure 5:** *Status UI.*
 
-<img src="screenshots/status-button.png" id="status" width="350" />
+<img src="screenshots/status-button.png" id="status" width="300" />
 
 ### User interface after encoding
 
@@ -921,7 +921,7 @@ selecting a TV channel.
 **Figure 7:** *Select TV channel.*
 
 <img src="screenshots/select-tv-channel.png" id="select-tv-channel"
-width="350" />
+width="400" />
 
 User interface options:
 
@@ -937,7 +937,7 @@ Figure 8 shows the Live TV user interface.
 **Figure 8:** *Live TV user interface.*
 
 <img src="screenshots/live-tv.png" id="live-tv-user-interface"
-width="350" />
+width="300" />
 
 User interface options:
 

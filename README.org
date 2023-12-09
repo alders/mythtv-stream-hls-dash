@@ -152,7 +152,7 @@ Optional step, modify 2 lines of [[https://www.mythtv.org/wiki/MythWeb][MythWeb]
 #+begin_html
 <details>
 <summary>
-Click me to configure [[https://www.mythtv.org/wiki/MythWeb][MythWeb]].
+Click me to configure MythWeb.
 </summary>
 #+end_html
 
@@ -302,7 +302,7 @@ sudo make install
 
 ** In memory processing
 
-Optional step, add these (or similar) lines to =/etc/fstab= to create a ramdisk.
+Optional step, add these (or similar) lines depending on your installation to =/etc/fstab= to create a ramdisk.
 
 #+begin_html
 <details>
@@ -339,8 +339,8 @@ Figure 1 shows the user interface of =mythtv-stream-hls-dash= after selecting a
 recording in [[https://www.mythtv.org/wiki/MythWeb][MythWeb]] or the new [[https://www.mythtv.org/wiki/Web_Application][Web Application]][fn:4].
 
 *Figure 1:* /User interface./
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
+#+ATTR_HTML: :width 400px
+#+ATTR_LATEX: :width 400px :options angle=90
 #+LABEL: user-interface
 [[file:screenshots/user-selection.png]]
 
@@ -370,8 +370,8 @@ renditions for Adaptive Bitrate Streaming (ABR). Use Ctrl-Click (Windows),
 Command-Click (Apple) to select the renditions.
 
 *Figure 2:* /Adaptive Bitrate UI./
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
+#+ATTR_HTML: :width 250px
+#+ATTR_LATEX: :width 250px :options angle=90
 #+LABEL: adaptive-bitrate-ui
 [[file:screenshots/abr.png]]
 
@@ -387,8 +387,8 @@ interface while remuxing. Because =Cut Commercials= was selected in Figure 1, th
 video is remuxed to an =MP4= container.
 
 *Figure 3:* /Remuxing UI./
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
+#+ATTR_HTML: :width 450px
+#+ATTR_LATEX: :width 450px :options angle=90
 #+LABEL: remuxing-video
 [[file:screenshots/remuxing-video.png]]
 
@@ -411,8 +411,8 @@ machine this allows one to have full control from your browser.
 Figure 4 shows the user interface while encoding the video.
 
 *Figure 4:* /Generating video./
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
+#+ATTR_HTML: :width 450px
+#+ATTR_LATEX: :width 450px :options angle=90
 #+LABEL: generating-video
 [[file:screenshots/encoding-video.png]]
 
@@ -440,8 +440,8 @@ trigger a popup message box with a detailed view of the steps involved and the
 status thereof.
 
 *Figure 5:* /Status UI./
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
+#+ATTR_HTML: :width 300px
+#+ATTR_LATEX: :width 300px :options angle=90
 #+LABEL: status
 [[file:screenshots/status-button.png]]
 
@@ -454,8 +454,8 @@ Figure 6 shows the interface after encoding is done.
 
 *Figure 6:* /User interface after encoding./
 #+LABEL: user-interface
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
+#+ATTR_HTML: :width 400px
+#+ATTR_LATEX: :width 400px :options angle=90
 
 [[file:screenshots/encoding-finished.png]]
 
@@ -481,7 +481,7 @@ supported by all playlist types. Subtitles are supported by all.
 
 *Table 1:* /Playlist and MP4 support for live broadcast and recorded video./
 #+label: feature-types
-#+attr_latex: :width 350px :options angle=90
+#+attr_latex: :width 400px :options angle=90
 | Playlist | HLS | DASH | subtitle[fn:13] | subtitle[fn:14] | ABR |
 |----------+-----+------+----------------+----------------+-----|
 | live     | ✅  |      | ✅             |                | ✅  |
@@ -494,7 +494,7 @@ user are shown in table 2[fn:15].
 
 *Table 2:* /All possible UI combinations of playlist types and MP4./
 #+label: feature-types
-#+attr_latex: :width 350px :options angle=90
+#+attr_latex: :width 400px :options angle=90
 | live | event | VOD | MP4 |
 |------+-------+-----+-----|
 | ✅   |       |     |     |
@@ -519,7 +519,7 @@ network "/automagically/".
 
 *Table 3:* /Safari m3u8 player UI playlist support during Live Broadcasting (while encoding)./
 #+label: usenativehlsonsafari-true-safari-m3u8e
-#+attr_latex: :width 350px :options angle=90
+#+attr_latex: :width 400px :options angle=90
 | Playlist | Progress bar | Subtitles | Resolution | Language                             |
 |----------+--------------+-----------+------------+--------------------------------------|
 | live     | 🔴           | Dutch     | 🔴         | (Dutch (audio_0)),..,Dutch (audio_2) |
@@ -529,7 +529,7 @@ network "/automagically/".
 
 *Table 4:* /Shaka player (configuration ("useNativeHlsOnSafari" : true)) UI playlist support during Live Broadcasting (while encoding)./
 #+label: usenativehlsonsafari-true-safari-shaka-player
-#+attr_latex: :width 350px :options angle=90
+#+attr_latex: :width 400px :options angle=90
 | Playlist | Progress bar | Captions   | Resolution   | Language                                   | Quality          |
 |----------+--------------+------------+--------------+--------------------------------------------+------------------|
 | live     | ✅ [fn:16]    | Nederlands | Auto (nullp) | Nederlands                                 | 🔴               |
@@ -539,7 +539,7 @@ network "/automagically/".
 
 *Table 5:* /Safari Player (configuration ("useNativeHlsOnSafari" : false)) UI playlist support during Live Broadcasting (while encoding)./
 #+label: usenativehlsonsafari-false-safari-shaka-player
-#+attr_latex: :width 350px :options angle=90
+#+attr_latex: :width 400px :options angle=90
 | Playlist | Progress bar | Captions  | Resolution    | Language   | Quality          |
 |----------+--------------+-----------+---------------+------------+------------------|
 | live     | 🔴           | ✅  (off) | 240p          | 🔴         | 🔴               |
@@ -1016,8 +1016,8 @@ Figure 7 shows shows the user interface of =hdhomerunstream= while selecting a T
 channel.
 
 *Figure 7:* /Select TV channel./
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
+#+ATTR_HTML: :width 400px
+#+ATTR_LATEX: :width 400px :options angle=90
 #+LABEL: select-tv-channel
 [[file:screenshots/select-tv-channel.png]]
 
@@ -1030,8 +1030,8 @@ User interface options:
 Figure 8 shows the Live TV user interface.
 
 *Figure 8:* /Live TV user interface./
-#+ATTR_HTML: :width 350px
-#+ATTR_LATEX: :width 350px :options angle=90
+#+ATTR_HTML: :width 300px
+#+ATTR_LATEX: :width 300px :options angle=90
 #+LABEL: live-tv-user-interface
 [[file:screenshots/live-tv.png]]
 
