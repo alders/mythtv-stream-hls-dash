@@ -222,7 +222,7 @@ if (file_exists($dirname."/".$filename.".".$extension) ||
         {
             array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"].".mp4"));
         }
-        echo "<html><head><title>Video Deleted</title></head><body>".$select_box."<h2>Video Deleted</h2></html>";
+        echo "<html><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><head><title>Video Deleted</title></head><body>".$select_box."<h2>Video Deleted</h2></html>";
     }
     else if (isset($_REQUEST['action']) && $_REQUEST["action"] === "clean")
     {
@@ -862,6 +862,7 @@ done\n");
         ?>
 
         <!DOCTYPE html>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <html>
         <head><title>DASH and HLS fMP4 Video Player</title>
         <style>
@@ -1393,6 +1394,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
         }
             ?>
             <html>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <head><title>Select Video Settings</title></head>
             <body>
 <?php echo $select_box; ?>

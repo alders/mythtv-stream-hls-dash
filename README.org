@@ -1034,10 +1034,9 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 
 *** Limitations
 
-- Code needs to be refactored to remove duplicate code.
-- No support for DVD menus.
+- The current project code needs to be refactored in order to remove duplicate code.
+- DVD menus are not supported.
 - A design choice has been made to symlink =mp4= files rather than to encode them.
-- Integrate HTTP streaming into new [[https://www.mythtv.org/wiki/Web_Application][Web Application]] UI.
 
 * Live TV
 ** User interface

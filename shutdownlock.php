@@ -1,4 +1,5 @@
 <html>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <header>
 <title>Control Shutdown Lock</title>
 <?php

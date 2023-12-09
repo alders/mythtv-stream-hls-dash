@@ -243,7 +243,7 @@ if (isset($_REQUEST['action']) && $_REQUEST["action"] == "delete")
     {
         rmdir($channel_path."/../live/".$_REQUEST['channel']."/");
     }
-    echo "<html><head><title>Stopped Live Stream</title></head><body><h2>Stopped Live Stream</h2>".$select_box."</body></html>";
+    echo "<html><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><head><title>Stopped Live Stream</title></head><body><h2>Stopped Live Stream</h2>".$select_box."</body></html>";
 }
 else if (isset($_REQUEST['action']) && $_REQUEST["action"] == "status")
 {
@@ -460,6 +460,7 @@ else if (isset($_REQUEST["do"]))
     }
     ?>
         <!DOCTYPE html>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <html>
         <head><title>Live TV</title>
         <style>
@@ -682,7 +683,7 @@ else if (isset($_REQUEST["do"]))
 }
 else
 {
-    echo "<html><head><title>Select quality and TV Channel</title></head><body><h2>Select TV Channel:</h2>";
+    echo "<html><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><head><title>Select quality and TV Channel</title></head><body><h2>Select TV Channel:</h2>";
     echo $select_box."</body></html>";
 
 }
