@@ -15,7 +15,6 @@ $webroot = "/var/www/html";
 $hls_path = "$webroot/$hlsdir";
 $live_path = "$webroot/$livedir";
 $vod_path = "$webroot/$voddir";
-$program_path = "/home/mythtv";
 // NOTE: ISO 639-2/B language codes, the first match of the subtitle language preference is used
 $sublangpref = array(
     "dut" => array("name" => "Dutch",        "ISO" => "dut"),
@@ -28,7 +27,7 @@ $dbserver = "localhost";
 $yourserver = "192.168.1.29";
 $dbuser = "mythtv";
 // Read password from clear text file ;-(
-$lines = file($program_path."/mythdb.txt");
+$lines = file("/home/mythtv/mythdb.txt");
 $dbpass = trim($lines[0]);
 $dbname = "mythconverg";
 

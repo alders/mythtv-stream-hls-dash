@@ -64,8 +64,9 @@ How:
 The installation below is based on Fedora and Apache as web server. Adapting the
 code to your distribution / web server is left as an exercise to the user.
 
-Note: take additional security measures in case you decide to open your web
-server to the internet. Use at your own risk.
+Note: do not run this code as is in an untrusted environment and do not open
+your web server to the internet. In either case additional security measures
+should be taken. Use at your own risk.
 
 ** Dependency
 :PROPERTIES:
@@ -322,7 +323,23 @@ tmpfs                                           /var/www/html/channel tmpfs node
 ** Allow JavaScript
 
 Allow JavaScript in your browser.
-
+** Access to database
+Create a file called =mythdb.txt= in directory =/home/mythtv=. This file should
+contain the plaintext mythtv database password. Both =video.php= and =index.php=
+assume that the database server is running on localhost and the database
+username is =mythtv= and the database name is =mythconverg=. If any of these
+assumptions are not correct, modify the corresponding lines in both files.
+** Optional configuration
+One may adapt the lines at the top of the files to your liking:
+- $hlsdir -- This is the directory where the meta data of all encoded videos are stored. Moreover playlist =event= videos are stored here.
+- $livedir -- This is the directory where playlist =live= videos are stored.
+- $voddir -- This is the directory where playlist =vod= videos are stored.
+- $webroot -- This is the root of your web server.
+- $sublangpref -- This array contains your preferred subtitle languages in order. The first match from top to bottom will be used.
+- $ffmpeg -- This variable points to the =FFmpeg= executable. One may point to this variable to =mythffmpeg=, but subtitles will then not be supported.
+- $yourserver -- This variable should point to the ip address of your MythTV backend.
+- $hwaccels -- This array specifies the hw acceleration options for =FFmpeg=. Note: only =VAAPI= and =nohwaccel= has been tested.
+- $settings -- This array specifies the ladder the user may choose for his renditions.
 * HTTP streaming
 ** Example
 :PROPERTIES:
