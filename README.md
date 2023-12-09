@@ -1,10 +1,3 @@
-[WARNING] Ignoring duplicate attribute alt="image".
-[WARNING] Ignoring duplicate attribute alt="image".
-[WARNING] Ignoring duplicate attribute alt="image".
-[WARNING] Ignoring duplicate attribute alt="image".
-[WARNING] Ignoring duplicate attribute alt="image".
-[WARNING] Ignoring duplicate attribute alt="image".
-[WARNING] Ignoring duplicate attribute alt="image".
 # Description
 
 HTTP Live streaming support for [MythTV](https://www.mythtv.org).
@@ -683,12 +676,11 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 
 ### Complete script
 
-  <details>
-    <summary>
-    Click me
-    </summary>
-&#10;For completeness the whole script is:
-&#10;#+begin_src shell -n
+\<details\> \<summary\> Click me \</summary\>
+
+For completeness the whole script is:
+
+``` shell
 cd /var/www/html/hls/10100_20231101212100
 /usr/bin/sudo /usr/bin/screen -S 10100_20231101212100_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > /var/www/html/hls/10100_20231101212100/status.txt;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
@@ -723,7 +715,8 @@ done
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="group_A1")/\1,LANGUAGE="dut"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;) &
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> /var/www/html/hls/10100_20231101212100/status.txt';
 /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/vod/10100_20231101212100;
-&#10;/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231101212100;
+
+/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231101212100;
 cd /var/www/html/hls/;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
     -fix_sub_duration \
@@ -843,8 +836,9 @@ do
 done
 /usr/bin/sudo /usr/bin/rm /var/www/html/hls/10100_20231101212100/video.mp4
 sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
-#+end_src
-&#10;  </details>
+```
+
+\</details\>
 
 # Live TV
 
