@@ -21,40 +21,39 @@ HTTP Live streaming support for [[https://www.mythtv.org][MythTV]].
 
 Why:
 - Although support was added for HTTP Live Streaming (=HLS=) to [[https://www.mythtv.org][MythTV]] in v0.25 it
-  is not usable.
+  is not yet usable.
 - [[https://www.mythtv.org/wiki/MythWeb][MythWeb]] is no longer actively developed and is based on Flash technology from
   the days of yore.
 - HTML5 support for [[https://www.mythtv.org/wiki/WebFrontend][WebFrontend]] is work in progress.
-- The new Web Application ([[https://www.mythtv.org/wiki/Web_Application][MythTV v34]]) does not yet provide HTTP streaming
-  support.
-- An attempt to overcome these shortcomings was made in github project [[https://github.com/thecount2a/mythtv-stream-mpeg-dash][MythTV
-  stream mpeg DASH]].
+- The new [[https://www.mythtv.org/wiki/Web_Application][Web Application]] (MythTV v34) interface does not yet provide HTTP
+  streaming support.
+- An attempt to provide streaming support was made in github project
+  [[https://github.com/thecount2a/mythtv-stream-mpeg-dash][MythTV stream mpeg DASH]].
 - All lack support for =HLS=, Adaptive Bitrate Streaming (=ABR=), live recording,
   live broadcast, subtitles, etcetera.
 
 What:
-- Support for HTTP based streaming (serving) of MythTV content.
+- Support for HTTP based streaming (serving) of HDHomeRun, MythTV and MythVideo content.
 - Support for device independent viewing: web browser—mobile, desktop, tablet,
   etc.
 - Support for less reliable networks (e.g. cell phone browser).
-- Support for live broadcasts and prerecorded video.
+- Support for live tv, live recording and recorded content.
 - Support for offline viewing.
 - Support for MythTV cutlist (commercial cut) created using Mythfrontend.
-- Support for MythVideo.
-- Support for live HDHomeRun streaming without MythTV.
 
 How:
-- Encode MythTV recordings and MythVideo providing playlist types =live=, =event= and =VOD=.
+- Encode MythTV recordings and MythVideo content providing playlist types =live=,
+  =event= and =VOD=.
 - MPEG-DASH and HLS with fragmented MP4 (fMP4) makes both compatible, therefore
   only the manifest file (playlist) is different.
 - Transcode to =MP4= for playback on mobile devices without internet.
 - Video is codified in H.264 format and audio in AAC.
-- HW supported transcoding for VAAPI (support for QSV and NVEC remains
-  untested).
+- HW accelerated support for VAAPI (other hw acceleration options are untested).
 - Simple PHP browser UI.
 - Transcode videos to user defined (UI select dropdown list) renditions for
   adaptive playback.
-- A ramdisk can be used for in memory handling of playlist type =live=.
+- Optionally a ramdisk can be used for in memory handling of playlist type =live=.
+- Shutdown lock can be used to prevent MythWelcome from shutting down.
 
 #+TOC: headlines 2
 
@@ -63,18 +62,18 @@ How:
 :ID:       e32a386c-b67a-4701-ae52-5c145c18d930
 :END:
 
-The installation below is based on Apache and Fedora. When using a different web
-server / distribution locations and content user may be different. Adapting the
-code is left as an exercise to the user.
+The installation below is based on Fedora and Apache as web server. Adapting the
+code to your distribution / web server is left as an exercise to the user.
 
 ** Dependency
 :PROPERTIES:
 :ID:       335b222c-00c0-4151-8365-911272ccbeca
 :END:
 
-- MythTV (for looking up the name of each recording based on filename and
-  optionally for commerical cut info)
-  - Any version up to and including version v0.34
+- MythTV (for looking up the recording / video name, tv channels info and for
+  using commercial cut)
+  - Any version up to and including version v0.34 (the latter is required for
+    MythVideo support via [[https://www.mythtv.org/wiki/Web_Application][Web Application]])
 - FFmpeg (for encoding)[fn:1]
   - FFmpeg version 5.1.3
 - GNU screen
@@ -95,9 +94,8 @@ internet. Use at your own risk.
 
 ** Install dependencies
 
-On Fedora install:
 #+begin_src shell -n
-sudo dnf install ffmpeg mediainfo inotify-tools screen hdhomerun-devel sed
+sudo dnf install mythtv ffmpeg screen mediainfo inotify-tools hdhomerun-devel sed
 #+end_src
 
 ** Create apache user
@@ -114,7 +112,7 @@ sudo chmod -R 755 /var/www/html
 
 ** Configure sudo
 
-The =php= script generates a =bash= script. The commands are run as user =apache= via =sudo=:
+The =php= script generates a =bash= script. The commands are run as user =apache= using =sudo=:
 #+begin_src shell -n
 sudo visudo -f /etc/sudoers.d/apache
 [mythtv@nuc1 ~]$ sudo cat /etc/sudoers.d/apache
@@ -172,10 +170,13 @@ index 8502305b..7bf3db0b 100644
 
 ** Patch Web Application
 
-Optionally change a few lines in the =backend Web App=[fn:3] to allow recording
-and / or video selection from any device. Replace =mydomain= in the patches below.
+The use of [[https://www.mythtv.org/wiki/Web_Application][Web Application]] requires [[https://www.mythtv.org/wiki/Build_from_Source][MythTV installation from sources]].
 
-To allow recording selection for playback on any device:
+Optionally change a few lines in the  [[https://www.mythtv.org/wiki/Web_Application][Web Application]][fn:3] to allow recording
+and / or video and / or live tv selection from any device. Replace =mydomain= in
+the patches below to your combined web server / =Mythbackend= address.
+
+To allow web browser recording selection for playback on any device:
 #+begin_src shell -n
 diff --git a/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html b/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html
 index 4618e41aa8..8bae11e03a 100644
@@ -193,7 +194,7 @@ index 4618e41aa8..8bae11e03a 100644
                          <i class="pi pi-eye" *ngIf="program.ProgramFlagNames.indexOf('WATCHED') > -1"
 #+end_src
 
-To allow video selection for playback on any device.
+To allow web browser video selection for playback on any device.
 #+begin_src shell -n
 diff --git a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
 index 2d75b5e0ab..42abea28ac 100644
@@ -210,7 +211,7 @@ index 2d75b5e0ab..42abea28ac 100644
                      <td style="flex-basis: 3%" class="p-1">
 #+end_src
 
-To allow tv channel selection for playback on any device.
+To allow web browser tv channel selection for playback on any device.
 #+begin_src shell -n
 diff --git a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.html b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.html
 index 44abe96fea..c17429ef6c 100644
@@ -239,7 +240,7 @@ index 97ae71efa8..f088012f94 100644
  }
 #+end_src
 
-Run the npm build script and install the web application:
+To apply these optional changes run the npm build script and install the web application:
 #+begin_src shell -n
 cd mythtv/mythtv/html/backend/
 npm run-script build
@@ -247,6 +248,9 @@ cd ..
 sudo make install
 #+end_src
 
+** Allow JavaScript
+
+Allow JavaScript in your browser.
 
 * HTTP streaming
 ** Example

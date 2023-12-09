@@ -1271,7 +1271,7 @@ done\n");
         <table cellspacing="10"
           <tr>
             <td>
-              <input type="button" style="display: block; visibility: visible;" onclick="window.location.href='../shutdownlock.php';" value="Shutdown Lock" />
+              <a href='./shutdownlock.php' target='_blank'><button type="button">Shutdown Lock</button></a>
             </td>
             <td>
               <input type="button" style="display: none; visibility: hidden;" id="linkButtonId" value="Video link" />

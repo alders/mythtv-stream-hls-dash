@@ -1,8 +1,16 @@
 <?php
+
 $webroot = "/var/www/html";
 # live_path may be configured as a ramdisk
 $live_path = "$webroot/live";
 $channel_path = "$webroot/channel";
+// // NOTE: ISO 639-2/B language codes, the first match of the subtitle language preference is used
+// $sublangpref = array(
+//     "dut" => array("name" => "Dutch",        "ISO" => "dut"),
+//     "dum" => array("name" => "dum",          "ISO" => "dum"),
+//     "eng" => array("name" => "English",      "ISO" => "eng"),
+//     "ger" => array("name" => "German",       "ISO" => "ger"),
+// );
 $language = "dut";
 $languagename = "Dutch";
 # TODO: select free tuner instead of hard coding
@@ -185,7 +193,7 @@ $select_box .= "<label for=\"hwaccel\">HW acceleration: </label><select class=\"
 $select_box .= "<option value=\"\" disabled hidden>-- Please choose your HW Acceleration --</option>";
 foreach ($hwaccels as $hwaccel => $hwaccelset)
 {
-    $select_box .= "<option value=\"".$hwaccel."\"".((strpos($hwaccel, "vaapi") !== false)?" selected=\"selected\"":"").
+    $select_box .= "<option value=\"".$hwaccel."\"".((strpos($hwaccel, "h264") !== false)?" selected=\"selected\"":"").
                 ">".$hwaccelset["encoder"]."".
                 "</option>\n";
 }
@@ -646,7 +654,7 @@ else if (isset($_REQUEST["do"]))
           </tr>
           <tr>
             <td>
-              <input type="button" style="display: block; visibility: visible;" onclick="window.location.href='../shutdownlock.php';" value="Shutdown Lock" />
+              <a href='./shutdownlock.php' target='_blank'><button type="button">Shutdown Lock</button></a>
             </td>
             <td>
               <input type="button" style="display: none; visibility: hidden;" id="liveButtonId" value="LIVE" />
