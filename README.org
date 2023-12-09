@@ -5,7 +5,6 @@
 #+title: MythTV stream MPEG-DASH and HLS with fMP4 segments
 #+date: <2023-10-15 Sun>
 #+author: Dennis Alders
-#+email: (concat "dennis.alders" at-sign "gmail.com")
 #+language: en
 #+select_tags: export
 #+exclude_tags: noexport
@@ -49,7 +48,7 @@ How:
 - Transcode to =MP4= for offline playback on mobile devices.
 - Video is codified in H.264 format and audio in AAC.
 - HW accelerated support for VAAPI (other hw acceleration options are untested).
-- Simple PHP browser UI.
+- Simple browser UI.
 - Transcode videos to user defined (UI select dropdown list) renditions for
   adaptive playback.
 - Optionally a ramdisk can be used for in memory handling of playlist type =live=.
@@ -150,6 +149,13 @@ sudo -uapache rsync -avnh --exclude='.git/' mythtv-stream-hls-dash/*.php /var/ww
 Optional step, modify 2 lines of MythWeb code to change ASX Stream button on the
 "Recorded Programs" page to =Stream HLS DASH= button.
 
+#+begin_html
+<details>
+<summary>
+Click me to configure MythWeb.
+</summary>
+#+end_html
+
 #+begin_src shell -n
 diff --git a/modules/tv/tmpl/default/recorded.php b/modules/tv/tmpl/default/recorded.php
 index 8502305b..7bf3db0b 100644
@@ -168,6 +174,10 @@ index 8502305b..7bf3db0b 100644
              ><img height="24" width="24" src="<?php echo skin_url ?>/img/video_sm.png" alt="<?php echo t('Direct Download'); ?>"></a>
 #+end_src
 
+#+begin_html
+</details>
+#+end_html
+
 ** Patch Web Application
 
 The use of [[https://www.mythtv.org/wiki/Web_Application][Web Application]] requires [[https://www.mythtv.org/wiki/Build_from_Source][MythTV installation from sources]].
@@ -176,7 +186,13 @@ Optionally change a few lines in the  [[https://www.mythtv.org/wiki/Web_Applicat
 and / or video and / or live tv selection from your browser. Replace =mydomain= in
 the patches below to point to your combined web server / =Mythbackend= address.
 
-To allow web browser recording selection for playback on any device:
+#+begin_html
+<details>
+<summary>
+Click me to configure web browser recording selection for playback on any device.
+</summary>
+#+end_html
+
 #+begin_src shell -n
 diff --git a/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html b/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html
 index 4618e41aa8..8bae11e03a 100644
@@ -194,7 +210,17 @@ index 4618e41aa8..8bae11e03a 100644
                          <i class="pi pi-eye" *ngIf="program.ProgramFlagNames.indexOf('WATCHED') > -1"
 #+end_src
 
-To allow web browser video selection for playback on any device.
+#+begin_html
+</details>
+#+end_html
+
+#+begin_html
+<details>
+<summary>
+Click me to configure web browser video selection for playback on any device.
+</summary>
+#+end_html
+
 #+begin_src shell -n
 diff --git a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
 index 2d75b5e0ab..42abea28ac 100644
@@ -211,7 +237,17 @@ index 2d75b5e0ab..42abea28ac 100644
                      <td style="flex-basis: 3%" class="p-1">
 #+end_src
 
-To allow web browser tv channel selection for playback on any device.
+#+begin_html
+</details>
+#+end_html
+
+#+begin_html
+<details>
+<summary>
+Click me to configure web browser tv channel selection for playback on any device.
+</summary>
+#+end_html
+
 #+begin_src shell -n
 diff --git a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.html b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.html
 index 44abe96fea..c17429ef6c 100644
@@ -222,7 +258,7 @@ index 44abe96fea..c17429ef6c 100644
      </div>
      <div class="channelText">
 -        <span>{{ channel.ChanNum}} {{ channel.CallSign }}</span>
-+        <span><a href="{{URLencode('http://192.168.1.29/mythtv-stream-hls-dash/hdhomerunstream.php?quality[]=high480&hw=h264&channel=' + channel.CallSign + '&do=Watch+TV')}}" target="_blank">{{channel.ChanNum}} {{ channel.CallSign }}</a></span>
++        <span><a href="{{URLencode('http://mydomain/mythtv-stream-hls-dash/hdhomerunstream.php?quality[]=high480&hw=h264&channel=' + channel.CallSign + '&do=Watch+TV')}}" target="_blank">{{channel.ChanNum}} {{ channel.CallSign }}</a></span>
      </div>
 </div>
 diff --git a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts
@@ -240,13 +276,49 @@ index 97ae71efa8..f088012f94 100644
  }
 #+end_src
 
-To apply these optional changes run the npm build script and install the web application:
+#+begin_html
+</details>
+#+end_html
+
+To apply these optional [[https://www.mythtv.org/wiki/Web_Application][Web Application]] changes run the npm build script and install the web application:
+
+#+begin_html
+<details>
+<summary>
+Click me to run the npm build script.
+</summary>
+#+end_html
+
 #+begin_src shell -n
 cd mythtv/mythtv/html/backend/
 npm run-script build
 cd ..
 sudo make install
 #+end_src
+
+#+begin_html
+</details>
+#+end_html
+
+** In memory processing
+
+Optional step, add these (or similar) lines to =/etc/fstab= to create a ramdisk.
+
+#+begin_html
+<details>
+<summary>
+Click me to configure a ramdisk
+</summary>
+#+end_html
+
+#+begin_src shell -n
+tmpfs                                           /var/www/html/live tmpfs nodev,nosuid,noexec,nodiratime,size=1G 0  0
+tmpfs                                           /var/www/html/channel tmpfs nodev,nosuid,nodiratime,size=200M 0  0
+#+end_src
+
+#+begin_html
+</details>
+#+end_html
 
 ** Allow JavaScript
 
@@ -264,7 +336,7 @@ Allow JavaScript in your browser.
 :END:
 
 Figure 1 shows the user interface of =mythtv-stream-hls-dash= after selecting a
-recording in MythWeb or the new Web_Application[fn:40].
+recording in MythWeb or the new Web_Application[fn:4].
 
 *Figure 1:* /User interface./
 #+CAPTION: User interface
@@ -274,13 +346,13 @@ recording in MythWeb or the new Web_Application[fn:40].
 [[file:screenshots/user-selection.png]]
 
 User interface options from top to bottom:
-- Select an available recording from the list box[fn:4].
+- Select an available recording from the list box[fn:5].
 - Select the =ABR= renditions from the select dropdown list box.
-- Select the HW acceleration from the list box[fn:5].
-- Select if the =Cutlist= should be used using the list box[fn:6].
-- Select using the checkbox if =Subtitles= should be created[fn:7].
+- Select the HW acceleration from the list box[fn:6].
+- Select if the =Cutlist= should be used using the list box[fn:7].
+- Select using the checkbox if =Subtitles= should be created[fn:8].
 - Select using the checkboxes if playlist type =live= or =event= should be
-  used[fn:8].
+  used[fn:9].
 - Select using the checkbox if playlist type =VOD= should be used.
 - Select using the checkbox if a =MP4= file should be created.
 - Press *Encode Video* when you are satisfied with your choices to start
@@ -322,7 +394,7 @@ selected in Figure 1, the video is remuxed to an =MP4= container.
 
 Three buttons are shown below the available recording list box.
 
-The first button =Delete Video Files= basically does what is says[fn:9].
+The first button =Delete Video Files= basically does what is says[fn:10].
 
 The second status button displays a dynamic message. Figure 3 shows the =Remuxing
 Video= percentage.
@@ -347,7 +419,7 @@ Figure 4 shows the user interface while encoding the video.
 
 Progress of the encoding is shown on the status button as a percentage and
 the time of the video available. When there is about 6 seconds of video
-available the player automatically tries to load the video[fn:10].
+available the player automatically tries to load the video[fn:11].
 
 At the right hand side of the =Shutdown Lock= buttons appear dynamically, when
 files become available on disk. In Figure 4 this is the case for =HLS event= and
@@ -390,7 +462,7 @@ Figure 6 shows the interface after encoding is done.
 
 [[file:screenshots/encoding-finished.png]]
 
-Two additional buttons appeared in Figure 6 for =Cleanup Video Files= [fn:11] and
+Two additional buttons appeared in Figure 6 for =Cleanup Video Files= [fn:12] and
 =Download MP4=.
 
 Since both playlists =HLS event= and =HLS VOD= basically provide similar user
@@ -414,7 +486,7 @@ supported by all playlist types. Subtitles are supported by all.
 #+caption: Feature support for live broadcast and recorded video.
 #+label: feature-types
 #+attr_latex: :width 350px :options angle=90
-| Playlist | HLS | DASH | subtitle[fn:12] | subtitle[fn:13] | ABR |
+| Playlist | HLS | DASH | subtitle[fn:13] | subtitle[fn:14] | ABR |
 |----------+-----+------+----------------+----------------+-----|
 | live     | ✅  |      | ✅             |                | ✅  |
 | event    | ✅  |      | ✅             |                | ✅  |
@@ -422,7 +494,7 @@ supported by all playlist types. Subtitles are supported by all.
 | MP4      |     |      |                | ✅             |     |
 
 All possible UI combinations of playlist types and MP4 that can be chosen by the
-user are shown in table 2[fn:14].
+user are shown in table 2[fn:15].
 
 *Table 2:* /All possible UI combinations of playlist types and MP4./
 #+caption: All possible combinations of playlist types and MP4.
@@ -467,7 +539,7 @@ network "/automagically/".
 #+attr_latex: :width 350px :options angle=90
 | Playlist | Progress bar | Captions   | Resolution   | Language                                   | Quality          |
 |----------+--------------+------------+--------------+--------------------------------------------+------------------|
-| live     | ✅ [fn:15]    | Nederlands | Auto (nullp) | Nederlands                                 | 🔴               |
+| live     | ✅ [fn:16]    | Nederlands | Auto (nullp) | Nederlands                                 | 🔴               |
 | event    | ✅           | Nederlands | Auto (nullp) | Nederlands                                 | 🔴               |
 | VOD      | ✅           | Nederlands | Auto (nullp) | Nederlands,Nederlands  (2 out of 3 tracks) | 🔴               |
 | MP4      | ✅           |            | 🔴           | Nederlands                                 | Auto (0 kbits/s) |
@@ -502,7 +574,7 @@ be remuxed to a =MP4= container as shown in the user interface of Figure 3. The
 code block below shows in detail how this is done.
 
 An =MP4= container allows FFmpeg to use the =concat demuxer= later in the
-script[fn:16].
+script[fn:17].
 
 #+begin_html
 <details>
@@ -953,8 +1025,8 @@ channel.
 
 User interface options:
 - Select the =ABR= renditions from the select dropdown list box, see Figure 2.
-- Select the HW acceleration from the list box[fn:5].
-- Select the TV channel from the list box[fn:17].
+- Select the HW acceleration from the list box[fn:6].
+- Select the TV channel from the list box[fn:18].
 - Press *Watch TV* when you are satisfied with your choices to start watching.
 
 Figure 8 shows the Live TV user interface.
@@ -967,7 +1039,7 @@ Figure 8 shows the Live TV user interface.
 [[file:screenshots/live-tv.png]]
 
 User interface options:
-- Select *Stop streaming* when you are done watching[fn:18]. This cleans up the files on disk.
+- Select *Stop streaming* when you are done watching[fn:19]. This cleans up the files on disk.
 - The status button indicates when the =Live stream is ready=.
 - Select =Shutdown Lock= in case one wants to prevent MythTV from shutting down.
 - The dynamic button at the right hand side indicates the fact that the =HLS=
@@ -1016,35 +1088,35 @@ Feedback, patches, other contributions and ideas are welcome!
 
 [fn:3] This requires mythtv v34.
 
-[fn:4] The dropdown list shows the recordings available for streaming. Leave as is since we are defining the settings for this recording.
+[fn:4] A subset of the user interface is used after selecting a video in [[https://www.mythtv.org/wiki/Web_Application][Web Application]].
 
-[fn:5] Only VAAPI and no HW acceleration has been tested. Feedback on untested acceleration is appreciated.
+[fn:5] The dropdown list shows the recordings available for streaming. Leave as is since we are defining the settings for this recording.
 
-[fn:6] This option is only visible in the UI when a =Cutlist= is defined in MythTV.
+[fn:6] Only VAAPI and no HW acceleration has been tested. Feedback on untested acceleration is appreciated.
 
-[fn:7] This option is only visible when subtitles are available in the video file. The language depends on the configuration in the php files. Adapt to your liking.
+[fn:7] This option is only visible in the UI when a =Cutlist= is defined in MythTV.
 
-[fn:8] Either one of the two or none at all.
+[fn:8] This option is only visible when subtitles are available in the video file. The language depends on the configuration in the php files. Adapt to your liking.
 
-[fn:9] This will not delete any file from MythTV or change the MySQL database. All files can be recreated as long as the recording is available in MythTV.
+[fn:9] Either one of the two or none at all.
 
-[fn:10] If no still of the output is shown after 30 seconds, push the =HLS event= of =HLS VOD= button. As a last resort try to reload the browser page.
+[fn:10] This will not delete any file from MythTV or change the MySQL database. All files can be recreated as long as the recording is available in MythTV.
 
-[fn:11] This button is only shown when both playlist types =event= and =VOD= were selected as shown in Figure 1.
+[fn:11] If no still of the output is shown after 30 seconds, push the =HLS event= of =HLS VOD= button. As a last resort try to reload the browser page.
 
-[fn:12] Realtime.
+[fn:12] This button is only shown when both playlist types =event= and =VOD= were selected as shown in Figure 1.
 
-[fn:13] After Post-processing.
+[fn:13] Realtime.
 
-[fn:14] All can be combined with =ABR=, =Cut commercials= and =subtitles= selection.
+[fn:14] After Post-processing.
 
-[fn:15] One minute of playback.
+[fn:15] All can be combined with =ABR=, =Cut commercials= and =subtitles= selection.
 
-[fn:16] The =cutlist= itself was defined in MythTV which is translated into the
+[fn:16] One minute of playback.
+
+[fn:17] The =cutlist= itself was defined in MythTV which is translated into the
 inpoint's and outpoint's of the =cutlist= for the video.
 
-[fn:17] The channel information is extracted from MythTV automagically.
+[fn:18] The channel information is extracted from MythTV automagically.
 
-[fn:18] FFmpeg encoding is stopped without checking if other users are watching the stream.
-
-[fn:40] A subset of the user interface is used after selecting a video in [[https://www.mythtv.org/wiki/Web_Application][Web Application]].
+[fn:19] FFmpeg encoding is stopped without checking if other users are watching the stream.

@@ -41,7 +41,7 @@ How:
 - Video is codified in H.264 format and audio in AAC.
 - HW accelerated support for VAAPI (other hw acceleration options are
   untested).
-- Simple PHP browser UI.
+- Simple browser UI.
 - Transcode videos to user defined (UI select dropdown list) renditions
   for adaptive playback.
 - Optionally a ramdisk can be used for in memory handling of playlist
@@ -132,6 +132,11 @@ sudo -uapache rsync -avnh --exclude='.git/' mythtv-stream-hls-dash/*.php /var/ww
 Optional step, modify 2 lines of MythWeb code to change ASX Stream
 button on the "Recorded Programs" page to `Stream HLS DASH` button.
 
+<details>
+<summary>
+Click me to configure MythWeb.
+</summary>
+
 ``` shell
 diff --git a/modules/tv/tmpl/default/recorded.php b/modules/tv/tmpl/default/recorded.php
 index 8502305b..7bf3db0b 100644
@@ -150,6 +155,8 @@ index 8502305b..7bf3db0b 100644
              ><img height="24" width="24" src="<?php echo skin_url ?>/img/video_sm.png" alt="<?php echo t('Direct Download'); ?>"></a>
 ```
 
+</details>
+
 ## Patch Web Application
 
 The use of [Web
@@ -163,7 +170,10 @@ recording and / or video and / or live tv selection from your browser.
 Replace `mydomain` in the patches below to point to your combined web
 server / `Mythbackend` address.
 
-To allow web browser recording selection for playback on any device:
+<details>
+<summary>
+Click me to configure web browser recording selection for playback on any device.
+</summary>
 
 ``` shell
 diff --git a/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html b/mythtv/html/backend/src/app/dashboard/recordings/recordings.component.html
@@ -182,7 +192,12 @@ index 4618e41aa8..8bae11e03a 100644
                          <i class="pi pi-eye" *ngIf="program.ProgramFlagNames.indexOf('WATCHED') > -1"
 ```
 
-To allow web browser video selection for playback on any device.
+</details>
+
+<details>
+<summary>
+Click me to configure web browser video selection for playback on any device.
+</summary>
 
 ``` shell
 diff --git a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
@@ -200,7 +215,12 @@ index 2d75b5e0ab..42abea28ac 100644
                      <td style="flex-basis: 3%" class="p-1">
 ```
 
-To allow web browser tv channel selection for playback on any device.
+</details>
+
+<details>
+<summary>
+Click me to configure web browser tv channel selection for playback on any device.
+</summary>
 
 ``` shell
 diff --git a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.html b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.html
@@ -212,7 +232,7 @@ index 44abe96fea..c17429ef6c 100644
      </div>
      <div class="channelText">
 -        <span>{{ channel.ChanNum}} {{ channel.CallSign }}</span>
-+        <span><a href="{{URLencode('http://192.168.1.29/mythtv-stream-hls-dash/hdhomerunstream.php?quality[]=high480&hw=h264&channel=' + channel.CallSign + '&do=Watch+TV')}}" target="_blank">{{channel.ChanNum}} {{ channel.CallSign }}</a></span>
++        <span><a href="{{URLencode('http://mydomain/mythtv-stream-hls-dash/hdhomerunstream.php?quality[]=high480&hw=h264&channel=' + channel.CallSign + '&do=Watch+TV')}}" target="_blank">{{channel.ChanNum}} {{ channel.CallSign }}</a></span>
      </div>
 </div>
 diff --git a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts
@@ -230,8 +250,16 @@ index 97ae71efa8..f088012f94 100644
  }
 ```
 
-To apply these optional changes run the npm build script and install the
-web application:
+</details>
+
+To apply these optional [Web
+Application](https://www.mythtv.org/wiki/Web_Application) changes run
+the npm build script and install the web application:
+
+<details>
+<summary>
+Click me to run the npm build script.
+</summary>
 
 ``` shell
 cd mythtv/mythtv/html/backend/
@@ -239,6 +267,25 @@ npm run-script build
 cd ..
 sudo make install
 ```
+
+</details>
+
+## In memory processing
+
+Optional step, add these (or similar) lines to `/etc/fstab` to create a
+ramdisk.
+
+<details>
+<summary>
+Click me to configure a ramdisk
+</summary>
+
+``` shell
+tmpfs                                           /var/www/html/live tmpfs nodev,nosuid,noexec,nodiratime,size=1G 0  0
+tmpfs                                           /var/www/html/channel tmpfs nodev,nosuid,nodiratime,size=200M 0  0
+```
+
+</details>
 
 ## Allow JavaScript
 
