@@ -255,8 +255,7 @@ selecting a recording in MythWeb or the new Web_Application[^4].
 
 **Figure 1:** *User interface.*
 
-<figure id="user-interface" alt="User selection" title="User selection"
-data-align="right" width="350px">
+<figure id="user-interface" width="350px">
 <img src="screenshots/user-selection.png" />
 <figcaption>User interface</figcaption>
 </figure>
@@ -285,8 +284,7 @@ Ctrl-Click (Windows), Command-Click (Apple) to select the renditions.
 
 **Figure 2:** *Adaptive Bitrate UI.*
 
-<figure id="adaptive-bitrate-ui" alt="Remuxing video"
-title="Remuxing video" data-align="right" width="350px">
+<figure id="adaptive-bitrate-ui" width="350px">
 <img src="screenshots/abr.png" />
 <figcaption>Adaptive Bitrate UI</figcaption>
 </figure>
@@ -301,8 +299,7 @@ Figure 3 shows the user interface while remuxing. Because
 
 **Figure 3:** *Remuxing UI.*
 
-<figure id="remuxing-video" alt="Remuxing video" title="Remuxing video"
-data-align="right" width="350px">
+<figure id="remuxing-video" width="350px">
 <img src="screenshots/remuxing-video.png" />
 <figcaption>Remuxing UI</figcaption>
 </figure>
@@ -327,8 +324,7 @@ Figure 4 shows the user interface while encoding the video.
 
 **Figure 4:** *Generating video.*
 
-<figure id="generating-video" alt="Generating video"
-title="Generating video" data-align="right" width="350px">
+<figure id="generating-video" width="350px">
 <img src="screenshots/encoding-video.png" />
 <figcaption>Generating video.</figcaption>
 </figure>
@@ -356,8 +352,7 @@ involved and the status thereof.
 
 **Figure 5:** *Status UI.*
 
-<figure id="status" alt="Status" title="Status" data-align="right"
-width="350px">
+<figure id="status" width="350px">
 <img src="screenshots/status-button.png" />
 <figcaption>Status UI</figcaption>
 </figure>
@@ -483,6 +478,11 @@ of Figure 3. The code block below shows in detail how this is done.
 An `MP4` container allows FFmpeg to use the `concat demuxer` later in
 the script[^17].
 
+<details>
+<summary>
+Click me
+</summary>
+
 ``` shell
 cd /var/www/html/hls/10100_20231101212100
 /usr/bin/sudo /usr/bin/screen -S 10100_20231101212100_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > /var/www/html/hls/10100_20231101212100/status.txt;
@@ -503,11 +503,18 @@ do \
 done
 ```
 
+</details>
+
 ### Adapt playlist `master_event.m3u8` file
 
 Adapt the playlist `master_event.m3u8` as soon as the file is created by
 FFmpeg some time in the future. This allows the handling of subtitles
-and the player to start at the beginning of the video:
+and the player to start at the beginning of the video.
+
+<details>
+<summary>
+Click me
+</summary>
 
 ``` shell
 (while [ ! -f "/var/www/html/hls/10100_20231101212100/master_event.m3u8" ] ;
@@ -519,12 +526,19 @@ and the player to start at the beginning of the video:
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/'  /var/www/html/hls/10100_20231101212100/master_event.m3u8; /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i /var/www/html/hls/10100_20231101212100/master_event.m3u8;) &
 ```
 
+</details>
+
 ### Adapt playlist **master_vod.m3u8** file
 
 Adapt the playlist `master_vod.m3u8` file as soon as the file is created
 by FFmpeg some time in the future. This allows the handling of subtitles
 and the player to start at the beginning of the video. Additionally the
-language of the audio is defined:
+language of the audio is defined.
+
+<details>
+<summary>
+Click me
+</summary>
 
 ``` shell
 (while [ ! -f "/var/www/html/vod/10100_20231101212100/master_vod.m3u8" ] ;
@@ -538,11 +552,18 @@ language of the audio is defined:
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> /var/www/html/hls/10100_20231101212100/status.txt';
 ```
 
+</details>
+
 ### FFmpeg encoding
 
 The major part of the encoding is done in one FFmpeg command utilizing
 `filter_complex` and `tee` to the max. This code block starts the actual
-encoding and waits until it is finished:
+encoding and waits until it is finished.
+
+<details>
+<summary>
+Click me
+</summary>
 
 ``` shell
 /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231101212100;
@@ -647,9 +668,16 @@ do
 done
 ```
 
+</details>
+
 ### Add subtitles to MP4
 
-In a post-processing step subtitles are added to the `MP4`:
+In a post-processing step subtitles are added to the `MP4`.
+
+<details>
+<summary>
+Click me
+</summary>
 
 ``` shell
 cd /var/www/html/hls/10100_20231101212100;
@@ -674,13 +702,16 @@ done
 sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
 ```
 
+</details>
+
 ### Complete script
 
+For completeness the whole script.
+
 <details>
-
-<summary> Click me </summary>
-
-For completeness the whole script is:
+<summary>
+Click me
+</summary>
 
 ``` shell
 cd /var/www/html/hls/10100_20231101212100
@@ -851,8 +882,7 @@ selecting a TV channel.
 
 **Figure 7:** *Select TV channel.*
 
-<figure id="select-tv-channel" alt="Select TV channel"
-title="Select TV channel" data-align="right" width="350px">
+<figure id="select-tv-channel" width="350px">
 <img src="screenshots/select-tv-channel.png" />
 <figcaption>Select TV channel.</figcaption>
 </figure>
@@ -870,8 +900,7 @@ Figure 8 shows the Live TV user interface.
 
 **Figure 8:** *Live TV user interface.*
 
-<figure id="live-tv-user-interface" alt="Live TV interface"
-title="Live TV interface" data-align="right" width="350px">
+<figure id="live-tv-user-interface" width="350px">
 <img src="screenshots/live-tv.png" />
 <figcaption>Live TV user interface.</figcaption>
 </figure>

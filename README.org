@@ -268,8 +268,6 @@ recording in MythWeb or the new Web_Application[fn:40].
 
 *Figure 1:* /User interface./
 #+CAPTION: User interface
-#+ATTR_HTML: :alt User selection :title User selection :align right
-#+ATTR_HTML::alt image
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: user-interface
@@ -301,8 +299,6 @@ Command-Click (Apple) to select the renditions.
 
 *Figure 2:* /Adaptive Bitrate UI./
 #+CAPTION: Adaptive Bitrate UI
-#+ATTR_HTML: :alt Remuxing video :title Remuxing video :align right
-#+ATTR_HTML::alt image
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: adaptive-bitrate-ui
@@ -319,8 +315,6 @@ selected in Figure 1, the video is remuxed to an =MP4= container.
 
 *Figure 3:* /Remuxing UI./
 #+CAPTION: Remuxing UI
-#+ATTR_HTML: :alt Remuxing video :title Remuxing video :align right
-#+ATTR_HTML::alt image
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: remuxing-video
@@ -346,8 +340,6 @@ Figure 4 shows the user interface while encoding the video.
 
 *Figure 4:* /Generating video./
 #+CAPTION: Generating video.
-#+ATTR_HTML: :alt Generating video :title Generating video :align right
-#+ATTR_HTML::alt image
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: generating-video
@@ -378,8 +370,6 @@ status thereof.
 
 *Figure 5:* /Status UI./
 #+CAPTION: Status UI
-#+ATTR_HTML: :alt Status :title Status :align right
-#+ATTR_HTML::alt image
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: status
@@ -394,8 +384,6 @@ Figure 6 shows the interface after encoding is done.
 
 *Figure 6:* /User interface after encoding./
 #+CAPTION: User interface
-#+ATTR_HTML: :alt User interface :title User Interface :align right
-#+ATTR_HTML::alt image
 #+LABEL: user-interface
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
@@ -516,6 +504,12 @@ code block below shows in detail how this is done.
 An =MP4= container allows FFmpeg to use the =concat demuxer= later in the
 script[fn:16].
 
+#+begin_html
+<details>
+<summary>
+Click me
+</summary>
+#+end_html
 
 #+begin_src shell -n
 cd /var/www/html/hls/10100_20231101212100
@@ -537,6 +531,10 @@ do \
 done
 #+end_src
 
+#+begin_html
+</details>
+#+end_html
+
 *** Adapt playlist =master_event.m3u8= file
 :PROPERTIES:
 :ID:       1c41d2a9-1f1d-4214-8d93-89c63da02a6f
@@ -544,7 +542,14 @@ done
 
 Adapt the playlist =master_event.m3u8= as soon as the file is created by FFmpeg
 some time in the future. This allows the handling of subtitles and the player to
-start at the beginning of the video:
+start at the beginning of the video.
+
+#+begin_html
+<details>
+<summary>
+Click me
+</summary>
+#+end_html
 
 #+begin_src shell +n
 (while [ ! -f "/var/www/html/hls/10100_20231101212100/master_event.m3u8" ] ;
@@ -556,6 +561,10 @@ start at the beginning of the video:
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/'  /var/www/html/hls/10100_20231101212100/master_event.m3u8; /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i /var/www/html/hls/10100_20231101212100/master_event.m3u8;) &
 #+end_src
 
+#+begin_html
+</details>
+#+end_html
+
 *** Adapt playlist *master_vod.m3u8* file
 :PROPERTIES:
 :ID:       0be38d35-c457-426f-8812-6ce6483aa593
@@ -564,7 +573,14 @@ start at the beginning of the video:
 Adapt the playlist =master_vod.m3u8= file as soon as the file is created by FFmpeg
 some time in the future. This allows the handling of subtitles and the player to
 start at the beginning of the video. Additionally the language of the audio is
-defined:
+defined.
+
+#+begin_html
+<details>
+<summary>
+Click me
+</summary>
+#+end_html
 
 #+begin_src shell +n
 (while [ ! -f "/var/www/html/vod/10100_20231101212100/master_vod.m3u8" ] ;
@@ -578,6 +594,10 @@ defined:
 /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> /var/www/html/hls/10100_20231101212100/status.txt';
 #+end_src
 
+#+begin_html
+</details>
+#+end_html
+
 *** FFmpeg encoding
 :PROPERTIES:
 :ID:       9dcf9137-45c8-4e0f-93e0-f09ed28ab771
@@ -585,7 +605,14 @@ defined:
 
 The major part of the encoding is done in one FFmpeg command utilizing
 =filter_complex= and =tee= to the max. This code block starts the actual encoding
-and waits until it is finished:
+and waits until it is finished.
+
+#+begin_html
+<details>
+<summary>
+Click me
+</summary>
+#+end_html
 
 #+begin_src shell +n
 /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231101212100;
@@ -690,12 +717,23 @@ do
 done
 #+end_src
 
+#+begin_html
+</details>
+#+end_html
+
 *** Add subtitles to MP4
 :PROPERTIES:
 :ID:       ef3d7f31-cd1e-4d3f-9a8a-742da904620b
 :END:
 
-In a post-processing step subtitles are added to the =MP4=:
+In a post-processing step subtitles are added to the =MP4=.
+
+#+begin_html
+<details>
+<summary>
+Click me
+</summary>
+#+end_html
 
 #+begin_src shell +n
 cd /var/www/html/hls/10100_20231101212100;
@@ -720,17 +758,23 @@ done
 sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
 #+end_src
 
+#+begin_html
+</details>
+#+end_html
+
 *** Complete script
 :PROPERTIES:
 :ID:       1a02094d-b373-4321-9575-7e0ac529b6b9
 :END:
 
+For completeness the whole script.
+
+#+begin_html
 <details>
 <summary>
 Click me
 </summary>
-
-For completeness the whole script is:
+#+end_html
 
 #+begin_src shell -n
 cd /var/www/html/hls/10100_20231101212100
@@ -890,7 +934,10 @@ done
 sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS $s quit; done
 #+end_src
 
+#+begin_html
 </details>
+#+end_html
+
 * Live TV
 ** User interface
 
@@ -899,8 +946,6 @@ channel.
 
 *Figure 7:* /Select TV channel./
 #+CAPTION: Select TV channel.
-#+ATTR_HTML: :alt Select TV channel :title Select TV channel :align right
-#+ATTR_HTML::alt image
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: select-tv-channel
@@ -916,8 +961,6 @@ Figure 8 shows the Live TV user interface.
 
 *Figure 8:* /Live TV user interface./
 #+CAPTION: Live TV user interface.
-#+ATTR_HTML: :alt Live TV interface :title Live TV interface :align right
-#+ATTR_HTML::alt image
 #+ATTR_HTML: :width 350px
 #+ATTR_LATEX: :width 350px :options angle=90
 #+LABEL: live-tv-user-interface
