@@ -55,8 +55,9 @@ The installation below is based on Fedora and Apache as web server.
 Adapting the code to your distribution / web server is left as an
 exercise to the user.
 
-Note: take additional security measures in case you decide to open your
-web server to the internet. Use at your own risk.
+Note: do not run this code as is in an untrusted environment and do not
+open your web server to the internet. In either case additional security
+measures should be taken. Use at your own risk.
 
 ## Dependency
 
@@ -290,6 +291,38 @@ tmpfs                                           /var/www/html/channel tmpfs node
 ## Allow JavaScript
 
 Allow JavaScript in your browser.
+
+## Access to database
+
+Create a file called `mythdb.txt` in directory `/home/mythtv`. This file
+should contain the plaintext mythtv database password. Both `video.php`
+and `index.php` assume that the database server is running on localhost
+and the database username is `mythtv` and the database name is
+`mythconverg`. If any of these assumptions are not correct, modify the
+corresponding lines in both files.
+
+## Optional configuration
+
+One may adapt the lines at the top of the files to your liking:
+
+- \$hlsdir – This is the directory where the meta data of all encoded
+  videos are stored. Moreover playlist `event` videos are stored here.
+- \$livedir – This is the directory where playlist `live` videos are
+  stored.
+- \$voddir – This is the directory where playlist `vod` videos are
+  stored.
+- \$webroot – This is the root of your web server.
+- \$sublangpref – This array contains your preferred subtitle languages
+  in order. The first match from top to bottom will be used.
+- \$ffmpeg – This variable points to the `FFmpeg` executable. One may
+  point to this variable to `mythffmpeg`, but subtitles will then not be
+  supported.
+- \$yourserver – This variable should point to the ip address of your
+  MythTV backend.
+- \$hwaccels – This array specifies the hw acceleration options for
+  `FFmpeg`. Note: only `VAAPI` and `nohwaccel` has been tested.
+- \$settings – This array specifies the ladder the user may choose for
+  his renditions.
 
 # HTTP streaming
 
@@ -537,20 +570,24 @@ Click me
 cd /var/www/html/hls/10100_20231101212100
 /usr/bin/sudo /usr/bin/screen -S 10100_20231101212100_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > /var/www/html/hls/10100_20231101212100/status.txt;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
-          -y \                                                                                         # Overwrite without asking
-          -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \              # Use VAAPI Hardware acceleration
-          -txt_format text -txt_page 888 \                                                             # extract subtitles from dvb_teletext
-          -fix_sub_duration \                                                                          # avoid overlap of subtitles
-          -i /mnt/mythtv2/store//10100_20231101212100.ts \                                             # input file recorded with HDHomeRun
-          -c copy \                                                                                    # use encoder copy for video and audio
-          -c:s mov_text \                                                                              # set subtitle codec to mov_text
-          /var/www/html/hls/10100_20231101212100/video.mp4 && \                                        # output file in mp4 format
+          -y \
+          -hwaccel vaapi -vaapi_device /dev/dri/renderD128 \  # Use VAAPI Hardware acceleration
+          -txt_format text -txt_page 888 \                    # extract subtitles from dvb_teletext
+          -fix_sub_duration \                                 # avoid overlap of subtitles
+          -i /mnt/mythtv2/store//10100_20231101212100.ts \    # input file recorded with HDHomeRun
+          -c copy \                                           # use encoder copy for video and audio
+          -c:s mov_text \                                     # set subtitle codec to mov_text
+          /var/www/html/hls/10100_20231101212100/video.mp4 && \
 /usr/bin/echo `date`: remux finish success >> /var/www/html/hls/10100_20231101212100/status.txt || \
 /usr/bin/echo `date`: remux finish failed >> /var/www/html/hls/10100_20231101212100/status.txt'
 while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /usr/bin/grep 'remux finish success'`" ] ; \
 do \
     sleep 1; \
 done
+(while [ ! -f "/var/www/html/hls/10100_20231101212100/master_event.m3u8" ] ;
+ do
+        /usr/bin/inotifywait -e close_write --include "master_event.m3u8"  /var/www/html/hls/10100_20231101212100;
+ done;
 ```
 
 </details>
@@ -599,7 +636,6 @@ Click me
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\1\n#EXT-X-START:TIME-OFFSET=0/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\1,SUBTITLES="subtitles"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;
     /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="group_A1")/\1,LANGUAGE="dut"/' /var/www/html/vod/10100_20231101212100/master_vod.m3u8;) &
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> /var/www/html/hls/10100_20231101212100/status.txt';
 ```
 
 </details>
@@ -616,12 +652,15 @@ Click me
 </summary>
 
 ``` shell
+/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> /var/www/html/hls/10100_20231101212100/status.txt';
+/usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/vod/10100_20231101212100;
+
 /usr/bin/sudo -uapache /usr/bin/mkdir -p /var/www/html/hls/10100_20231101212100;
 cd /var/www/html/hls/;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
     -fix_sub_duration \
     -txt_format text -txt_page 888 \
-    -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
+    -hwaccel vaapi -vaapi_device /dev/dri/renderD128 \
      \
      \
     -f concat -async 1 -safe 0 -i /var/www/html/hls/10100_20231101212100/cutlist.txt \  # Use cutlist
@@ -630,7 +669,8 @@ cd /var/www/html/hls/;
     -force_key_frames "expr:gte(t,n_forced*2)" \      # Fixed key frame interval is needed to avoid variable segment duration.
     -tune film \                                      # use for high quality movie content; lowers deblocking
     -metadata title="De Avondshow met Arjen Lubach" \
-    -filter_complex "[0:v]split=3[v1][v2][v3];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out];[v3]scale_vaapi=w=640:h=360[v3out]" \ # Resize A Video To Multiple Resolutions
+    -force_key_frames "expr:gte(t,n_forced*2)" \
+    -filter_complex "[0:v]split=3[v1][v2][v3];[v1]format=nv12|vaapi,hwupload,scale_vaapi=w=1280:h=720[v1out];[v2]format=nv12|vaapi,hwupload,scale_vaapi=w=854:h=480[v2out];[v3]format=nv12|vaapi,hwupload,scale_vaapi=w=640:h=360[v3out]" \
     -map [v1out] -c:v:0 \        # Rendition 1
         h264_vaapi \             # Use H264 VAAPI (Video Acceleration API) hardware acceleration
         -b:v:0 3200k \           # Transcode Video 1 to a user selected bitrate
@@ -668,7 +708,7 @@ cd /var/www/html/hls/;
     -map a:0 -c:a:0 aac -b:a:0 128k -ac 2 \
         -metadata:s:a:0 language=dut \
  \
-    -map 0:s:0? -c:s webvtt \
+    -map 0:s:0 -c:s webvtt -metadata:s:s:0 language=dut \
     -f tee \
         "[select=\'a:0,v:0,v:1,v:2\': \
           f=dash: \
@@ -716,6 +756,14 @@ while [ ! "`/usr/bin/cat /var/www/html/hls/10100_20231101212100/status.txt | /us
 do
     sleep 1;
 done
+
+    -f concat -async 1 -safe 0 -i /var/www/html/hls/10100_20231101212100/cutlist.txt \  # Use cutlist
+    -progress 10100_20231101212100/progress-log.txt \ # Track progress of encoding
+    -live_start_index 0 \                             # Segment index to start live streams at
+    -force_key_frames "expr:gte(t,n_forced*2)" \      # Fixed key frame interval is needed to avoid variable segment duration.
+    -tune film \                                      # use for high quality movie content; lowers deblocking
+    -metadata title="De Avondshow met Arjen Lubach" \
+    -filter_complex "[0:v]split=3[v1][v2][v3];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out];[v3]scale_vaapi=w=640:h=360[v3out]" \ # Resize A Video To Multiple Resolutions
 ```
 
 </details>
@@ -768,10 +816,10 @@ cd /var/www/html/hls/10100_20231101212100
 /usr/bin/sudo /usr/bin/screen -S 10100_20231101212100_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > /var/www/html/hls/10100_20231101212100/status.txt;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
           -y \
-          -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
+          -hwaccel vaapi -vaapi_device /dev/dri/renderD128 \
           -txt_format text -txt_page 888 \
           -fix_sub_duration \
-          -i /mnt/mythtv2/store//10100_20231101212100.ts \
+          -i "/mnt/mythtv2/store//10100_20231101212100.ts" \
           -c copy \
           -c:s mov_text \
           /var/www/html/hls/10100_20231101212100/video.mp4 && \
@@ -804,54 +852,55 @@ cd /var/www/html/hls/;
 /usr/bin/sudo -uapache /usr/bin/ffmpeg \
     -fix_sub_duration \
     -txt_format text -txt_page 888 \
-    -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
+    -hwaccel vaapi -vaapi_device /dev/dri/renderD128 \
      \
      \
-    -f concat -async 1 -safe 0 -i /var/www/html/hls/10100_20231101212100/cutlist.txt \
-    -progress 10100_20231101212100/progress-log.txt \
-    -live_start_index 0 \
-    -tune movie \
+    -f concat -async 1 -safe 0 -i /var/www/html/hls/10100_20231101212100/cutlist.txt \  # Use cutlist
+    -progress 10100_20231101212100/progress-log.txt \ # Track progress of encoding
+    -live_start_index 0 \                             # Segment index to start live streams at
+    -force_key_frames "expr:gte(t,n_forced*2)" \      # Fixed key frame interval is needed to avoid variable segment duration.
+    -tune film \                                      # use for high quality movie content; lowers deblocking
     -metadata title="De Avondshow met Arjen Lubach" \
     -force_key_frames "expr:gte(t,n_forced*2)" \
-    -filter_complex "[0:v]split=3[v1][v2][v3];[v1]scale_vaapi=w=1280:h=720[v1out];[v2]scale_vaapi=w=854:h=480[v2out];[v3]scale_vaapi=w=640:h=360[v3out]" \
-    -map [v1out] -c:v:0 \
-        h264_vaapi \
-        -b:v:0 3200k \
-        -maxrate:v:0 3200k \
-        -bufsize:v:0 1.5*3200k \
-        -crf 23 \
-        -preset veryfast \
-        -g 48 \
-        -keyint_min 48 \
-        -sc_threshold 0 \
-        -flags +global_header \
-    -map [v2out] -c:v:1 \
-        h264_vaapi \
-        -b:v:1 1600k \
-        -maxrate:v:1 1600k \
-        -bufsize:v:1 1.5*1600k \
-        -crf 23 \
-        -preset veryfast \
-        -g 48 \
-        -keyint_min 48 \
-        -sc_threshold 0 \
-        -flags +global_header \
-    -map [v3out] -c:v:2 \
-        h264_vaapi \
-        -b:v:2 900k \
-        -maxrate:v:2 900k \
-        -bufsize:v:2 1.5*900k \
-        -crf 23 \
-        -preset veryfast \
-        -g 48 \
-        -keyint_min 48 \
-        -sc_threshold 0 \
-        -flags +global_header \
+    -filter_complex "[0:v]split=3[v1][v2][v3];[v1]format=nv12|vaapi,hwupload,scale_vaapi=w=1280:h=720[v1out];[v2]format=nv12|vaapi,hwupload,scale_vaapi=w=854:h=480[v2out];[v3]format=nv12|vaapi,hwupload,scale_vaapi=w=640:h=360[v3out]" \
+    -map [v1out] -c:v:0 \        # Rendition 1
+        h264_vaapi \             # Use H264 VAAPI (Video Acceleration API) hardware acceleration
+        -b:v:0 3200k \           # Transcode Video 1 to a user selected bitrate
+        -maxrate:v:0 3200k \     # Maximum bitrate
+        -bufsize:v:0 1.5*3200k \ # Buffer size
+        -crf 23 \                # Constant Rate Factor
+        -preset veryslow \       #
+        -g 48 \                  #
+        -keyint_min 48 \         # Set minimum interval between IDR-frame
+        -sc_threshold 0 \        # Sets the threshold for the scene change detection.
+        -flags +global_header \  # Set global header in the bitstream.
+    -map [v2out] -c:v:1 \        # Rendition 2
+        h264_vaapi \             # Use H264 VAAPI (Video Acceleration API) hardware acceleration
+        -b:v:1 1600k \           # Transcode Video 2 to a derived lower resolution based on a user selected bitrate
+        -maxrate:v:1 1600k \     # Maximum bitrate
+        -bufsize:v:1 1.5*1600k \ # Buffer size
+        -crf 23 \                # Constant Rate Factor
+        -preset veryslow \       #
+        -g 48 \                  #
+        -keyint_min 48 \         # Set minimum interval between IDR-frame
+        -sc_threshold 0 \        # Sets the threshold for the scene change detection.
+        -flags +global_header \  # Set global header in the bitstream.
+    -map [v3out] -c:v:2 \        # Rendition 1
+        h264_vaapi \             # Use H264 VAAPI (Video Acceleration API) hardware acceleration
+        -b:v:2 900k \            # Transcode Video 3 to a derived lower resolution based on a user selected bitrate
+        -maxrate:v:2 900k \      # Maximum bitrate
+        -bufsize:v:2 1.5*900k \  # Buffer size
+        -crf 23 \                # Constant Rate Factor
+        -preset veryslow \       #
+        -g 48 \                  #
+        -keyint_min 48 \         # Set minimum interval between IDR-frame
+        -sc_threshold 0 \        # Sets the threshold for the scene change detection.
+        -flags +global_header \  # Set global header in the bitstream.
  \
     -map a:0 -c:a:0 aac -b:a:0 128k -ac 2 \
         -metadata:s:a:0 language=dut \
  \
-    -map 0:s:0? -c:s webvtt \
+    -map 0:s:0 -c:s webvtt -metadata:s:s:0 language=dut \
     -f tee \
         "[select=\'a:0,v:0,v:1,v:2\': \
           f=dash: \
@@ -925,12 +974,11 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 
 ### Limitations
 
-- Code needs to be refactored to remove duplicate code.
-- No support for DVD menus.
+- The current project code needs to be refactored in order to remove
+  duplicate code.
+- DVD menus are not supported.
 - A design choice has been made to symlink `mp4` files rather than to
   encode them.
-- Integrate HTTP streaming into new [Web
-  Application](https://www.mythtv.org/wiki/Web_Application) UI.
 
 # Live TV
 
