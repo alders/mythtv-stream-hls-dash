@@ -37,7 +37,7 @@ What:
 - Support for device independent viewing: web browser—mobile, desktop, tablet,
   etc.
 - Support for less reliable networks (e.g. cell phone browser).
-- Support for live tv, live recording and recorded content.
+- Support for live tv, live recording, video and recorded content.
 - Support for offline viewing.
 - Support for MythTV cutlist (commercial cut) created using Mythfrontend.
 
@@ -46,14 +46,14 @@ How:
   =event= and =VOD=.
 - MPEG-DASH and HLS with fragmented MP4 (fMP4) makes both compatible, therefore
   only the manifest file (playlist) is different.
-- Transcode to =MP4= for playback on mobile devices without internet.
+- Transcode to =MP4= for offline playback on mobile devices.
 - Video is codified in H.264 format and audio in AAC.
 - HW accelerated support for VAAPI (other hw acceleration options are untested).
 - Simple PHP browser UI.
 - Transcode videos to user defined (UI select dropdown list) renditions for
   adaptive playback.
 - Optionally a ramdisk can be used for in memory handling of playlist type =live=.
-- Shutdown lock can be used to prevent MythWelcome from shutting down.
+- Optionally shutdown lock can be used to prevent MythWelcome from shutting down.
 
 #+TOC: headlines 2
 
@@ -173,7 +173,7 @@ index 8502305b..7bf3db0b 100644
 The use of [[https://www.mythtv.org/wiki/Web_Application][Web Application]] requires [[https://www.mythtv.org/wiki/Build_from_Source][MythTV installation from sources]].
 
 Optionally change a few lines in the  [[https://www.mythtv.org/wiki/Web_Application][Web Application]][fn:3] to allow recording
-and / or video and / or live tv selection from any device. Replace =mydomain= in
+and / or video and / or live tv selection from your browser. Replace =mydomain= in
 the patches below to your combined web server / =Mythbackend= address.
 
 To allow web browser recording selection for playback on any device:
@@ -264,7 +264,7 @@ Allow JavaScript in your browser.
 :END:
 
 Figure 1 shows the user interface of =mythtv-stream-hls-dash= after selecting a
-recording in MythWeb.
+recording in MythWeb[fn:40].
 
 *Figure 1:* /User interface./
 #+CAPTION: User interface
@@ -275,7 +275,7 @@ recording in MythWeb.
 #+LABEL: user-interface
 [[file:screenshots/user-selection.png]]
 
-User interface options:
+User interface options from top to bottom:
 - Select an available recording from the list box[fn:4].
 - Select the =ABR= renditions from the select dropdown list box.
 - Select the HW acceleration from the list box[fn:5].
@@ -295,9 +295,9 @@ The selections shown in Figure 1 are used in the descriptions below.
 :ID:       76506860-1bba-4376-b1e1-891f8181d692
 :END:
 
-Figure 2 shows the user interface (phone interface) to select the renditions for
-Adaptive Bitrate Streaming (ABR). Use Ctrl-Click (Windows), Command-Click
-(Apple) to select the renditions.
+Figure 2 shows in more detail the user interface (phone interface) to select the
+renditions for Adaptive Bitrate Streaming (ABR). Use Ctrl-Click (Windows),
+Command-Click (Apple) to select the renditions.
 
 *Figure 2:* /Adaptive Bitrate UI./
 #+CAPTION: Adaptive Bitrate UI
@@ -314,7 +314,8 @@ Adaptive Bitrate Streaming (ABR). Use Ctrl-Click (Windows), Command-Click
 :END:
 
 Figure 3 shows the user interface while remuxing. In this example, because =Cut
-Commercials= was selected in Figure 1, the video is remuxed to an =MP4= container .
+Commercials= was selected in Figure 1, the video is remuxed to an =MP4= container.
+This option is only shown when [[https://www.mythtv.org/wiki/Editing_Recordings][commercials are manually cut]] in =mythfrontend=.
 
 *Figure 3:* /Remuxing UI./
 #+CAPTION: Remuxing UI
@@ -327,14 +328,14 @@ Commercials= was selected in Figure 1, the video is remuxed to an =MP4= containe
 
 Three buttons are shown below the available recording list box.
 
-The first button =Delete Video Files= basically does what is says[fn:9],
+The first button =Delete Video Files= basically does what is says[fn:9].
 
 The second status button displays a dynamic message. Figure 3 shows the =Remuxing
 Video= percentage.
 
-The third button =Shutdown Lock= can be used to prevent MythTV from shutting down.
-In combination with wake-on lan and =mythbackend= this allows one to view all
-recordings.
+The third button =Shutdown Lock= can be used to prevent [[https://www.mythtv.org/wiki/index.php/Mythwelcome][MythWelcome]] from shutting
+down. In combination with Wake-On-Lan (WOL) configured on your =mythbackend=
+machine this allows one to have full control your from your browser.
 
 *** Generating video
 :PROPERTIES:
@@ -356,13 +357,15 @@ Progress of the encoding is shown on the status button as a percentage and
 the time of the video available. When there is about 6 seconds of video
 available the player automatically tries to load the video[fn:10].
 
-Next to the =Shutdown Lock= buttons appear dynamically when files become available
-on disk. In Figure 4 this is the case for =HLS event= and =HLS VOD=. Select the
-button to start streaming the playlist.
+At the right hand side of the =Shutdown Lock= buttons appear dynamically, when
+files become available on disk. In Figure 4 this is the case for =HLS event= and
+=HLS VOD=. The video should load automagically within 30 seconds. If this does not
+happen, select either of the buttons to start playing. As a last resort one
+could reload the web page.
 
 Old devices not supporting the Shaka video player of the UI, may still be able
-to play media through the buttons provided. The http links can also be used in
-your favorite app.
+to play media through the buttons provided. The http links can also be copied
+and used in your favorite app.
 
 *** Status button
 :PROPERTIES:
@@ -971,19 +974,19 @@ Feedback, patches, other contributions and ideas are welcome!
 
 [fn:3] This requires mythtv v34.
 
-[fn:4] Leave as is since we are defining the settings for this recording.
+[fn:4] The dropdown list shows the recordings available for streaming. Leave as is since we are defining the settings for this recording.
 
 [fn:5] Only VAAPI and no HW acceleration has been tested. Feedback on untested acceleration is appreciated.
 
 [fn:6] This option is only visible in the UI when a =Cutlist= is defined in MythTV.
 
-[fn:7] This option is only visible when subtitles are available in the video file.
+[fn:7] This option is only visible when subtitles are available in the video file. The language depends on the configuration in the php files. Adapt to your liking.
 
 [fn:8] Either one of the two or none at all.
 
 [fn:9] This will not delete any file from MythTV or change the MySQL database. All files can be recreated as long as the recording is available in MythTV.
 
-[fn:10] Automatic loading currently only works for live streaming. If no still of the video is shown after 30 seconds, as the case in this example, reload the browser page and start the video for viewing.
+[fn:10] If no still of the output is shown after 30 seconds, push the =HLS event= of =HLS VOD= button. As a last resort try to reload the browser page.
 
 [fn:11] This button is only shown when both playlist types =event= and =VOD= were selected as shown in Figure 1.
 
@@ -1001,3 +1004,5 @@ inpoint's and outpoint's of the =cutlist= for the video.
 [fn:17] The channel information is extracted from MythTV automagically.
 
 [fn:18] FFmpeg encoding is stopped without checking if other users are watching the stream.
+
+[fn:40] A subset of the user interface is used after selecting a video in [[https://www.mythtv.org/wiki/Web_Application][Web Application]].
