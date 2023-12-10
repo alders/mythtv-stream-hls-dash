@@ -21,12 +21,12 @@ $sublangpref = array(
 );
 $ffmpeg="/usr/bin/ffmpeg";
 $dbserver = "localhost";
-$yourserver = "192.168.1.29";
-$dbuser = "mythtv";
-// Read password from clear text file ;-(
-$lines = file("/home/mythtv/mythdb.txt");
-$dbpass = trim($lines[0]);
-$dbname = "mythconverg";
+
+$xml = simplexml_load_file("/home/mythtv/.mythtv/config.xml");
+$yourserver = $xml->Database->Host;
+$dbuser = $xml->Database->UserName;
+$dbpass = $xml->Database->Password;
+$dbname = $xml->Database->DatabaseName;
 
 // Different hw acceleration options
 // NOTE: only "h264" and "nohwaccel" have been tested and are known to work

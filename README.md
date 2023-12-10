@@ -62,9 +62,9 @@ measures should be taken. Use at your own risk.
 ## Dependency
 
 - MythTV
-  - Basically any version can be used. However, version v0.34 provides
-    the best UI experience via the new [Web
-    Application](https://www.mythtv.org/wiki/Web_Application).
+  - Basically any version can be used. Only version v0.34 provides the
+    full functionality via the new [Web
+    Application](https://www.mythtv.org/wiki/Web_Application) UI.
 - FFmpeg (for encoding)[^1]
   - FFmpeg version 5.1.3
 - GNU screen
@@ -75,7 +75,7 @@ measures should be taken. Use at your own risk.
   - This is used as the built-in Javascript-based browser player.
   - version 4.3.6
 - Mediainfo
-  - Displays technical information about media files.
+  - Used to loopup technical information about media files.
   - version 23.09
 - HDHomeRun
   - Firmware Version 20230713
@@ -83,7 +83,7 @@ measures should be taken. Use at your own risk.
 ## Install dependencies
 
 ``` shell
-sudo dnf install mythtv ffmpeg screen mediainfo inotify-tools hdhomerun-devel sed
+sudo dnf install mythtv ffmpeg screen mediainfo inotify-tools hdhomerun-devel sed mediainfo libva-utils intel-mediasdk mesa-va-drivers
 ```
 
 ## Create apache user
@@ -159,11 +159,6 @@ index 8502305b..7bf3db0b 100644
 </details>
 
 ## Patch Web Application
-
-The use of [Web
-Application](https://www.mythtv.org/wiki/Web_Application) requires
-[MythTV installation from
-sources](https://www.mythtv.org/wiki/Build_from_Source).
 
 Optionally change a few lines in the [Web
 Application](https://www.mythtv.org/wiki/Web_Application)[^3] to allow
@@ -274,7 +269,8 @@ sudo make install
 ## In memory processing
 
 Optional step, add these (or similar) lines depending on your
-installation to `/etc/fstab` to create a ramdisk.
+installation to `/etc/fstab` to create a ramdisk for playlist `live` and
+`channel`.
 
 <details>
 <summary>
@@ -282,28 +278,24 @@ Click me to configure a ramdisk
 </summary>
 
 ``` shell
-tmpfs                                           /var/www/html/live tmpfs nodev,nosuid,noexec,nodiratime,size=1G 0  0
+tmpfs                                           /var/www/html/live tmpfs nodev,nosuid,noexec,nodiratime,size=200M 0  0
 tmpfs                                           /var/www/html/channel tmpfs nodev,nosuid,nodiratime,size=200M 0  0
 ```
 
 </details>
 
-## Allow JavaScript
+## Additional configuration
 
-Allow JavaScript in your browser.
+Required configuration:
 
-## Access to database
+- \$webroot – This is the root of your web server.
+- \$xml – Make sure your
+  [Config.xml](https://www.mythtv.org/wiki/Config.xml) is readable by
+  user `apache`.
+- \$sublangpref – This array contains your preferred subtitle languages
+  in order. The first match from top to bottom will be used.
 
-Create a file called `mythdb.txt` in directory `/home/mythtv`. This file
-should contain the plaintext mythtv database password. Both `video.php`
-and `index.php` assume that the database server is running on localhost
-and the database username is `mythtv` and the database name is
-`mythconverg`. If any of these assumptions are not correct, modify the
-corresponding lines in both files.
-
-## Optional configuration
-
-One may adapt the lines at the top of the files to your liking:
+Optional configuration:
 
 - \$hlsdir – This is the directory where the meta data of all encoded
   videos are stored. Moreover playlist `event` videos are stored here.
@@ -311,18 +303,17 @@ One may adapt the lines at the top of the files to your liking:
   stored.
 - \$voddir – This is the directory where playlist `vod` videos are
   stored.
-- \$webroot – This is the root of your web server.
-- \$sublangpref – This array contains your preferred subtitle languages
-  in order. The first match from top to bottom will be used.
 - \$ffmpeg – This variable points to the `FFmpeg` executable. One may
-  point to this variable to `mythffmpeg`, but subtitles will then not be
+  point to this variable to `mythffmpeg`, but subtitles handling is not
   supported.
-- \$yourserver – This variable should point to the ip address of your
-  MythTV backend.
 - \$hwaccels – This array specifies the hw acceleration options for
-  `FFmpeg`. Note: only `VAAPI` and `nohwaccel` has been tested.
+  `FFmpeg`. Note: only `h264` and `nohwaccel` has been tested.
 - \$settings – This array specifies the ladder the user may choose for
   his renditions.
+
+## Allow JavaScript
+
+Allow JavaScript in your browser.
 
 # HTTP streaming
 
@@ -471,81 +462,6 @@ The UI also shows a `Download MP4` link as was requested in Figure 1.
 The latter is only visible when the encoding has finished and optionally
 subtitles are mixed in.
 
-## Features
-
-Playlist type (and `MP4)` support for live broadcast, video and recorded
-video are shown in table 1. `DASH` is only supported by `VOD`, whereas
-`HLS` (and `ABR`) is supported by all playlist types. Subtitles are
-supported by all.
-
-**Table 1:** *Playlist and MP4 support for live broadcast and recorded
-video.*
-
-| Playlist | HLS | DASH | subtitle[^13] | subtitle[^14] | ABR |
-|----------|-----|------|---------------|---------------|-----|
-| live     | ✅  |      | ✅            |               | ✅  |
-| event    | ✅  |      | ✅            |               | ✅  |
-| VOD      | ✅  | ✅   | ✅            |               | ✅  |
-| MP4      |     |      |               | ✅            |     |
-
-All possible UI combinations of playlist types and MP4 that can be
-chosen by the user are shown in table 2[^15].
-
-**Table 2:** *All possible UI combinations of playlist types and MP4.*
-
-| live | event | VOD | MP4 |
-|------|-------|-----|-----|
-| ✅   |       |     |     |
-| ✅   |       | ✅  |     |
-| ✅   |       |     | ✅  |
-| ✅   |       | ✅  | ✅  |
-|      | ✅    |     |     |
-|      | ✅    | ✅  |     |
-|      | ✅    |     | ✅  |
-|      | ✅    | ✅  | ✅  |
-|      |       | ✅  |     |
-|      |       |     | ✅  |
-|      |       | ✅  | ✅  |
-
-Table 3, 4 and 5 shows feature support of the Safari built-in m3u8
-player and Shaka player while encoding a set of random renditions:
-`720p high`, `480p normal`, `360p low`, and `240p low`. As is shown
-feature support varies. None of them provides the desired combination
-i.e. allowing one to manually select the desired video rendition and
-audio rendition (at least for testing purposes). Hopefully the players
-really do provide the best possible bitrate for the network
-"*automagically*".
-
-**Table 3:** *Safari m3u8 player UI playlist support during Live
-Broadcasting (while encoding).*
-
-| Playlist | Progress bar | Subtitles | Resolution | Language                             |
-|----------|--------------|-----------|------------|--------------------------------------|
-| live     | 🔴           | Dutch     | 🔴         | (Dutch (audio_0)),..,Dutch (audio_2) |
-| event    | 🔴           | Dutch     | 🔴         | (Dutch (audio_0)),..,Dutch (audio_2) |
-| VOD      | 🔴           | Dutch     | 🔴         | (Dutch (audio_4)),..,Dutch (audio_6) |
-| MP4      | ✅           |           | 🔴         | 🔴                                   |
-
-**Table 4:** *Shaka player (configuration ("useNativeHlsOnSafari" :
-true)) UI playlist support during Live Broadcasting (while encoding).*
-
-| Playlist | Progress bar | Captions   | Resolution   | Language                                  | Quality          |
-|----------|--------------|------------|--------------|-------------------------------------------|------------------|
-| live     | ✅ [^16]     | Nederlands | Auto (nullp) | Nederlands                                | 🔴               |
-| event    | ✅           | Nederlands | Auto (nullp) | Nederlands                                | 🔴               |
-| VOD      | ✅           | Nederlands | Auto (nullp) | Nederlands,Nederlands (2 out of 3 tracks) | 🔴               |
-| MP4      | ✅           |            | 🔴           | Nederlands                                | Auto (0 kbits/s) |
-
-**Table 5:** *Safari Player (configuration ("useNativeHlsOnSafari" :
-false)) UI playlist support during Live Broadcasting (while encoding).*
-
-| Playlist | Progress bar | Captions | Resolution    | Language   | Quality          |
-|----------|--------------|----------|---------------|------------|------------------|
-| live     | 🔴           | ✅ (off) | 240p          | 🔴         | 🔴               |
-| event    | ✅           | ✅ (off) | 720p,.., 240p | Nederlands | 🔴               |
-| VOD      | 🔴           | ✅ (off) | 720p,.., 240p | Nederlands | 🔴               |
-| MP4      | ✅           |          | 🔴            | Nederlands | Auto (0 kbits/s) |
-
 ## Generated script
 
 After pressing the `Encode Video` in Figure 1 a `bash` shell script is
@@ -559,7 +475,7 @@ video to be remuxed to a `MP4` container as shown in the user interface
 of Figure 3. The code block below shows in detail how this is done.
 
 An `MP4` container allows FFmpeg to use the `concat demuxer` later in
-the script[^17].
+the script[^13].
 
 <details>
 <summary>
@@ -980,6 +896,81 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 - A design choice has been made to symlink `mp4` files rather than to
   encode them.
 
+## Features
+
+Playlist type (and `MP4)` support for live broadcast, video and recorded
+video are shown in table 1. `DASH` is only supported by `VOD`, whereas
+`HLS` (and `ABR`) is supported by all playlist types. Subtitles are
+supported by all.
+
+**Table 1:** *Playlist and MP4 support for live broadcast and recorded
+video.*
+
+| Playlist | HLS | DASH | subtitle[^14] | subtitle[^15] | ABR |
+|----------|-----|------|---------------|---------------|-----|
+| live     | ✅  |      | ✅            |               | ✅  |
+| event    | ✅  |      | ✅            |               | ✅  |
+| VOD      | ✅  | ✅   | ✅            |               | ✅  |
+| MP4      |     |      |               | ✅            |     |
+
+All possible UI combinations of playlist types and MP4 that can be
+chosen by the user are shown in table 2[^16].
+
+**Table 2:** *All possible UI combinations of playlist types and MP4.*
+
+| live | event | VOD | MP4 |
+|------|-------|-----|-----|
+| ✅   |       |     |     |
+| ✅   |       | ✅  |     |
+| ✅   |       |     | ✅  |
+| ✅   |       | ✅  | ✅  |
+|      | ✅    |     |     |
+|      | ✅    | ✅  |     |
+|      | ✅    |     | ✅  |
+|      | ✅    | ✅  | ✅  |
+|      |       | ✅  |     |
+|      |       |     | ✅  |
+|      |       | ✅  | ✅  |
+
+Table 3, 4 and 5 shows feature support of the Safari built-in m3u8
+player and Shaka player while encoding a set of random renditions:
+`720p high`, `480p normal`, `360p low`, and `240p low`. As is shown
+feature support varies. None of them provides the desired combination
+i.e. allowing one to manually select the desired video rendition and
+audio rendition (at least for testing purposes). Hopefully the players
+really do provide the best possible bitrate for the network
+"*automagically*".
+
+**Table 3:** *Safari m3u8 player UI playlist support during Live
+Broadcasting (while encoding).*
+
+| Playlist | Progress bar | Subtitles | Resolution | Language                             |
+|----------|--------------|-----------|------------|--------------------------------------|
+| live     | 🔴           | Dutch     | 🔴         | (Dutch (audio_0)),..,Dutch (audio_2) |
+| event    | 🔴           | Dutch     | 🔴         | (Dutch (audio_0)),..,Dutch (audio_2) |
+| VOD      | 🔴           | Dutch     | 🔴         | (Dutch (audio_4)),..,Dutch (audio_6) |
+| MP4      | ✅           |           | 🔴         | 🔴                                   |
+
+**Table 4:** *Shaka player (configuration ("useNativeHlsOnSafari" :
+true)) UI playlist support during Live Broadcasting (while encoding).*
+
+| Playlist | Progress bar | Captions   | Resolution   | Language                                  | Quality          |
+|----------|--------------|------------|--------------|-------------------------------------------|------------------|
+| live     | ✅ [^17]     | Nederlands | Auto (nullp) | Nederlands                                | 🔴               |
+| event    | ✅           | Nederlands | Auto (nullp) | Nederlands                                | 🔴               |
+| VOD      | ✅           | Nederlands | Auto (nullp) | Nederlands,Nederlands (2 out of 3 tracks) | 🔴               |
+| MP4      | ✅           |            | 🔴           | Nederlands                                | Auto (0 kbits/s) |
+
+**Table 5:** *Safari Player (configuration ("useNativeHlsOnSafari" :
+false)) UI playlist support during Live Broadcasting (while encoding).*
+
+| Playlist | Progress bar | Captions | Resolution    | Language   | Quality          |
+|----------|--------------|----------|---------------|------------|------------------|
+| live     | 🔴           | ✅ (off) | 240p          | 🔴         | 🔴               |
+| event    | ✅           | ✅ (off) | 720p,.., 240p | Nederlands | 🔴               |
+| VOD      | 🔴           | ✅ (off) | 720p,.., 240p | Nederlands | 🔴               |
+| MP4      | ✅           |          | 🔴            | Nederlands | Auto (0 kbits/s) |
+
 # Live TV
 
 ## User interface
@@ -1035,6 +1026,9 @@ I would like to thank the [MythTV stream mpeg
 DASH](https://github.com/thecount2a/mythtv-stream-mpeg-dash) project for
 giving me the inspiration!
 
+Thank you MythTV Devs, you have a top notch app and please continue all
+of your hard work, believe me it's much appreciated.
+
 ## License
 
 MythTV-stream-hls-dash is licensed under the GPLv3, see LICENSE for
@@ -1051,7 +1045,7 @@ Feedback, patches, other contributions and ideas are welcome!
 [^2]: May depend on your distribution (e.g. 'data-www' is used for
     Ubuntu). May require one to adapt the `php` scripts.
 
-[^3]: This requires mythtv v34.
+[^3]: This requires installation of mythtv v34 from sources.
 
 [^4]: A subset of the user interface is used after selecting a video in
     [Web Application](https://www.mythtv.org/wiki/Web_Application).
@@ -1082,17 +1076,17 @@ Feedback, patches, other contributions and ideas are welcome!
 [^12]: This button is only shown when both playlist types `event` and
     `VOD` were selected as shown in Figure 1.
 
-[^13]: Realtime.
+[^13]: The `cutlist` itself was defined in MythTV which is translated
+    into the inpoint's and outpoint's of the `cutlist` for the video.
 
-[^14]: After Post-processing.
+[^14]: Realtime.
 
-[^15]: All can be combined with `ABR`, `Cut commercials` and `subtitles`
+[^15]: After Post-processing.
+
+[^16]: All can be combined with `ABR`, `Cut commercials` and `subtitles`
     selection.
 
-[^16]: One minute of playback.
-
-[^17]: The `cutlist` itself was defined in MythTV which is translated
-    into the inpoint's and outpoint's of the `cutlist` for the video.
+[^17]: One minute of playback.
 
 [^18]: Only VAAPI and no HW acceleration has been tested. Feedback on
     untested acceleration is appreciated.
