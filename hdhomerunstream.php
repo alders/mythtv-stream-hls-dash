@@ -23,6 +23,8 @@ $tuner="tuner3";
 $ffmpeg="/usr/bin/ffmpeg";
 $yourserver="localhost";
 
+$webuser = "apache";
+
 // Different hw acceleration options
 // NOTE: only "h264" and "nohwaccel" have been tested and are known to work
 $hwaccels = array(
@@ -60,7 +62,7 @@ $settings = array(
 $HDHRID = shell_exec("/usr/bin/sudo /usr/bin/hdhomerun_config discover | cut -d ' ' -f3");
 $HDHRID = str_replace("\n", '', $HDHRID);
 $response = shell_exec("/usr/bin/sudo /usr/bin/mkdir -p ".$channel_path.";");
-$response = shell_exec("/usr/bin/sudo /usr/bin/chown apache:apache ".$channel_path.";");
+$response = shell_exec("/usr/bin/sudo /usr/bin/chown ".$webuser.":".$webuser." ".$channel_path.";");
 $relative_path = shell_exec("/usr/bin/sudo /usr/bin/realpath --relative-to=$channel_path $live_path");
 $relative_path = str_replace("\n", '', $relative_path);
 $keys = array_keys($settings);
@@ -267,9 +269,9 @@ else if (isset($_REQUEST["do"]))
     {
         mkdir($channel_path."/".$channel."/");
         $fp = fopen($channel_path."/".$channel."/encode.sh", "w");
-        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." set /".$tuner."/channel auto:".$channels[$_REQUEST['channel']]['Frequency'].";\n");
-        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." set /".$tuner."/program ".$channels[$_REQUEST['channel']]['ServiceId'].";\n");
-        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache ".$ffmpeg." \
+        fwrite($fp, "/usr/bin/sudo -u".$webuser." /usr/bin/hdhomerun_config ".$HDHRID." set /".$tuner."/channel auto:".$channels[$_REQUEST['channel']]['Frequency'].";\n");
+        fwrite($fp, "/usr/bin/sudo -u".$webuser." /usr/bin/hdhomerun_config ".$HDHRID." set /".$tuner."/program ".$channels[$_REQUEST['channel']]['ServiceId'].";\n");
+        fwrite($fp, "/usr/bin/sudo -u".$webuser." /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -u".$webuser." ".$ffmpeg." \
                                              -txt_format text -txt_page 888 \
                                              -i - -y \
                                              -c copy \
@@ -284,10 +286,10 @@ else if (isset($_REQUEST["do"]))
                 $nb_renditions++;
             }
         }
-        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$channel_path."/".$channel."/status.txt';
-/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$channel_path.";
-/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$channel_path."/".$channel.";
-/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$live_path."/".$channel.";\n");
+        fwrite($fp, "/usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$channel_path."/".$channel."/status.txt';
+/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$channel_path.";
+/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$channel_path."/".$channel.";
+/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$live_path."/".$channel.";\n");
         fwrite($fp, "if [ \"\$subtitles\" -eq \"0\" ]; then\n");
         //
         // subtitles present
@@ -299,10 +301,10 @@ else if (isset($_REQUEST["do"]))
         do \
             /usr/bin/inotifywait -e close_write --include \"master_live.m3u8\" ".$live_path."/".$channel."; \
         done; \
-                 /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file."; \
-                 /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,RESOLUTION.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
+                 /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file."; \
+                 /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,RESOLUTION.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -u".$webuser." /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
         fwrite($fp, "fi\n");
-        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -uapache ".$ffmpeg." \
+        fwrite($fp, "/usr/bin/sudo -u".$webuser." /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -u".$webuser." ".$ffmpeg." \
                                          -fix_sub_duration \
                                          ".$hwaccels[$_REQUEST["hw"]]["hwaccel"]." \
                                          -txt_format text -txt_page 888 \
@@ -446,8 +448,8 @@ else if (isset($_REQUEST["do"]))
                                                 var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
                                                 hls_segment_filename=\'/dev/null\']../live/".$channel."/sub_%v.m3u8\" \
                                                2>>/tmp/ffmpeg-hdhomerunstream.log && \
-                                                  /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$channel_path."/".$channel."/status.txt' || \
-                                                  /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$channel_path."/".$channel."/status.txt'\n");
+                                                  /usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$channel_path."/".$channel."/status.txt' || \
+                                                  /usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$channel_path."/".$channel."/status.txt'\n");
         fwrite($fp, "sleep 1 && /usr/bin/sudo /usr/bin/screen -S ".$channel."_encode -X quit\n");
         fclose($fp);
 

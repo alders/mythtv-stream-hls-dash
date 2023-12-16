@@ -31,6 +31,8 @@ $dbuser = $xml->Database->UserName;
 $dbpass = $xml->Database->Password;
 $dbname = $xml->Database->DatabaseName;
 
+$webuser = "apache";
+
 // Different hw acceleration options
 // NOTE: only "h264" and "nohwaccel" have been tested and are known to work
 $hwaccels = array(
@@ -361,7 +363,7 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
             $length = $content["length"];
             // TODO: would be nice to replace these shell commands with php
             // TODO: adapt number 23 into a search from the end of the file, it may go wrong in case of may renditions no progress number is shown.
-            $frameNumber = shell_exec("/usr/bin/sudo -uapache /usr/bin/tail -n 23 ".$hls_path."/".$filename."/progress-log.txt | sudo -uapache /usr/bin/sed -n '/^frame=/p' | sudo -uapache sed -n 's/frame=//p'");
+            $frameNumber = shell_exec("/usr/bin/sudo -u".$webuser." /usr/bin/tail -n 23 ".$hls_path."/".$filename."/progress-log.txt | sudo -u".$webuser." /usr/bin/sed -n '/^frame=/p' | sudo -u".$webuser." sed -n 's/frame=//p'");
             $status["presentationDuration"] = (int) $length;
             $status["available"] = $frameNumber / $framerate;
         }
@@ -422,8 +424,8 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
             if ($mustencode)
             {
                 // Transmuxing from one container/format to mp4 – without re-encoding:
-                fwrite($fp,"/usr/bin/sudo /usr/bin/screen -S ".$filename."_remux -dm /usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$filename."/status.txt;
-/usr/bin/sudo -uapache ".$ffmpeg." \
+                fwrite($fp,"/usr/bin/sudo /usr/bin/screen -S ".$filename."_remux -dm /usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$filename."/status.txt;
+/usr/bin/sudo -u".$webuser." ".$ffmpeg." \
           -y \
           ".$hwaccels[$_REQUEST["hw"]]["hwaccel"]." \
           -txt_format text -txt_page 888 \
@@ -466,7 +468,7 @@ done\n");
                 }
             }
             // TODO: think about this hls dir contains meta data, thus should always exist
-            $create_hls_dir  = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$hls_path."/".$filename.";";
+            $create_hls_dir  = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$hls_path."/".$filename.";";
             $create_live_dir = "";
             $create_vod_dir  = "";
             $option_hls  = "/dev/null";
@@ -492,7 +494,7 @@ done\n");
             {
                 $read_rate = "-re";
                 // TODO: make language configurable
-                $create_live_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$live_path."/".$filename.";";
+                $create_live_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$live_path."/".$filename.";";
                 $option_live  = "[select=\'";
                 $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -580,8 +582,8 @@ done\n");
  do
         /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$live_path."/".$filename.";
  done;
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -u".$webuser." /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
                 }
             }
             if ($hls_playlist_type === "event")
@@ -675,9 +677,9 @@ done\n");
  do
         /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\"  ".$hls_path."/".$filename.";
  done;
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$master_file."; /usr/bin/sudo -uapache /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$master_file."; /usr/bin/sudo -u".$webuser." /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
                 }
                 else
                 {
@@ -688,13 +690,13 @@ done\n");
  do
         /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$hls_path."/".$filename.";
  done;
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";) & \n");
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";) & \n");
 
                 }
             }
             if (isset($_REQUEST["vod"]))
             {
-                $create_vod_dir = "/usr/bin/sudo -uapache /usr/bin/mkdir -p ".$vod_path."/".$filename.";";
+                $create_vod_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$vod_path."/".$filename.";";
                 $option_vod  = "[select=\'";
                 $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -757,10 +759,10 @@ done\n");
  do
         /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
  done;
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."\"/' ".$master_file.";) & \n");
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."\"/' ".$master_file.";) & \n");
                 }
                 else
                 {
@@ -773,8 +775,8 @@ done\n");
  do
         /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
  done;
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
-    /usr/bin/sudo -uapache /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."\"/' ".$master_file.";) & \n");
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."\"/' ".$master_file.";) & \n");
                 }
             }
             if(isset($_REQUEST["mp4"]))
@@ -866,12 +868,12 @@ done\n");
                 $audio_stream_number++;
             }
         }
-        fwrite($fp, "/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt';
+        fwrite($fp, "/usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt';
 ".$create_vod_dir."
 ".$create_live_dir."
 ".$create_hls_dir."
 cd ".$hls_path."/;
-/usr/bin/sudo -uapache ".$ffmpeg." \
+/usr/bin/sudo -u".$webuser." ".$ffmpeg." \
     -fix_sub_duration \
     ".$sub_format." \
     ".$hwaccel." \
@@ -892,8 +894,8 @@ cd ".$hls_path."/;
           ".$option_live."| \
           ".$option_hls."\" \
 2>>/tmp/ffmpeg-".$hlsdir."-".$filename.".log && \
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || \
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
+/usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: encode finish success >> ".$hls_path."/".$filename."/status.txt' || \
+/usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: encode finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
             if (isset($_REQUEST["checkbox_subtitles"]) && isset($_REQUEST["mp4"]))
             {
                 // post processing: add subtitles to mp4 file
@@ -902,9 +904,9 @@ do
     sleep 1;
 done\n");
                 fwrite($fp, "cd ".$hls_path."/".$filename.";
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$filename."/status.txt';
+/usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$filename."/status.txt';
 cd ".$hls_path."/".$filename.";
-/usr/bin/sudo -uapache ".$ffmpeg." \
+/usr/bin/sudo -u".$webuser." ".$ffmpeg." \
     -i \"".$filename." - ".$title_subtitle.".mp4\" \
     -i subtitles.vtt \
     -c:s mov_text -metadata:s:s:0 language=".$language." -disposition:s:0 default \
@@ -912,8 +914,8 @@ cd ".$hls_path."/".$filename.";
     -c:a copy \
     \"".$filename." - ".$title_subtitle.".tmp.mp4\" \
 2>>/tmp/ffmpeg-subtitle-merge-".$hlsdir."-".$filename.".log && \
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$filename."/status.txt' || \
-/usr/bin/sudo -uapache /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> ".$hls_path."/".$filename."/status.txt';
+/usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$filename."/status.txt' || \
+/usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> ".$hls_path."/".$filename."/status.txt';
 /usr/bin/sudo /usr/bin/mv -f \"".$filename." - ".$title_subtitle.".tmp.mp4\" \"".$filename." - ".$title_subtitle.".mp4\" \n");
        	    }
             if ($mustencode)
@@ -1653,7 +1655,7 @@ else
     }
     else
     {
-        echo "File does not exist or permission as apache user is denied.\n";
+        echo "File does not exist or permission as ".$webuser." user is denied.\n";
     }
 }
 ?>
