@@ -13,7 +13,7 @@ $hls_path = "$webroot/$hlsdir";
 $live_path = "$webroot/$livedir";
 $vod_path = "$webroot/$voddir";
 // NOTE: ISO 639-2/B language codes, the first match of the subtitle language preference is used
-$sublangpref = array(
+$languagepreference = array(
     "dut" => array("name" => "Dutch",        "ISO" => "dut"),
     "dum" => array("name" => "dum",          "ISO" => "dum"),
     "eng" => array("name" => "English",      "ISO" => "eng"),
@@ -346,6 +346,7 @@ if (file_exists($dirname."/".$filename.".".$extension) ||
             $height = $content["height"];
             $language = $content["language"];
             $languagename = $content["languagename"];
+            $audiolanguagefound[] = $content["audiolanguagefound"];
             $stream = $content["stream"];
             $mustencode = false;
             $fileinput = "";
@@ -420,7 +421,6 @@ done\n");
                 // TODO: make language configurable
                 $create_live_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$live_path."/".$_REQUEST["videoid"].";";
                 $option_live  = "[select=\'";
-                $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $bool_new_audio = true;
@@ -435,8 +435,10 @@ done\n");
                     }
                     if ($bool_new_audio)
                     {
-                        $option_live .= "a:".$audio_stream_number.",";
-                        $audio_stream_number++;
+                        for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
+                        {
+                            $option_live .= "a:".$audiolanguagefound[0][$k][2].",";
+                        }
                     }
                 }
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -472,8 +474,16 @@ done\n");
                     }
                     if ($bool_new_abitrate)
                     {
-                        $option_live .= "a:".$audio_stream_number.",agroup:aac,language:".$language.",name:aac_".$audio_stream_number."_".$current_abitrate."k ";
-                        $audio_stream_number++;
+                        $default = "yes";
+                        for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
+                        {
+                            $option_live .= "a:".$audio_stream_number.",agroup:aac,language:".$audiolanguagefound[0][$k][0].",name:aac_".$audio_stream_number."_".$current_abitrate."k,default:".$default." ";
+                            if ($k === 0)
+                            {
+                                $default = "no";
+                            }
+                            $audio_stream_number++;
+                        }
                     }
                 }
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -513,7 +523,6 @@ done\n");
             if ($hls_playlist_type === "event")
             {
                 $option_hls  = "[select=\'";
-                $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $bool_new_audio = true;
@@ -528,8 +537,10 @@ done\n");
                     }
                     if ($bool_new_audio)
                     {
-                        $option_hls .= "a:".$audio_stream_number.",";
-                        $audio_stream_number++;
+                        for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
+                        {
+                            $option_hls .= "a:".$audiolanguagefound[0][$k][2].",";
+                        }
                     }
                 }
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -565,8 +576,16 @@ done\n");
                     }
                     if ($bool_new_abitrate)
                     {
-                        $option_hls .= "a:".$audio_stream_number.",agroup:aac,language:".$language.",name:aac_".$audio_stream_number."_".$current_abitrate."k ";
-                        $audio_stream_number++;
+                        $default = "yes";
+                        for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
+                        {
+                            $option_hls .= "a:".$audio_stream_number.",agroup:aac,language:".$audiolanguagefound[0][$k][0].",name:aac_".$audio_stream_number."_".$current_abitrate."k,default:".$default." ";
+                            if ($k === 0)
+                            {
+                                $default = "no";
+                            }
+                            $audio_stream_number++;
+                        }
                     }
                 }
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -622,7 +641,6 @@ done\n");
             {
                 $create_vod_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$vod_path."/".$_REQUEST["videoid"].";";
                 $option_vod  = "[select=\'";
-                $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $bool_new_audio = true;
@@ -637,8 +655,10 @@ done\n");
                     }
                     if ($bool_new_audio)
                     {
-                        $option_vod .= "a:".$audio_stream_number.",";
-                        $audio_stream_number++;
+                        for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
+                        {
+                            $option_vod .= "a:".$audiolanguagefound[0][$k][2].",";
+                        }
                     }
                 }
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -705,8 +725,20 @@ done\n");
             }
             if(isset($_REQUEST["mp4"]))
             {
-                $option_mp4 = "[select=\'v:0,a:0\': \
-          f=mp4: \
+                $option_mp4 = "[select=\'v:0,";
+                for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
+                {
+                    $option_mp4 .= "a:".$audiolanguagefound[0][$k][2]."";
+                    if ($k === sizeOf($audiolanguagefound[0]) - 1)
+                    {
+                        $option_mp4 .= "\': \\\n";
+                    }
+                    else
+                    {
+                        $option_mp4 .= ",";
+                    }
+                }
+                $option_mp4 .= "          f=mp4: \
           movflags=+faststart]".$_REQUEST["videoid"]."/".$_REQUEST["videoid"]." - ".$title_subtitle.".mp4";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
@@ -787,9 +819,12 @@ done\n");
             }
             if ($bool_new_abitrate)
             {
-                $mapping .= "    -map a:0 -c:a:".$audio_stream_number." aac -b:a:".$audio_stream_number." ".$current_abitrate."k -ac 2 \
-        -metadata:s:a:".$audio_stream_number." language=".$language." \\\n";
-                $audio_stream_number++;
+                for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
+                {
+                    $mapping .= "    -map a:".$audiolanguagefound[0][$k][2]." -c:a:".$k." aac -b:a:".$k." ".$current_abitrate."k -ac 2 \
+        -metadata:s:a:".$audio_stream_number." language=".$audiolanguagefound[0][$k][0]." \\\n";
+                    $audio_stream_number++;
+                }
             }
         }
         fwrite($fp, "/usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt';
@@ -833,9 +868,11 @@ cd ".$hls_path."/".$_REQUEST["videoid"].";
 /usr/bin/sudo -u".$webuser." ".$ffmpeg." \
     -i \"".$_REQUEST["videoid"]." - ".$title_subtitle.".mp4\" \
     -i subtitles.vtt \
-    -c:s mov_text -metadata:s:s:0 language=".$language." -disposition:s:0 default \
     -c:v copy \
     -c:a copy \
+    -map 0 \
+    -c:s mov_text -metadata:s:s:0 language=".$language." -disposition:s:0 default \
+    -map 1 \
     \"".$_REQUEST["videoid"]." - ".$title_subtitle.".tmp.mp4\" \
 2>>/tmp/ffmpeg-subtitle-merge-".$hlsdir."-".$_REQUEST["videoid"].".log && \
 /usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt' || \
@@ -1331,6 +1368,7 @@ done\n");
                 // Get mediainfo
                 $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=General; Duration : %Duration/String%\r
 Video; Width : %Width% pixels\r Height : %Height% pixels\r Frame rate : %FrameRate/String%\r
+Audio; Audio : %Language/String%\r
 Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename.".$extension"."\"");
                 preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
                 $length = 0;
@@ -1357,6 +1395,11 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                         $framerate = ((double) $ratedetails[1][0]);
                     }
                 }
+                else
+                {
+                    // no value defined assume a value
+                    $framerate = (double)25.0;
+                }
                 $language = "";
                 $languagename = "";
                 $stream = "-1";
@@ -1365,7 +1408,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 foreach ($subtitlesfound[1] as $key => $value){
                     $formatsub[] = array_merge((array)$subtitlesfound[2][$key], (array)$value);
                 }
-                foreach ($sublangpref as $prefkey => $prefvalue) {
+                foreach ($languagepreference as $prefkey => $prefvalue) {
                     foreach ($formatsub as $key => $value) {
                         if ($prefvalue['name'] == $value[0] && ($value[1] == "ASS" || $value[1] == "UTF-8" || $value[1] == "Teletext Subtitle"))
                         {
@@ -1379,8 +1422,29 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 if ($language == "")
                 {
                     // if no language is found assume the first preferred language
-                    $language = $sublangpref[array_key_first($sublangpref)]["ISO"];
-                    $languagename = $sublangpref[array_key_first($sublangpref)]["name"];
+                    $language = $languagepreference[array_key_first($languagepreference)]["ISO"];
+                    $languagename = $languagepreference[array_key_first($languagepreference)]["name"];
+                }
+                $audiolanguagename = "";
+                $audiostream = "-1";
+                preg_match_all('/Audio[ ]*:[ ]+([a-zA-Z]+)/',$mediainfo,$audiolanguagesfound);
+                $audiolang = array();
+                $audiolangfound = array();
+                foreach ($audiolanguagesfound[1] as $key => $value){
+                    $audiolang[] = array_merge((array)$audiolanguagesfound[1][$key], (array)$value);
+                }
+                foreach ($languagepreference as $prefkey => $prefvalue) {
+                    foreach ($audiolang as $key => $value) {
+                        if ($prefvalue['name'] == $value[0])
+                        {
+                            $audiolangfound[] = array($prefvalue["ISO"], $prefvalue["name"], $key);
+                        }
+                    }
+                }
+                if (sizeOf($audiolangfound) < 1)
+                {
+                    // if no language is found assume the first preferred language
+                    $audiolangfound[] = array($languagepreference[array_key_first($languagepreference)]["ISO"], $languagepreference[array_key_first($languagepreference)]["name"], 0);
                 }
                 $state = array();
                 $state["framerate"] = $framerate;
@@ -1389,6 +1453,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 $state["language"] = $language;
                 $state["languagename"] = $languagename;
                 $state["stream"] = $stream;
+                $state["audiolanguagefound"] = $audiolangfound;
                 $content = json_encode($state);
                 file_put_contents($file, $content);
             }

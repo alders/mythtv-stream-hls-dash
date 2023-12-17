@@ -38,6 +38,8 @@ What:
 - Support for less reliable networks (e.g. cell phone browser).
 - Support for live tv, live recording, video and recorded content.
 - Support for offline viewing.
+- Support for at most one (text based) subtitle stream.
+- Support for multiple audio streams in MythVideo.
 - Support for MythTV cutlist (commercial cut) created using Mythfrontend.
 
 How:
@@ -51,6 +53,7 @@ How:
 - Simple browser UI.
 - Transcode videos to user defined (UI select dropdown list) renditions for
   adaptive playback.
+- Configure your preferred languages.
 - Optionally a ramdisk can be used for in memory handling of playlist type =live=.
 - Optionally shutdown lock can be used to prevent MythWelcome from shutting down.
 
@@ -327,9 +330,9 @@ tmpfs                                           /var/www/html/channel tmpfs node
 Required configuration:
 - $webroot -- This is the root of your web server.
 - $webuser -- This is the Apache run user.
-- $xml -- Make sure your [[https://www.mythtv.org/wiki/Config.xml][Config.xml]] is readable by user =apache=.
-- $sublangpref -- This array contains your preferred subtitle languages in
-  order. The first match from top to bottom will be used.
+- $xml -- Make sure your [[https://www.mythtv.org/wiki/Config.xml][Config.xml]] is readable by =$webuser=.
+- $sublangpref -- This array contains your preferred languages in order. If
+  available, the first match from top to bottom will be used as subtitle.
 
 Optional configuration:
 - $hlsdir -- This is the directory where the meta data of all encoded videos are

@@ -29,6 +29,8 @@ What:
 - Support for less reliable networks (e.g. cell phone browser).
 - Support for live tv, live recording, video and recorded content.
 - Support for offline viewing.
+- Support for at most one (text based) subtitle stream.
+- Support for multiple audio streams in MythVideo.
 - Support for MythTV cutlist (commercial cut) created using
   Mythfrontend.
 
@@ -45,6 +47,7 @@ How:
 - Simple browser UI.
 - Transcode videos to user defined (UI select dropdown list) renditions
   for adaptive playback.
+- Configure your preferred languages.
 - Optionally a ramdisk can be used for in memory handling of playlist
   type `live`.
 - Optionally shutdown lock can be used to prevent MythWelcome from
@@ -298,9 +301,10 @@ Required configuration:
 - \$webuser – This is the Apache run user.
 - \$xml – Make sure your
   [Config.xml](https://www.mythtv.org/wiki/Config.xml) is readable by
-  user `apache`.
-- \$sublangpref – This array contains your preferred subtitle languages
-  in order. The first match from top to bottom will be used.
+  `$webuser`.
+- \$sublangpref – This array contains your preferred languages in order.
+  If available, the first match from top to bottom will be used as
+  subtitle.
 
 Optional configuration:
 
