@@ -103,14 +103,16 @@ sudo chmod -R 755 /var/www/html
 ## Configure sudo
 
 The backend code generates `bash` scripts. The commands in the scripts
-are run as user `apache`[^3] using `sudo`.
+should be run as a web content owner user, e.g. `apache`[^3], using
+`sudo`.
 
 ``` shell
-[mythtv@nuc1 ~]$ sudo cat /etc/sudoers.d/apache
+sudo cat /etc/sudoers.d/apache
 apache ALL=(ALL) NOPASSWD: /usr/bin/hdhomerun_config, /usr/bin/ffmpeg, /usr/bin/realpath, /usr/bin/sed, /usr/bin/tail, /usr/bin/chmod, /usr/bin/mediainfo, /usr/bin/screen, /usr/bin/echo, /usr/bin/mkdir, /usr/bin/bash, /usr/bin/awk
 ```
 
-Fill the content of the `apache` file as shown above.
+Fill the content of a web content owner, e.g. `apache`,file as shown
+above.
 
 ``` shell
 sudo visudo -f /etc/sudoers.d/apache
@@ -298,8 +300,8 @@ tmpfs                                           /var/www/html/channel tmpfs node
 Required configuration:
 
 - \$webroot – This is the root of your web server.
-- \$webuser – This is the Apache run user.
-- \$xml – Make sure your
+- \$webuser – This is the web content run user.
+- \$xml – Make sure your MythTV
   [Config.xml](https://www.mythtv.org/wiki/Config.xml) is readable by
   `$webuser`.
 - \$sublangpref – This array contains your preferred languages in order.
@@ -335,12 +337,7 @@ Allow JavaScript in your browser.
 Figure 1 shows the user interface of `mythtv-stream-hls-dash` after
 selecting a recording in [MythWeb](https://www.mythtv.org/wiki/MythWeb)
 or the new [Web
-Application](https://www.mythtv.org/wiki/Web_Application)[^5]. The user
-interface after selecting a video from [Web
-Application](https://www.mythtv.org/wiki/Web_Application) is similar in
-look and feel. However, the functionality is a subset of what is shown
-in this example. For example commercial cut is not available for
-MythVideo.
+Application](https://www.mythtv.org/wiki/Web_Application)[^5].
 
 In case you do not want to patch
 [MythWeb](https://www.mythtv.org/wiki/MythWeb) and the new [Web
@@ -373,6 +370,15 @@ User interface options from top to bottom:
 
 The selections shown in Figure 1 are used in the descriptions below as a
 running example.
+
+Though not shown here, the user interface after selecting a video
+instead of a recording from [Web
+Application](https://www.mythtv.org/wiki/Web_Application) has the same
+look and feel. Most functionality for a video and a recording is
+overlapping, but there are distinct differences as well. For example
+commercial cut is only available for recordings not for video. On the
+contrary multiple audio streams are only supported for video not for
+recordings.
 
 ### Adaptive Bitrate Streaming
 
@@ -898,6 +904,8 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 - The current project code needs to be refactored in order to remove
   duplicate code.
 - DVD menus are not supported.
+- External subtitles are not supported.
+- At most one subtitle is supported.
 - A design choice has been made to symlink `mp4` files rather than to
   encode them.
 

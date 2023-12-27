@@ -303,61 +303,6 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
         if (file_exists($hls_path."/".$filename."/progress-log.txt"))
         {
             $file = $hls_path."/".$filename."/state.txt";
-            // $config = file_get_contents("".$hls_path."/".$filename."/status.txt");
-            // if (file_exists($hls_path."/".$filename."/state.txt") &&
-            //     !preg_match("/encode finish success/", $config, $matches) &&
-            //     preg_match("/remux finish success/", $config, $matches))
-            // {
-            //     array_map('unlink', glob($hls_path."/".$filename."/state.txt"));
-            // }
-            // if (!file_exists($hls_path."/".$filename."/state.txt"))
-            // {
-            //     $length = 0;
-            //     $framerate = 0;
-            //     if (preg_match("/remux finish success/", $config, $matches) && $extension != "avi")
-            //     {
-            //         // thus $_REQUEST["removecut"]==on
-            //         $mediainfo = shell_exec("/usr/bin/mediainfo ".$hls_path."/".$filename."/video.mp4");
-            //         preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
-
-            //         $link = file_get_contents($hls_path."/".$filename."/cutlist.txt");
-            //         preg_match_all('/inpoint\s*(\b[0-9]{2,}[.]?[0-9]{1,})/', $link, $incontent, PREG_PATTERN_ORDER);
-            //         preg_match_all('/outpoint\s*(\b[0-9]{2,}[.]?[0-9]{1,})/', $link, $outcontent, PREG_PATTERN_ORDER);
-            //         foreach($outcontent[1] as $k => $v){
-            //             $length += $v - $incontent[1][$k];
-            //         }
-            //     }
-            //     else
-            //     {
-            //         // thus $_REQUEST["removecut"]==off or avi in which case the cutlist will be empty
-            //         $mediainfo = shell_exec("/usr/bin/mediainfo ".$dirname."/".$filename.".$extension");
-            //         preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
-
-            //         preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
-
-            //         if ($durationdetails[1][0])
-            //         {
-            //             $length += ((int) $durationdetails[2][0]) * 3600;
-            //         }
-            //         if ($durationdetails[3][0])
-            //         {
-            //             $length += ((int) $durationdetails[4][0]) * 60;
-            //         }
-            //         if ($durationdetails[5][0])
-            //         {
-            //             $length += ((int) $durationdetails[6][0]);
-            //         }
-            //     }
-            //     preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
-            //     if(isset($ratedetails[1][0])) {
-            //         $framerate = ((double)  $ratedetails[1][0]);
-            //     }
-            //     $state = array();
-            //     $state["framerate"] = $framerate;
-            //     $state["length"] = $length;
-            //     $content = json_encode($state);
-            //     file_put_contents($file, $content);
-            // }
             $content = json_decode(file_get_contents($file), TRUE);
             $framerate = $content["framerate"];
             $length = $content["length"];
@@ -467,7 +412,7 @@ done\n");
                     $read_rate = "-re";
                 }
             }
-            // TODO: think about this hls dir contains meta data, thus should always exist
+            // NOTE: this hls dir contains meta data, thus should always exist
             $create_hls_dir  = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$hls_path."/".$filename.";";
             $create_live_dir = "";
             $create_vod_dir  = "";
@@ -493,7 +438,6 @@ done\n");
             if ($hls_playlist_type === "live")
             {
                 $read_rate = "-re";
-                // TODO: make language configurable
                 $create_live_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$live_path."/".$filename.";";
                 $option_live  = "[select=\'";
                 $audio_stream_number = 0;
@@ -565,6 +509,7 @@ done\n");
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
+                    // as of now it looks like this trick can only used for one subtitle...
                     $option_live .= "| \
          [select=\'v:0,s:0\': \
           strftime=1: \
@@ -659,6 +604,7 @@ done\n");
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
+                    // as of now it looks like this trick can only used for one subtitle...
                     $option_hls .= "| \
          [select=\'v:0,s:0\': \
           strftime=1: \
@@ -741,6 +687,7 @@ done\n");
                 {
                     // hls event is used here to segment the subtitles, adding subtitle "streams" to dash is not implemented in FFmpeg
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
+                    // as of now it looks like this trick can only used for one subtitle...
                     $option_vod .= "| \
          [select=\'v:0,s:0\': \
           strftime=1: \
@@ -750,7 +697,6 @@ done\n");
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
           hls_segment_filename=\'/dev/null\']../vod/".$filename."/sub_%v.m3u8";
-                    // TODO: make language configurable
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
                     // NOTE: the language setting is not written to the master_vod.m3u8 file.
@@ -766,7 +712,6 @@ done\n");
                 }
                 else
                 {
-                    // TODO: make language configurable
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
                     // NOTE: the language setting is not written to the master_vod.m3u8 file.
@@ -1042,7 +987,7 @@ done\n");
                       message = message + pad(Math.floor(secs));
 
                       message = message + " available";
-                      // NOTE: 6 seconds is equal to 3x segment size is just an empirical guess, works without subtitles
+                      // NOTE: 6 seconds is equal to 3x segment size is just an empirical guess
                       if (!playerInitDone && Math.ceil(status["available"] > 6))
                       {
                           playerInitDone = initPlayer();
@@ -1321,8 +1266,6 @@ done\n");
           }
 
           document.addEventListener('DOMContentLoaded', initApp);
-          // Listen to the custom shaka-ui-loaded event, to wait until the UI is loaded.
-          //document.addEventListener('shaka-ui-loaded', initPlayer);
           // Listen to the custom shaka-ui-load-failed event, in case Shaka Player fails
           // to load (e.g. due to lack of browser support).
           document.addEventListener('shaka-ui-load-failed', initFailed);

@@ -266,46 +266,6 @@ if (file_exists($dirname."/".$filename.".".$extension) ||
         if (file_exists($hls_path."/".$_REQUEST["videoid"]."/progress-log.txt"))
         {
             $file = $hls_path."/".$_REQUEST["videoid"]."/state.txt";
-//             $config = file_get_contents("".$hls_path."/".$_REQUEST["videoid"]."/status.txt");
-//             if (file_exists($hls_path."/".$_REQUEST["videoid"]."/state.txt") &&
-//                 !preg_match("/encode finish success/", $config, $matches) &&
-//                 preg_match("/remux finish success/", $config, $matches))
-//             {
-//                 array_map('unlink', glob($hls_path."/".$_REQUEST["videoid"]."/state.txt"));
-//             }
-//             if (!file_exists($hls_path."/".$_REQUEST["videoid"]."/state.txt"))
-//             {
-//                 $length = 0;
-//                 $framerate = 0;
-//                 $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=General; Duration : %Duration/String%\r
-// Video; Width : %Width%\r Height : %Height%\r Frame rate : %FrameRate/String%\r
-// Text; Sub : %Language/String%\r\n\" \"".$dirname."/".$filename.".$extension"."\"");
-//                     preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
-
-//                     preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
-
-//                     if ($durationdetails[1][0])
-//                     {
-//                         $length += ((int) $durationdetails[2][0]) * 3600;
-//                     }
-//                     if ($durationdetails[3][0])
-//                     {
-//                         $length += ((int) $durationdetails[4][0]) * 60;
-//                     }
-//                     if ($durationdetails[5][0])
-//                     {
-//                         $length += ((int) $durationdetails[6][0]);
-//                     }
-//                 preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) FPS/',$mediainfo,$ratedetails);
-//                 if(isset($ratedetails[1][0])) {
-//                     $framerate = ((double)  $ratedetails[1][0]);
-//                 }
-//                 $state = array();
-//                 $state["framerate"] = $framerate;
-//                 $state["length"] = $length;
-//                 $content = json_encode($state);
-//                 file_put_contents($file, $content);
-//             }
             $content = json_decode(file_get_contents($file), TRUE);
             $framerate = $content["framerate"];
             $length = $content["length"];
@@ -392,7 +352,7 @@ done\n");
             {
                 $hls_playlist_type = "undefined";
             }
-            // TODO: think about this hls dir contains meta data, thus should always exist
+            // TODO: this hls dir contains meta data, thus should always exist
             $create_hls_dir  = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$hls_path."/".$_REQUEST["videoid"].";";
             $create_live_dir = "";
             $create_vod_dir  = "";
@@ -418,7 +378,6 @@ done\n");
             if ($hls_playlist_type === "live")
             {
                 $read_rate = "-re";
-                // TODO: make language configurable
                 $create_live_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$live_path."/".$_REQUEST["videoid"].";";
                 $option_live  = "[select=\'";
                 for ($i=0; $i < $nb_renditions; $i++)
@@ -694,7 +653,6 @@ done\n");
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
           hls_segment_filename=\'/dev/null\']../vod/".$_REQUEST["videoid"]."/sub_%v.m3u8";
-                    // TODO: make language configurable
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
                     // NOTE: the language setting is not written to the master_vod.m3u8 file.
@@ -710,7 +668,6 @@ done\n");
                 }
                 else
                 {
-                    // TODO: make language configurable
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
                     // NOTE: the language setting is not written to the master_vod.m3u8 file.
