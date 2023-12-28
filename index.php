@@ -160,7 +160,7 @@ while ($row = mysqli_fetch_assoc($result))
 }
 
 $done = array();
-$select_box = "<form><select onChange=\"window.location.href='index.php?filename='+this.value;\">\n";
+$select_box = "            <form><select onChange=\"window.location.href='index.php?filename='+this.value;\">\n";
 $file_list = array_reverse($file_list);
 for ($i = 0; $i < count($file_list); $i++)
 {
@@ -178,19 +178,19 @@ for ($i = 0; $i < count($file_list); $i++)
                $year=$filedetails[2][0];
                $month=$filedetails[3][0];
                $day=$filedetails[4][0];
-               $select_box .= "          <option value=\"".$fn."\">".(array_key_exists($fn, $names)?$names[$fn]:"Unknown Title")." (".$month."/".$day."/".$year.")</option>\n";
+               $select_box .= "            <option value=\"".$fn."\">".(array_key_exists($fn, $names)?$names[$fn]:"Unknown Title")." (".$month."/".$day."/".$year.")</option>\n";
            }
         }
     }
 }
-$select_box .= "        </select></form>\n";
+$select_box .= "          </select></form>\n";
 
 $hw_box = "<br>";
 $hw_box .= "<label for=\"hwaccel\">HW acceleration: </label><select class=\"select\" name=\"hw\" required>";
 $hw_box .= "<option value=\"\" disabled hidden>-- Please choose your HW Acceleration --</option>";
      foreach ($hwaccels as $hwaccel => $hwaccelset)
      {
-         $hw_box .= "<option value=\"".$hwaccel."\"".((strpos($hwaccel, "h264") !== false)?" selected=\"selected\"":"").
+         $hw_box .= "            <option value=\"".$hwaccel."\"".((strpos($hwaccel, "h264") !== false)?" selected=\"selected\"":"").
                                 ">".$hwaccelset["encoder"]."".
                                 "</option>\n";
      }
@@ -309,7 +309,15 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
             // TODO: would be nice to replace these shell commands with php
             // TODO: adapt number 23 into a search from the end of the file, it may go wrong in case of may renditions no progress number is shown.
             $frameNumber = shell_exec("/usr/bin/sudo -u".$webuser." /usr/bin/tail -n 23 ".$hls_path."/".$filename."/progress-log.txt | sudo -u".$webuser." /usr/bin/sed -n '/^frame=/p' | sudo -u".$webuser." sed -n 's/frame=//p'");
-            $status["presentationDuration"] = (int) $length;
+            if (isset($content["removecut"]) && $content["removecut"] === "on")
+            {
+                // TODO: somehow the framerate is sometimes doubled when remuxing...why?
+                $framerate = shell_exec("/usr/bin/sudo -u".$webuser." /usr/bin/tail -n 20 ".$hls_path."/".$filename."/progress-log.txt | sudo -u".$webuser." /usr/bin/sed -n '/^fps=/p' | sudo -u".$webuser." sed -n 's/fps=//p'");
+                $status["presentationDuration"] = (int) $content["clippedlength"];
+            }
+            else {
+                $status["presentationDuration"] = (int) $length;
+            }
             $status["available"] = $frameNumber / $framerate;
         }
         else if ($extension ===  "mp4")
@@ -356,6 +364,9 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
                 $fileinput = "-f concat -async 1 -safe 0 -i ".$hls_path."/".$filename."/cutlist.txt";
                 $cut = "cut";
                 $mustencode = true;
+                $content = json_decode(file_get_contents($file), TRUE);
+                $content["removecut"] = "on";
+                file_put_contents($file, json_encode($content));
             }
             else
             {
@@ -988,7 +999,7 @@ done\n");
 
                       message = message + " available";
                       // NOTE: 6 seconds is equal to 3x segment size is just an empirical guess
-                      if (!playerInitDone && Math.ceil(status["available"] > 6))
+                      if (!playerInitDone && Math.ceil(status["available"] > 24))
                       {
                           playerInitDone = initPlayer();
                       }
@@ -1343,6 +1354,7 @@ done\n");
                 mkdir($hls_path."/".$filename);
             }
             $file = $hls_path."/".$_REQUEST["filename"]."/state.txt";
+            $cutcount = 0;
             if (!file_exists($file))
             {
                 $length = 0;
@@ -1352,7 +1364,6 @@ done\n");
 Video; Width : %Width% pixels\r Height : %Height% pixels\r Frame rate : %FrameRate/String%\r
 Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename.".$extension"."\"");
                 preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
-                $length = 0;
                 if ($durationdetails[1][0])
                 {
                     $length += ((int) $durationdetails[2][0]) * 3600;
@@ -1408,6 +1419,73 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 $state["language"] = $language;
                 $state["languagename"] = $languagename;
                 $state["stream"] = $stream;
+
+                // Fetch any cut marks
+                preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/',$filename,$filedetails);
+
+                $chanid=$filedetails[1][0];
+                $year=$filedetails[2][0];
+                $month=$filedetails[3][0];
+                $day=$filedetails[4][0];
+                $hour=$filedetails[5][0];
+                $minute=$filedetails[6][0];
+                $second=$filedetails[7][0];
+                $starttime="$year-$month-$day $hour:$minute:$second";
+
+                $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
+                $dbconn->set_charset("utf8");
+                mysqli_select_db($dbconn,$dbname);
+                $sqlselect="select * from recordedmarkup where (chanid=$chanid and starttime='$starttime' and (type=".MARK_CUT_START." or type=".MARK_CUT_END.")) order by mark;";
+                $result=mysqli_query($dbconn,$sqlselect);
+                $fp = fopen($hls_path."/".$filename."/cutlist.txt", "w");
+                fprintf($fp, "ffconcat version 1.0\n");
+                $firstrow = true;
+                $midsegment = false;
+                $startsegment = 0;
+                $clippedlength = 0;
+                while ($row = mysqli_fetch_assoc($result))
+                {
+                    $cutcount++;
+                    $mark = (double) $row['mark'];
+                    $mark = ($mark / $framerate);
+                    if ($row['type']==MARK_CUT_START)
+                    {
+                        if ($firstrow && $mark > 1)
+                        {
+                            fprintf($fp, "file ".$hls_path."/".$filename."/video.mp4\n");
+                            fprintf($fp, "inpoint 0\n");
+                            fprintf($fp, "outpoint %0.2f\n", $mark);
+                            $clippedlength = $mark + 1;
+                        }
+                        else if ($midsegment)
+                        {
+                            fprintf($fp, "outpoint %0.2f\n", $mark);
+                            $midsegment = false;
+                            $clippedlength += ($mark - $startsegment) + 1;
+                        }
+                    }
+                    else if ($row['type']==MARK_CUT_END)
+                    {
+                        if ($length - $mark > 10)
+                        {
+                            fprintf($fp, "file ".$hls_path."/".$filename."/video.mp4\n");
+                            fprintf($fp, "inpoint %0.2f\n", $mark);
+                            $midsegment = true;
+                            $startsegment = $mark;
+                        }
+                    }
+                    $firstrow = false;
+                }
+                if ($midsegment)
+                {
+                    fprintf($fp, "outpoint %0.2f\n", $length);
+                    $clippedlength += (($length - $startsegment) > 0 ? ($length - $startsegment) : 0) + 1;
+                }
+                fclose($fp);
+                if ($clippedlength > 0)
+                {
+                    $state["clippedlength"] = $clippedlength;
+                }
                 $content = json_encode($state);
                 file_put_contents($file, $content);
             }
@@ -1416,69 +1494,6 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 $framerate = $content["framerate"];
                 $length = $content["length"];
             }
-            // Fetch any cut marks
-            preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/',$filename,$filedetails);
-
-            $chanid=$filedetails[1][0];
-            $year=$filedetails[2][0];
-            $month=$filedetails[3][0];
-            $day=$filedetails[4][0];
-            $hour=$filedetails[5][0];
-            $minute=$filedetails[6][0];
-            $second=$filedetails[7][0];
-            $starttime="$year-$month-$day $hour:$minute:$second";
-
-            $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
-            $dbconn->set_charset("utf8");
-            mysqli_select_db($dbconn,$dbname);
-            $sqlselect="select * from recordedmarkup where (chanid=$chanid and starttime='$starttime' and (type=".MARK_CUT_START." or type=".MARK_CUT_END.")) order by mark;";
-            $result=mysqli_query($dbconn,$sqlselect);
-            $fp = fopen($hls_path."/".$filename."/cutlist.txt", "w");
-            fprintf($fp, "ffconcat version 1.0\n");
-            $firstrow = true;
-            $midsegment = false;
-            $startsegment = 0;
-            $clippedlength = 0;
-            $cutcount = 0;
-            while ($row = mysqli_fetch_assoc($result))
-            {
-                $cutcount++;
-                $mark = (double) $row['mark'];
-                $mark = ($mark / $framerate);
-                if ($row['type']==MARK_CUT_START)
-                {
-                    if ($firstrow && $mark > 1)
-                    {
-                        fprintf($fp, "file ".$hls_path."/".$filename."/video.mp4\n");
-                        fprintf($fp, "inpoint 0\n");
-                        fprintf($fp, "outpoint %0.2f\n", $mark);
-                        $clippedlength = $mark + 1;
-                    }
-                    else if ($midsegment)
-                    {
-                            fprintf($fp, "outpoint %0.2f\n", $mark);
-                            $midsegment = false;
-                            $clippedlength += ($mark - $startsegment) + 1;
-                    }
-                }
-                else if ($row['type']==MARK_CUT_END)
-                {
-                    if ($length - $mark > 10)
-                    {
-                        fprintf($fp, "file ".$hls_path."/".$filename."/video.mp4\n");
-                        fprintf($fp, "inpoint %0.2f\n", $mark);
-                        $midsegment = true;
-                        $startsegment = $mark;
-                    }
-                }
-                $firstrow = false;
-            }
-            if ($midsegment)
-            {
-                fprintf($fp, "outpoint %0.2f\n", $length);
-                $clippedlength += (($length - $startsegment) > 0 ? ($length - $startsegment) : 0) + 1;
-            }
-            fclose($fp);
         }
             ?>
             <html>
@@ -1584,7 +1599,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
           <?php
         }
         ?>
-        </form>
+</form>
         </body>
         </html>
         <?php
