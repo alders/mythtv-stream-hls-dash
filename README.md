@@ -29,8 +29,8 @@ What:
 - Support for less reliable networks (e.g. cell phone browser).
 - Support for live tv, live recording, video and recorded content.
 - Support for offline viewing.
-- Support for at most one (text based) subtitle stream.
-- Support for multiple audio streams in MythVideo.
+- Support for at most one (text based) embedded subtitle stream.
+- Support for multiple audio streams in MythVideo content.
 - Support for MythTV cutlist (commercial cut) created using
   Mythfrontend.
 
@@ -47,7 +47,8 @@ How:
 - Simple browser UI.
 - Transcode videos to user defined (UI select dropdown list) renditions
   for adaptive playback.
-- Configure your preferred languages.
+- A Live TV UI allows for the selection a channel from a dropdown list.
+- Configure your preferred languages in the `php` files.
 - Optionally a ramdisk can be used for in memory handling of playlist
   type `live`.
 - Optionally shutdown lock can be used to prevent MythWelcome from
@@ -124,7 +125,7 @@ sudo visudo -f /etc/sudoers.d/apache
 git clone https://github.com/shaka-project/shaka-player.git
 cd shaka-player
 python build/all.py
-sudo mkdir /var/www/html/dist
+sudo mkdir -p /var/www/html/dist
 sudo chown apache:apache /var/www/html/dist
 sudo -uapache rsync -avh dist/ /var/www/html/dist/
 ```
@@ -133,7 +134,7 @@ sudo -uapache rsync -avh dist/ /var/www/html/dist/
 
 ``` shell
 git clone https://github.com/alders/mythtv-stream-hls-dash.git
-sudo mkdir /var/www/html/mythtv-stream-hls-dash
+sudo mkdir -p /var/www/html/mythtv-stream-hls-dash
 sudo chown apache:apache /var/www/html/mythtv-stream-hls-dash
 sudo -uapache rsync -avnh --exclude='.git/' mythtv-stream-hls-dash/*.php /var/www/html/mythtv-stream-hls-dash/
 ```
@@ -175,7 +176,7 @@ Optionally change a few lines in the [Web
 Application](https://www.mythtv.org/wiki/Web_Application)[^4] to allow
 recording and / or video and / or live tv selection from your browser.
 Replace `yourserver` in the patches below to point to your combined web
-server / `Mythbackend` address.
+server / `mythbackend` address.
 
 <details>
 <summary>
@@ -297,7 +298,7 @@ tmpfs                                           /var/www/html/channel tmpfs node
 
 ## Additional configuration
 
-Required configuration:
+Required configuration (check the `php` files):
 
 - \$webroot – This is the root of your web server.
 - \$webuser – This is the web content run user.
@@ -308,7 +309,7 @@ Required configuration:
   If available, the first match from top to bottom will be used as
   subtitle.
 
-Optional configuration:
+Optional configuration (check the `php` files):
 
 - \$hlsdir – This is the directory where the meta data of all encoded
   videos are stored. Moreover playlist `event` videos are stored here.
@@ -377,7 +378,7 @@ Application](https://www.mythtv.org/wiki/Web_Application) has the same
 look and feel. Most functionality for a video and a recording is
 overlapping, but there are distinct differences as well. For example
 commercial cut is only available for recordings not for video. On the
-contrary multiple audio streams are only supported for video not for
+contrary multiple audio streams are supported for video not for
 recordings.
 
 ### Adaptive Bitrate Streaming
@@ -393,9 +394,10 @@ Ctrl-Click (Windows), Command-Click (Apple) to select the renditions.
 ### Remuxing
 
 This remux step is performed when the [commercials are manually
-cut](https://www.mythtv.org/wiki/Editing_Recordings) in `mythfrontend`.
-Remuxing may also be required when otherwise the input video format
-cannot be processed (e.g. `avi`).
+cut](https://www.mythtv.org/wiki/Editing_Recordings) in `mythfrontend`,
+and the use of the `Cutlist` was selected in the UI. Remuxing may also
+be required when otherwise the input video format cannot be processed
+(e.g. `avi`). In the latter case this is done automagically.
 
 Figure 3 shows the user interface while remuxing. Because
 `Cut Commercials` was selected in Figure 1, the video is remuxed to an
@@ -416,22 +418,23 @@ Video` percentage.
 
 The third button `Shutdown Lock` can be used to prevent
 [MythWelcome](https://www.mythtv.org/wiki/index.php/Mythwelcome) from
-shutting down. In combination with Wake-On-Lan (WOL) configured on your
-`mythbackend` machine this allows one to have full control from your
-browser.
+shutting down. To prevent shutting down increase the value larger than
+zero. In combination with Wake-On-Lan (WOL) configured on your
+`mythbackend` machine this allows one to have full control over MythTV
+from your browser.
 
-### Generating video
+### Generating m3u8
 
 Figure 4 shows the user interface while encoding the video.
 
-**Figure 4:** *Generating video.*
+**Figure 4:** *Generating m3u8.*
 
 <img src="screenshots/encoding-video.png" id="generating-video"
 width="500" />
 
 Progress of the encoding is shown on the status button as a percentage
-and the time of the video available. When there is about 6 seconds of
-video available the player automatically tries to load the video[^12].
+and the time of the video available. When there is about 24 seconds of
+content available the player automatically tries to load the video[^12].
 
 At the right hand side of the `Shutdown Lock` button additional buttons
 dynamically appear when files become available on disk. In Figure 4 this
@@ -442,8 +445,14 @@ reload the web page.
 
 Old devices not supporting the Shaka video player of the UI, may still
 be able to play media through the buttons provided. The buttons link to
-the various manifest files. The http links can also be copied and used
-in your favorite app.
+the various manifest files.
+
+The Shaka-player UI supports `Chromecast` out of the box, provided your
+website is running `HTTPS`. Having self signed certificates on your
+private intranet is unfortunately not enough. Alternatively, the `http`
+links can also be copied and used in your favorite app. `Chromecast` of
+`http` streams is e.g. supported by
+[vlc](https://www.videolan.org/vlc/).
 
 ### Status button
 
@@ -530,8 +539,9 @@ done
 ### Adapt playlist `master_event.m3u8` file
 
 Adapt the playlist `master_event.m3u8` as soon as the file is created by
-FFmpeg some time in the future. This allows the handling of subtitles
-and the player to start at the beginning of the video.
+FFmpeg some time in the future. This allows the player to start at the
+beginning of the video and if present defines the handling of the
+subtitle.
 
 <details>
 <summary>
@@ -550,12 +560,12 @@ Click me
 
 </details>
 
-### Adapt playlist **master_vod.m3u8** file
+### Adapt playlist `master_vod.m3u8` file
 
 Adapt the playlist `master_vod.m3u8` file as soon as the file is created
-by FFmpeg some time in the future. This allows the handling of subtitles
-and the player to start at the beginning of the video. Additionally the
-language of the audio is defined.
+by FFmpeg some time in the future. This allows the player to start at
+the beginning of the video. Additionally if present the language of the
+subtitle and the languages(s) of the audio is defined.
 
 <details>
 <summary>
@@ -905,9 +915,74 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
   duplicate code.
 - DVD menus are not supported.
 - External subtitles are not supported.
-- At most one subtitle is supported.
+- At most one embedded subtitle is supported.
 - A design choice has been made to symlink `mp4` files rather than to
   encode them.
+
+## User jobs
+
+[User Jobs](https://www.mythtv.org/wiki/User_Jobs) are customized tasks
+which can act on MythTV recordings. Making use of the
+`mythtv-stream-hls-dash` web server one can export recordings in `mp4`
+compatible format for offline viewing.
+
+Replace `yourserver` in the example script below to point to your
+combined web server / `mythbackend` address. Copy the script to
+`/usr/local/bin/mythtv-stream-hls-dash.sh`. Add a User Job in the
+[mythtv-setup](https://www.mythtv.org/wiki/Setup_General) program
+`/usr/local/bin/mythtv-stream-hls-dash.sh "%FILE%"` or via[
+MythWeb](https://www.mythtv.org/wiki/MythWeb) settings, and restart
+`mythbackend`.
+
+<details>
+<summary>
+Click me
+</summary>
+
+``` shell
+#!/bin/bash
+
+# Run this script with 1 argument:
+#
+#     mythtv-stream-hls-dash.sh <filename>
+#
+FILENAME=`/usr/bin/basename $1`
+FILENAME="${FILENAME%.*}"
+
+curl -sS --data-urlencode "filename=$FILENAME" http://yourserver/mythtv-stream-hls-dash/index.php >/dev/null
+curl -sS --data-urlencode "filename=$FILENAME" \
+     --data-urlencode "quality[]=high480" \
+     --data-urlencode "hw=h264" \
+     --data-urlencode "removecut=off" \
+     --data-urlencode "checkbox_subtitles=yes" \
+     --data-urlencode "clippedlength=0" \
+     --data-urlencode "cutcount=0" \
+     --data-urlencode "subtitles=on" \
+     --data-urlencode "mp4=on" \
+     --data-urlencode "do=Encode+Video" \
+     http://yourserver/mythtv-stream-hls-dash/index.php 1>/dev/null 2>/tmp/mythtv-stream-hls-dash-$FILENAME.txt
+
+while [ ! "`/usr/bin/cat /var/www/html/hls/${FILENAME}/status.txt | /usr/bin/grep 'encode finish success'`" ] ;
+do
+    if [[ "`/usr/bin/cat /var/www/html/hls/${FILENAME}/status.txt | /usr/bin/grep 'encode finish failed'`" ]]; then exit 1; fi
+    sleep 1;
+done
+
+exit 0
+```
+
+</details>
+
+A slightly more interesting User Job would be to add `--data-urlencode
+"hls_playlist_type[]=event"` and / or `--data-urlencode
+"vod=on"` to the second `curl` command, which would create playlist type
+`event` and / or `vod` on the fly as well.
+
+It would be even more interesting to add such a User Job at the start of
+a recording, creating playlist streams while recording. Unfortunately,
+these kind of User Jobs are not possible with MythTV. If this kind of
+real time streaming is required one has to initiate this manually using
+the `mythtv-stream-hls-dash` UI when the recording has started.
 
 ## Features
 
