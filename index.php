@@ -998,7 +998,7 @@ done\n");
                       message = message + pad(Math.floor(secs));
 
                       message = message + " available";
-                      // NOTE: 6 seconds is equal to 3x segment size is just an empirical guess
+                      // NOTE: 24 seconds is equal to 6x segment size is just an empirical guess
                       if (!playerInitDone && Math.ceil(status["available"] > 24))
                       {
                           playerInitDone = initPlayer();
@@ -1159,7 +1159,7 @@ done\n");
                        currentStatus.indexOf("encode finish success") >= 0) {
                 // Play MP4 file
                 manifestUri = "../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
-            } else if (extension == "mp4") {
+            } else if (extension === "mp4") {
                 // Play existing mp4, no encoding required
                 manifestUri = "../hls/<?php echo $filename; ?>.mp4";
             } else {
@@ -1182,6 +1182,7 @@ done\n");
             // Listen for error events.
             player.addEventListener('error', onPlayerErrorEvent);
             controls.addEventListener('error', onUIErrorEvent);
+            controls.addEventListener('caststatuschanged', onCastStatusChanged);
 
             basicKeyboardShortcuts();
 
@@ -1406,7 +1407,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                         }
                     }
                 }
-                if ($language == "")
+                if ($language === "")
                 {
                     // if no language is found assume the first preferred language
                     $language = $sublangpref[array_key_first($sublangpref)]["ISO"];
