@@ -319,6 +319,11 @@ if (file_exists($dirname."/".$filename.".".$extension) ||
             {
                 $fileinput = "-i \"".$dirname."/".$filename.".".$extension."\"";
             }
+            if ($stream === "-2")
+            {
+                // external subtitles found
+                $fileinput .= "\\\n -i \"".$dirname."/".$filename.".srt\"";
+            }
             # Write encode script (just for cleanup, if no encode necessary)
             $fp = fopen($hls_path."/".$_REQUEST["videoid"]."/encode.sh", "w");
             fwrite($fp, "cd ".$hls_path."/".$_REQUEST["videoid"]."\n");
@@ -372,7 +377,15 @@ done\n");
             }
             if (isset($_REQUEST["checkbox_subtitles"]))
             {
-                $sub_mapping = "-map 0:s:".$stream." -c:s webvtt -metadata:s:s:0 language=".$language."";
+                if ($stream === "-2")
+                {
+                    // external subtitles found, language unknown
+                    $sub_mapping = "-map 1:s:0 -c:s webvtt";
+                }
+                else
+                {
+                    $sub_mapping = "-map 0:s:".$stream." -c:s webvtt -metadata:s:s:0 language=".$language."";
+                }
                 $sub_format = "-txt_format text -txt_page 888";
             }
             if ($hls_playlist_type === "live")
@@ -960,8 +973,8 @@ done\n");
                       message = message + pad(Math.floor(secs));
 
                       message = message + " available";
-                      // NOTE: 6 seconds is equal to 3x segment size is just an empirical guess, works without subtitles
-                      if (!playerInitDone && Math.ceil(status["available"] > 6))
+                      // NOTE: 24 seconds is equal to 6x segment size is just an empirical guess
+                      if (!playerInitDone && Math.ceil(status["available"] > 24))
                       {
                           playerInitDone = initPlayer();
                       }
@@ -1375,6 +1388,11 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                             break 2;
                         }
                     }
+                }
+                if ($stream === "-1" && file_exists($dirname."/".$filename.".srt"))
+                {
+                    // external subtitles found
+                    $stream = "-2";
                 }
                 if ($language == "")
                 {
