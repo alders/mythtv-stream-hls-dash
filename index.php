@@ -1556,7 +1556,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
             if ($content["stream"] != -1)
             {
             ?>
-                   <input type="checkbox" action="" name="checkbox_subtitles" id="agree" value="yes">
+                   <input type="checkbox" action="" checked='checked' name="checkbox_subtitles" id="agree" value="yes">
                    <label for="agree">Subtitles</label>
                    <br>
             <?php

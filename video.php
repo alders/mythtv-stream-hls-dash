@@ -322,7 +322,7 @@ if (file_exists($dirname."/".$filename.".".$extension) ||
             if ($stream === "-2")
             {
                 // external subtitles found
-                $fileinput .= "\\\n -i \"".$dirname."/".$filename.".srt\"";
+                $fileinput .= "\\\n    -i \"".$dirname."/".$filename.".srt\"";
             }
             # Write encode script (just for cleanup, if no encode necessary)
             $fp = fopen($hls_path."/".$_REQUEST["videoid"]."/encode.sh", "w");
@@ -1484,7 +1484,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
             if ($content["stream"] != -1)
             {
             ?>
-                   <input type="checkbox" action="" name="checkbox_subtitles" id="agree" value="yes">
+                   <input type="checkbox" action="" checked='checked' name="checkbox_subtitles" id="agree" value="yes">
                    <label for="agree">Subtitles</label>
                    <br>
             <?php
