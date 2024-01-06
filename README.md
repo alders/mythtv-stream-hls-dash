@@ -29,7 +29,8 @@ What:
 - Support for less reliable networks (e.g. cell phone browser).
 - Support for live tv, live recording, video and recorded content.
 - Support for offline viewing.
-- Support for at most one (text based) embedded subtitle stream.
+- Support for at most one (text based) embedded subtitle stream or
+  external subtitle file.
 - Support for multiple audio streams in MythVideo content.
 - Support for MythTV cutlist (commercial cut) created using
   Mythfrontend.
@@ -318,8 +319,8 @@ Optional configuration (check the `php` files):
 - \$voddir – This is the directory where playlist `vod` videos are
   stored.
 - \$ffmpeg – This variable points to the `FFmpeg` executable. One may
-  point to this variable to `mythffmpeg`, but subtitles handling is not
-  supported.
+  point to this variable to `mythffmpeg`, but subtitles handling will
+  not be supported.
 - \$hwaccels – This array specifies the hw acceleration options for
   `FFmpeg`. Note: only `h264` and `nohwaccel` has been tested.
 - \$settings – This array specifies the ladder the user may choose for
@@ -914,7 +915,6 @@ sleep 3 && /usr/bin/sudo /usr/bin/screen -ls 10100_20231101212100_encode  | /usr
 - The current project code needs to be refactored in order to remove
   duplicate code.
 - DVD menus are not supported.
-- External subtitles are not supported.
 - At most one embedded subtitle is supported.
 - A design choice has been made to symlink `mp4` files rather than to
   encode them.
@@ -1148,11 +1148,14 @@ Feedback, patches, other contributions and ideas are welcome!
     untested acceleration is appreciated.
 
 [^8]: This option is only visible in the UI when a `Cutlist` is defined
-    in MythTV.
+    in MythTV. By default the `Cutlist` is not selected (checked).
 
-[^9]: This option is only visible when subtitles are available in the
-    video file. The language depends on the configuration in the php
-    files. Adapt to your liking.
+[^9]: This option is only visible and checked, by default, when
+    subtitles are available. Internal embedded subtitles are handled
+    based on the user defined language preferences in the php files.
+    Alternatively, one external subtitle (.srt) is supported (no
+    language preference check can be performed) which should have the
+    same filename as the video.
 
 [^10]: Either one of the two or none at all.
 
