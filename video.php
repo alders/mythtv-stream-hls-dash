@@ -1157,6 +1157,7 @@ done\n");
             // Listen for error events.
             player.addEventListener('error', onPlayerErrorEvent);
             controls.addEventListener('error', onUIErrorEvent);
+	    controls.addEventListener('caststatuschanged', onCastStatusChanged);
 
             basicKeyboardShortcuts();
 
