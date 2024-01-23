@@ -5,7 +5,7 @@ HTTP Live streaming and DASH support for
 
 Why:
 
-- Although support was added for HTTP Live Streaming (`HLS`) to
+- Although support for HTTP Live Streaming (`HLS`) was added to
   [MythTV](https://www.mythtv.org) in v0.25 it is not yet usable.
 - [MythWeb](https://www.mythtv.org/wiki/MythWeb) is no longer actively
   developed and is based on Flash technology from the days of yore.
@@ -37,8 +37,8 @@ What:
 
 How:
 
-- Encode MythTV recordings and MythVideo content providing playlist
-  types `live`, `event` and `VOD`.
+- Encode MythTV recordings and MythVideo content with `FFmpeg` providing
+  playlist types `live`, `event` and `VOD`.
 - MPEG-DASH and HLS with fragmented MP4 (fMP4) makes both compatible,
   therefore only the manifest file (playlist) is different.
 - Transcode to `MP4` for offline playback on mobile devices.
@@ -48,8 +48,8 @@ How:
 - Simple browser UI.
 - Transcode videos to user defined (UI select dropdown list) renditions
   for adaptive playback.
-- A Live TV UI allows for the selection a channel from a dropdown list.
-- Configure your preferred languages in the `php` files.
+- A Live TV UI allows for channel selection from a dropdown list.
+- Optionally configure your preferred languages in the `php` files.
 - Optionally a ramdisk can be used for in memory handling of playlist
   type `live`.
 - Optionally shutdown lock can be used to prevent MythWelcome from
@@ -68,8 +68,8 @@ measures should be taken. Use at your own risk.
 ## Dependency
 
 - MythTV
-  - Basically any version can be used. Only version v0.34 provides the
-    full functionality via the new [Web
+  - Basically any version can be used. However, only version v0.34 can
+    provide the full experience via the new [Web
     Application](https://www.mythtv.org/wiki/Web_Application) UI.
 - FFmpeg (for encoding)[^1]
   - FFmpeg version 5.1.3
@@ -109,7 +109,7 @@ should be run as a web content owner user, e.g. `apache`[^3], using
 `sudo`.
 
 ``` shell
-sudo cat /etc/sudoers.d/apache
+cat /etc/sudoers.d/apache
 apache ALL=(ALL) NOPASSWD: /usr/bin/hdhomerun_config, /usr/bin/ffmpeg, /usr/bin/realpath, /usr/bin/sed, /usr/bin/tail, /usr/bin/chmod, /usr/bin/mediainfo, /usr/bin/screen, /usr/bin/echo, /usr/bin/mkdir, /usr/bin/bash, /usr/bin/awk
 ```
 
@@ -306,9 +306,6 @@ Required configuration (check the `php` files):
 - \$xml – Make sure your MythTV
   [Config.xml](https://www.mythtv.org/wiki/Config.xml) is readable by
   `$webuser`.
-- \$sublangpref – This array contains your preferred languages in order.
-  If available, the first match from top to bottom will be used as
-  subtitle.
 
 Optional configuration (check the `php` files):
 
@@ -318,13 +315,16 @@ Optional configuration (check the `php` files):
   stored.
 - \$voddir – This is the directory where playlist `vod` videos are
   stored.
-- \$ffmpeg – This variable points to the `FFmpeg` executable. One may
-  point to this variable to `mythffmpeg`, but subtitles handling will
-  not be supported.
+- \$ffmpeg – This variable points to the `FFmpeg` executable. Note, one
+  may point this variable to `mythffmpeg`. However subtitles handling
+  would not be supported.
 - \$hwaccels – This array specifies the hw acceleration options for
   `FFmpeg`. Note: only `h264` and `nohwaccel` has been tested.
 - \$settings – This array specifies the ladder the user may choose for
   his renditions.
+- \$sublangpref – This array contains your preferred languages in order.
+  If available, the first match from top to bottom will be used as
+  subtitle.
 
 ## Allow JavaScript
 
@@ -419,10 +419,10 @@ Video` percentage.
 
 The third button `Shutdown Lock` can be used to prevent
 [MythWelcome](https://www.mythtv.org/wiki/index.php/Mythwelcome) from
-shutting down. To prevent shutting down increase the value larger than
-zero. In combination with Wake-On-Lan (WOL) configured on your
-`mythbackend` machine this allows one to have full control over MythTV
-from your browser.
+shutting down by increasing the value larger than zero in the web page.
+In combination with Wake-On-Lan (WOL) configured on your `mythbackend`
+machine this allows one to have full control over MythTV from your
+browser.
 
 ### Generating m3u8
 
