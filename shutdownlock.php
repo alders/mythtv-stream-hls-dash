@@ -4,31 +4,19 @@
 <title>Control Shutdown Lock</title>
 <?php
 
-$yourserver="localhost";
+function http_request($method, $endpoint, $rest)
+{
 
-function http_request($method, $endpoint, $rest) {
-
-    global $yourserver;
     $params = array("http" => array(
         "method" => $method,
-        "content" => $rest
+        "header" => 'Content-type: application/x-www-form-urlencoded; charset=uft-8'
     ));
 
     $context = stream_context_create($params);
 
-    // prior to v34 use port 6544
-    $fp = @fopen("http://$yourserver:6550/$endpoint", "rb", false, $context);
-
-    if (!$fp) {
-        echo "fopen() failed\n";
-        throw new Exception("fopen() error: $endpoint, $php_errormsg");
-    }
-
-    $xml_response = @stream_get_contents($fp);
-
-    if ($xml_response === false) {
-        echo("xml_response failed");
-        throw new Exception("Read Error: $endpoint, $php_errormsg");
+    if (($xml_response = file_get_contents("http://localhost:6544/$endpoint?$rest", false, $context)) === false) {
+        $error = error_get_last();
+        echo "HTTP request failed. Error was: " . $error['message'];
     }
 
     return $xml_response;
@@ -61,7 +49,7 @@ function adjust_lock($increment) {
     if($sd_lock_value < 0) {
         $sd_lock_value = 0;
     }
-    // POST on yourserver NULL or - All Hosts - in mythweb
+
     $xml_response = http_request("POST", "Myth/PutSetting",
                                  "Key=MythShutdownLock&Value=$sd_lock_value");
     $sd_lock_bool = parse_xml_response($xml_response, "bool");

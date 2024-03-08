@@ -21,7 +21,6 @@ $languagename = "Dutch";
 # TODO: select free tuner instead of hard coding
 $tuner="tuner3";
 $ffmpeg="/usr/bin/ffmpeg";
-$yourserver="localhost";
 
 $webuser = "apache";
 
@@ -69,28 +68,16 @@ $keys = array_keys($settings);
 
 function http_request($method, $endpoint, $rest) {
 
-    global $yourserver;
     $params = array("http" => array(
         "method" => $method,
-        "content" => $rest
+        "header" => 'Content-type: application/x-www-form-urlencoded; charset=uft-8'
     ));
 
     $context = stream_context_create($params);
 
-    // prior to v34 use port 6544
-    // TODO: adapt to Service API v2
-    $fp = @fopen("http://$yourserver:6550/$endpoint", "rb", false, $context);
-
-    if (!$fp) {
-        echo "fopen() failed\n";
-        throw new Exception("fopen() error: $endpoint, $php_errormsg");
-    }
-
-    $xml_response = @stream_get_contents($fp);
-
-    if ($xml_response === false) {
-        echo("xml_response failed");
-        throw new Exception("Read Error: $endpoint, $php_errormsg");
+    if (($xml_response = file_get_contents("http://localhost:6544/$endpoint?$rest", false, $context)) === false) {
+        $error = error_get_last();
+        echo "HTTP request failed. Error was: " . $error['message'];
     }
 
     return $xml_response;
@@ -111,7 +98,7 @@ function parse_xml_response($xml_response, $pattern) {
 }
 
 function get_videomultiplexlist() {
-    #http://$yourserver:6544/Channel/GetVideoMultiplexList?SourceID=1&StartIndex=0&Count=100
+    // http://localhost:6544/Channel/GetVideoMultiplexList?SourceID=1&StartIndex=0&Count=100
 
     $xml_response = http_request("GET" ,"Channel/GetVideoMultiplexList",
                                  "SourceID=1&StartIndex=0&Count=100");
@@ -122,7 +109,7 @@ function get_videomultiplexlist() {
 }
 
 function get_channel_info_list ($VideoMultiplexList) {
-    #http://$yourserver:6544/Channel/GetChannelInfoList?SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true
+    #http://localhost:6544/Channel/GetChannelInfoList?SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true
 
     $xml_response = http_request("GET" ,"Channel/GetChannelInfoList",
                                  "SourceID=0&StartIndex=0&Count=100&OnlyVisible=false&Details=true");
@@ -132,10 +119,10 @@ function get_channel_info_list ($VideoMultiplexList) {
     $array = json_decode($json,TRUE);
     $channels = array();
 
-    foreach ($array['ChannelInfos'] as $ChannelInfo => $info_array) {
-        foreach ($info_array as $info_array_key => $info_array_value) {
+    foreach ($array['ChannelInfos'] as $ChannelInfo) {
+        foreach ($ChannelInfo as $info_value) {
             $new_info_array = array();
-            foreach ($info_array_value as $key => $value) {
+            foreach ($info_value as $key => $value) {
                 if ($key == "CallSign")
                 {
                     // remove spaces and forward slash from key
@@ -147,8 +134,8 @@ function get_channel_info_list ($VideoMultiplexList) {
                 }
                 if ($key == "MplexId")
                 {
-                    foreach ($VideoMultiplexList['VideoMultiplexes'] as $VideoMultiplex => $multiplex_array) {
-                        foreach ($multiplex_array as $multiplex_key => $multiplex_value) {
+                    foreach ($VideoMultiplexList['VideoMultiplexes'] as $VideoMultiplex) {
+                        foreach ($VideoMultiplex as $multiplex_value) {
                             if ($multiplex_value['MplexId'] == $value)
                             {
                                 $new_info_array += ['Frequency' => $multiplex_value['Frequency']/1000000];
@@ -168,6 +155,7 @@ function get_channel_info_list ($VideoMultiplexList) {
 }
 
 $VideoMultiplexList = get_videomultiplexlist();
+
 $channels = get_channel_info_list($VideoMultiplexList);
 
 if (isset($_REQUEST["channel"]))

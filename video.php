@@ -20,15 +20,11 @@ $languagepreference = array(
     "ger" => array("name" => "German",       "ISO" => "ger"),
 );
 $ffmpeg="/usr/bin/ffmpeg";
-$dbserver = "localhost";
+
+$webuser = "apache";
 
 $xml = simplexml_load_file("/home/mythtv/.mythtv/config.xml");
 $yourserver = $xml->Database->Host;
-$dbuser = $xml->Database->UserName;
-$dbpass = $xml->Database->Password;
-$dbname = $xml->Database->DatabaseName;
-
-$webuser = "apache";
 
 // Different hw acceleration options
 // NOTE: only "h264" and "nohwaccel" have been tested and are known to work
@@ -81,10 +77,87 @@ if (isset($_REQUEST["quality"]))
     }
 }
 
+function http_request($method, $endpoint, $rest)
+{
+
+    $params = array("http" => array(
+        "method" => $method,
+        "header" => 'Content-type: application/x-www-form-urlencoded; charset=uft-8'
+    ));
+
+    $context = stream_context_create($params);
+
+    if (($xml_response = file_get_contents("http://localhost:6544/$endpoint?$rest", false, $context)) === false) {
+        $error = error_get_last();
+        echo "HTTP request failed. Error was: " . $error['message'];
+    }
+
+    return $xml_response;
+}
+
+function get_video($Id)
+{
+    // http://localhost:6544/Dvr/GetRecorded?StartTime=2023-07-08T18:55&ChanId=11500
+
+    $xml_response = http_request(
+        "GET",
+        "Video/GetVideo",
+        "Id=$Id"
+    );
+
+    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
+    $json = json_encode($xml);
+    $array = json_decode($json, TRUE);
+
+    $video = array();
+    $video += ['Id' => $array['Id']];
+    $video += ['Title' => $array['Title']];
+    $video += ['SubTitle' => $array['SubTitle']];
+    $video += ['FileName' => $array['FileName']];
+    $video += ['HostName' => $array['HostName']];
+
+    return $video;
+}
+
+function get_storagegroup_dirs($StorageGroup, $HostName)
+{
+    // http://localhost:6544/Myth/GetStorageGroupDirs
+
+    $xml_response = http_request(
+        "GET",
+        "Myth/GetStorageGroupDirs",
+        ""
+    );
+
+    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
+    $json = json_encode($xml);
+    $array = json_decode($json, TRUE);
+
+    $storagegroup_dirs = array();
+    $count_dir_name=1;
+    foreach ($array['StorageGroupDirs'] as $StorageGroupDir) {
+        foreach ($StorageGroupDir as $item) {
+            if ($item['HostName'] == $HostName &&
+                $item['GroupName'] == $StorageGroup) {
+                $storagegroup_dirs += ['DirName' . $count_dir_name++ => $item['DirName']];
+            }
+        }
+    }
+
+    return $storagegroup_dirs;
+}
+
+// TODO: when the user removes the file from mythtv, the name in the dropdown list is unknown
 $file_list = scandir($hls_path);
 $file_list[] = $_REQUEST["videoid"];
 $query_parts = array();
 $ids = array();
+$names = array();
+$extension = "";
+$dirname = "";
+$filename = "";
+$title_subtitle = "";
+$read_rate = "";
 for ($i = 0; $i < count($file_list); $i++)
 {
     $fn = explode(".", $file_list[$i])[0];
@@ -93,39 +166,22 @@ for ($i = 0; $i < count($file_list); $i++)
         $ids[] = $fn;
         preg_match_all('/^(\d{4})$/', $fn, $filedetails);
         if (isset($filedetails[1][0])){
-            $query_parts[] = "(intid=\"".$filedetails[1][0]."\")";
-        }
-    }
-}
-
-// TODO: when the user removes the file from mythtv, the name in the dropdown list is unknown
-$query_parts_string=implode(" OR ", $query_parts);
-$dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
-$dbconn->set_charset("utf8");
-mysqli_select_db($dbconn,$dbname);
-$getnames = sprintf("select title,subtitle,filename,intid from videometadata where %s;",
-                    $query_parts_string);
-$result=mysqli_query($dbconn,$getnames);
-$names = array();
-$extension = "";
-$dirname = "";
-$title_subtitle = "";
-$read_rate = "";
-while ($row = mysqli_fetch_assoc($result))
-{
-    $names[$row['intid']] = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
-    if ($_REQUEST["videoid"] === $row['intid'])
-    {
-        $extension = pathinfo($row['filename'], PATHINFO_EXTENSION);
-        $filename = pathinfo($row['filename'], PATHINFO_FILENAME);
-        $get_storage_dirs = sprintf("select dirname from storagegroup where groupname=\"Videos\"");
-        $q=mysqli_query($dbconn,$get_storage_dirs);
-        while ($row_q = mysqli_fetch_assoc($q))
-        {
-            if (file_exists($row_q["dirname"]."/".$row["filename"].""))
+            $id = $filedetails[1][0];
+            $video = get_video($id);
+            $names[$id] = $video['Title'].($video['SubTitle'] ? " - ".$video['SubTitle'] : "");
+            if ($_REQUEST["videoid"] === $id)
             {
-                $dirname= $row_q["dirname"].pathinfo($row['filename'], PATHINFO_DIRNAME);
-                $title_subtitle = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
+                $extension = pathinfo($video['FileName'], PATHINFO_EXTENSION);
+                // NOTE: GroupName "Videos" is hardcoded, cannot be derived from Video
+                $storagegroup_dirs = get_storagegroup_dirs("Videos", $video['HostName']);
+                foreach ($storagegroup_dirs as $storagegroup) {
+                    $tmp = $storagegroup . "/" . $video['FileName'];
+                    if (file_exists($storagegroup . "/" . $video['FileName'])) {
+                        $dirname= $storagegroup.pathinfo($video['FileName'], PATHINFO_DIRNAME);
+                        $filename = pathinfo($video['FileName'], PATHINFO_FILENAME);
+                        $title_subtitle = $video['Title']. ($video['SubTitle'] ? " - " . $video['SubTitle'] : "");
+                    }
+                }
             }
         }
     }
@@ -467,7 +523,7 @@ done\n");
                     }
                 }
                 $option_live .= "\\': \\\n          master_pl_name=master_live.m3u8: \
-          hls_segment_filename=../live/".$_REQUEST["videoid"]."/stream_live_%v_data%02d.m4s]../live/".$_REQUEST["videoid"]."/stream_live_%v.m3u8";
+          hls_segment_filename=../$livedir/".$_REQUEST["videoid"]."/stream_live_%v_data%02d.m4s]../$livedir/".$_REQUEST["videoid"]."/stream_live_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -480,7 +536,7 @@ done\n");
           hls_list_size=10: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../live/".$_REQUEST["videoid"]."/sub_%v.m3u8";
+          hls_segment_filename=\'/dev/null\']../$livedir/".$_REQUEST["videoid"]."/sub_%v.m3u8";
                     $master_file = "$live_path/".$_REQUEST["videoid"]."/master_live.m3u8";
                     // This command is delayed until master_live.m3u8 is created by FFmpeg!!!
                     // NOTE: Add subtitles
@@ -665,7 +721,7 @@ done\n");
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../vod/".$_REQUEST["videoid"]."/sub_%v.m3u8";
+          hls_segment_filename=\'/dev/null\']../<?php echo $voddir; ?>/".$_REQUEST["videoid"]."/sub_%v.m3u8";
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
                     // NOTE: the language setting is not written to the master_vod.m3u8 file.
@@ -1006,59 +1062,59 @@ done\n");
               }
 
               // TODO: add extra check if transcoding is finished?
-              if (checkFileExists("../vod/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd")) {
+              if (checkFileExists("../<?php echo $voddir; ?>/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd")) {
                   message_string = "DASH VOD Available";
                   // Show button to play DASH on Windows Edge browser
                   var dashVodButtonId = document.getElementById("dashVodButtonId");
                   dashVodButtonId.style.display = 'block';
                   dashVodButtonId.style.visibility = 'visible';
-                  dashVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd'");
+                  dashVodButtonId.setAttribute('onclick',"window.location.href='../<?php echo $voddir; ?>/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd'");
               }
-              if (checkFileExists("../vod/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8")) {
+              if (checkFileExists("../<?php echo $voddir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8")) {
                   message_string = "HLS VOD Available";
                   // Show button to play VOD stream
                   var hlsVodButtonId = document.getElementById("hlsVodButtonId");
                   hlsVodButtonId.style.display = 'block';
                   hlsVodButtonId.style.visibility = 'visible';
-                  hlsVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8'");
+                  hlsVodButtonId.setAttribute('onclick',"window.location.href='../<?php echo $voddir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8'");
               }
               if (extension === "mp4" &&
-                  checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>.mp4")) {
+                  checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>.mp4")) {
                   message_string = "Linked MP4 Available";
                   // Show button to play available mp4 (no encoding necessary)
                   var linkButtonId = document.getElementById("linkButtonId");
                   linkButtonId.style.display = 'block';
                   linkButtonId.style.visibility = 'visible';
                   linkButtonId.addEventListener("click", function() {
-                      var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $_REQUEST["videoid"]; ?>.mp4";
+                      var url = "http://<?php echo $yourserver; ?>/<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>.mp4";
                       copyToClipboard(url);
                   }, false);
               }
-              if (checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8")) {
+              if (checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8")) {
                   message_string = "HLS Available";
                   // Show button to play HLS event stream
                   var eventButtonId = document.getElementById("eventButtonId");
                   eventButtonId.style.display = 'block';
                   eventButtonId.style.visibility = 'visible';
-                  eventButtonId.setAttribute('onclick',"window.location.href='../hls/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8'");
+                  eventButtonId.setAttribute('onclick',"window.location.href='../<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8'");
               }
-              if (checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8") &&
-                  checkFileExists("../vod/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8") &&
+              if (checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8") &&
+                  checkFileExists("../<?php echo $voddir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8") &&
                   currentStatus.indexOf("encode finish success") >= 0) {
                   // Show button to delete event video leaving VOD intact
                   var cleanupEventId = document.getElementById('cleanupEventId');
                   cleanupEventId.style.display = 'block';
                   cleanupEventId.style.visibility = 'visible';
               }
-              if (checkFileExists("../live/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8")) {
+              if (checkFileExists("../<?php echo $livedir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8")) {
                   message_string = "LIVE Available";
                   // Show button to play live stream
                   var liveButtonId = document.getElementById("liveButtonId");
                   liveButtonId.style.display = 'block';
                   liveButtonId.style.visibility = 'visible';
-                  liveButtonId.setAttribute('onclick',"window.location.href='../live/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8'");
+                  liveButtonId.setAttribute('onclick',"window.location.href='../<?php echo $livedir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8'");
               }
-              if (checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+              if (checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                   currentStatus.indexOf("encode finish success") >= 0) {
                   message_string = "MP4 Video Available";
                   // Show button to play MP4 stream
@@ -1066,7 +1122,7 @@ done\n");
                   mp4ButtonId.style.display = 'block';
                   mp4ButtonId.style.visibility = 'visible';
                   mp4ButtonId.addEventListener("click", function() {
-                      var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4";
+                      var url = "http://<?php echo $yourserver; ?>/<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4";
                       download(url);
                           }, false);
               }
@@ -1116,27 +1172,27 @@ done\n");
           // async does not work on Edge
           //async function initPlayer() {
           function initPlayer() {
-            var fileExists = checkFileExists("../vod/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd");
+            var fileExists = checkFileExists("../<?php echo $voddir; ?>/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd");
 
             if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
                 // Play DASH on Windows Edge browser
-                manifestUri = "../vod/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd";
+                manifestUri = "../<?php echo $voddir; ?>/<?php echo $_REQUEST["videoid"]; ?>/manifest_vod.mpd";
             } else if (fileExists) {
                 // Play VOD stream
-                manifestUri = "../vod/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8";
-            } else if (checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8")) {
+                manifestUri = "../<?php echo $voddir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_vod.m3u8";
+            } else if (checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8")) {
                 // Play HLS event stream
-                manifestUri = "../hls/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8";
-            } else if (checkFileExists("../live/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8")) {
+                manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_event.m3u8";
+            } else if (checkFileExists("../<?php echo $livedir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8")) {
                 // Play live stream
-                manifestUri = "../live/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8";
-            } else if (checkFileExists("../hls/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+                manifestUri = "../<?php echo $livedir; ?>/<?php echo $_REQUEST["videoid"]; ?>/master_live.m3u8";
+            } else if (checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                        currentStatus.indexOf("encode finish success") >= 0) {
                 // Play MP4 file
-                manifestUri = "../hls/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4";
+                manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>/<?php echo $_REQUEST["videoid"]; ?> - <?php echo $title_subtitle; ?>.mp4";
             } else if (extension == "mp4") {
                 // Play existing mp4, no encoding required
-                manifestUri = "../hls/<?php echo $_REQUEST["videoid"]; ?>.mp4";
+                manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $_REQUEST["videoid"]; ?>.mp4";
             } else {
                     return false;
             }
@@ -1157,7 +1213,6 @@ done\n");
             // Listen for error events.
             player.addEventListener('error', onPlayerErrorEvent);
             controls.addEventListener('error', onUIErrorEvent);
-	    controls.addEventListener('caststatuschanged', onCastStatusChanged);
 
             basicKeyboardShortcuts();
 

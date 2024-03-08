@@ -23,15 +23,11 @@ $sublangpref = array(
     "ger" => array("name" => "German",       "ISO" => "ger"),
 );
 $ffmpeg="/usr/bin/ffmpeg";
-$dbserver = "localhost";
+
+$webuser = "apache";
 
 $xml = simplexml_load_file("/home/mythtv/.mythtv/config.xml");
 $yourserver = $xml->Database->Host;
-$dbuser = $xml->Database->UserName;
-$dbpass = $xml->Database->Password;
-$dbname = $xml->Database->DatabaseName;
-
-$webuser = "apache";
 
 // Different hw acceleration options
 // NOTE: only "h264" and "nohwaccel" have been tested and are known to work
@@ -99,61 +95,186 @@ if (isset($_REQUEST["length"]))
     }
 }
 
+function http_request($method, $endpoint, $rest)
+{
+
+    $params = array("http" => array(
+        "method" => $method,
+        "header" => 'Content-type: application/x-www-form-urlencoded; charset=uft-8'
+    ));
+
+    $context = stream_context_create($params);
+
+    if (($xml_response = file_get_contents("http://localhost:6544/$endpoint?$rest", false, $context)) === false) {
+        $error = error_get_last();
+        echo "HTTP request failed. Error was: " . $error['message'];
+    }
+
+    return $xml_response;
+}
+
+function get_recorded($StartTime, $ChanId)
+{
+    // http://localhost:6544/Dvr/GetRecorded?StartTime=2023-07-08T18:55&ChanId=11500
+    // NOTE: Only a selected subset of the values available is returned here
+
+    $xml_response = http_request(
+        "GET",
+        "Dvr/GetRecorded",
+        "StartTime=$StartTime&ChanId=$ChanId"
+    );
+
+    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
+    $json = json_encode($xml);
+    $array = json_decode($json, TRUE);
+
+    $recorded = array();
+    $recorded += ['FileName' => $array['FileName']];
+    $recorded += ['HostName' => $array['HostName']];
+    $recorded += ['Title'    => $array['Title']];
+    $recorded += ['SubTitle' => $array['SubTitle']];
+    if (isset($array['Recording']['RecordedId'])) {
+        $recorded += ['RecordedId'   => $array['Recording']['RecordedId']];
+        $recorded += ['StorageGroup' => $array['Recording']['StorageGroup']];
+        $recorded += ['Status'       => $array['Recording']['Status']];
+    }
+
+    return $recorded;
+}
+
+function get_program_list($StartTime, $ChanId)
+{
+    // http://localhost:6544/Guide/GetProgramList?StartTime=2023-07-08T18:55&ChanId=11500
+    // NOTE: Only a selected subset of the values available is returned here
+
+    $xml_response = http_request(
+        "GET",
+        "Guide/GetProgramList",
+        "StartTime=$StartTime&ChanId=$ChanId"
+    );
+
+    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
+    $json = json_encode($xml);
+    $array = json_decode($json, TRUE);
+
+    $program = array();
+    foreach ($array as $Programs) {
+        if (is_array($Programs)) {
+            foreach ($Programs as $Program) {
+                if (is_array($Program)) {
+                    foreach ($Program as $value ) {
+                        if (isset($value['Recording']['StartTs']) && $value['Recording']['StartTs'] === $StartTime &&
+                            isset($value['Channel']['ChanId'])    && $value['Channel']['ChanId']    === $ChanId) {
+                            $program += ['Status'  => $value['Recording']['Status']];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return $program;
+}
+
+
+function get_recorded_markup($RecordedId)
+{
+    // http://localhost:6544/Dvr/GetRecordedMarkup?RecordedId=6474
+    // NOTE: Only a selected subset of the values available is returned here
+
+    $xml_response = http_request(
+        "GET",
+        "Dvr/GetRecordedMarkup",
+        "RecordedId=$RecordedId"
+    );
+
+    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
+    $json = json_encode($xml);
+    $array = json_decode($json, TRUE);
+
+    $recorded_markup_cut = array();
+    $count_cut=1;
+    foreach ($array['Mark'] as $Markup) {
+        foreach ($Markup as $key2 => $Type) {
+            if (isset($Type['Type'])) {
+                if ($Type['Type'] === "CUT_START") {
+                    $recorded_markup_cut += ['CUT_START_' . $count_cut++ => $Type['Frame']];
+                }
+                else if ($Type['Type'] === "CUT_END") {
+                    $recorded_markup_cut += ['CUT_END_' . $count_cut++ => $Type['Frame']];
+                }
+            }
+        }
+    }
+
+    return array($recorded_markup_cut);
+}
+
+function get_storagegroup_dirs($StorageGroup, $HostName)
+{
+    // http://localhost:6544/Myth/GetStorageGroupDirs
+    // NOTE: Only a selected subset of the values available is returned here
+
+    $xml_response = http_request(
+        "GET",
+        "Myth/GetStorageGroupDirs",
+        ""
+    );
+
+    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
+    $json = json_encode($xml);
+    $array = json_decode($json, TRUE);
+
+    $storagegroup_dirs = array();
+    $count_dir_name=1;
+    foreach ($array['StorageGroupDirs'] as $StorageGroupDir) {
+        foreach ($StorageGroupDir as $item) {
+            if ($item['HostName'] == $HostName &&
+                $item['GroupName'] == $StorageGroup) {
+                $storagegroup_dirs += ['DirName' . $count_dir_name++ => $item['DirName']];
+            }
+        }
+    }
+
+    return $storagegroup_dirs;
+}
+
 $file_list = scandir($hls_path);
 $file_list[] = $_REQUEST["filename"];
 $query_parts = array();
 $ids = array();
-for ($i = 0; $i < count($file_list); $i++)
-{
+$names = array();
+for ($i = 0; $i < count($file_list); $i++) {
     $fn = explode(".", $file_list[$i])[0];
-    if (array_search($fn, $ids) === false)
-    {
+    if (array_search($fn, $ids) === false) {
         $ids[] = $fn;
         preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/', $fn, $filedetails);
-        if (isset($filedetails[1][0])){
-           $chanid=$filedetails[1][0];
-           if ($chanid)
-           {
-              $year=$filedetails[2][0];
-              $month=$filedetails[3][0];
-              $day=$filedetails[4][0];
-              $hour=$filedetails[5][0];
-              $minute=$filedetails[6][0];
-              $second=$filedetails[7][0];
-              $starttime="$year-$month-$day $hour:$minute:$second";
-              $query_parts[] = "(chanid=".$chanid." and starttime=\"".$starttime."\")";
-           }
-        }
-    }
-}
-
-// TODO: when the user removes the file from mythtv, the name in the dropdown list is unknown
-$query_parts_string=implode(" OR ", $query_parts);
-$dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
-$dbconn->set_charset("utf8");
-mysqli_select_db($dbconn,$dbname);
-$getnames = sprintf("select title,subtitle,chanid,starttime,basename from recorded where %s;",
-                    $query_parts_string);
-$result=mysqli_query($dbconn,$getnames);
-$names = array();
-$extension = "";
-$dirname = "";
-$title_subtitle = "";
-while ($row = mysqli_fetch_assoc($result))
-{
-    $starttime = str_replace(":", "", str_replace(" ", "", str_replace("-", "", $row['starttime'])));
-    $names[$row['chanid']."_".$starttime] = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
-    if ($_REQUEST["filename"] === pathinfo($row['basename'], PATHINFO_FILENAME))
-    {
-        $extension = pathinfo($row['basename'], PATHINFO_EXTENSION);
-        $get_storage_dirs = sprintf("select dirname from storagegroup where groupname=\"Default\"");
-        $q=mysqli_query($dbconn,$get_storage_dirs);
-        while ($row_q = mysqli_fetch_assoc($q))
-        {
-            if (file_exists($row_q["dirname"]."/".$_REQUEST["filename"].".$extension"))
-            {
-                $dirname= $row_q["dirname"];
-                $title_subtitle = $row['title'].($row['subtitle'] ? " - ".$row['subtitle'] : "");
+        if (isset($filedetails[1][0])) {
+            $chanid = $filedetails[1][0];
+            if ($chanid) {
+                $year = $filedetails[2][0];
+                $month = $filedetails[3][0];
+                $day = $filedetails[4][0];
+                $hour = $filedetails[5][0];
+                $minute = $filedetails[6][0];
+                $second = $filedetails[7][0];
+                $starttime = "$year-$month-$day $hour:$minute:$second";
+                $datetime = new DateTime("$starttime");
+                $recorded = get_recorded($datetime->format(DateTime::ATOM), $chanid);
+                $title = $recorded['Title'];
+                $subtitle = $recorded['SubTitle'];
+                $starttime = str_replace(":", "", str_replace(" ", "", str_replace("-", "", $starttime)));
+                $names[$chanid."_".$starttime] = $title.($subtitle ? " - ".$subtitle : "");
+                if ($_REQUEST["filename"] === pathinfo($recorded['FileName'], PATHINFO_FILENAME)) {
+                    $extension = pathinfo($recorded['FileName'], PATHINFO_EXTENSION);
+                    $storagegroup_dirs = get_storagegroup_dirs($recorded['StorageGroup'], $recorded['HostName']);
+                    foreach ($storagegroup_dirs as $storagegroup) {
+                        if (file_exists($storagegroup . "/" . $recorded['FileName'])) {
+                            $dirname = $storagegroup;
+                            $title_subtitle = $title. ($subtitle ? " - " . $subtitle : "");
+                        }
+                    }
+                }
             }
         }
     }
@@ -353,6 +474,23 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
             $stream = $content["stream"];
             $mustencode = false;
             $fileinput = "";
+            // TODO: As of v34.0 the RecStatus can be checked using the Service API, see https://www.mythtv.org/wiki/Recording_Status
+
+            // Fetch any cut marks
+            preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/',$filename,$filedetails);
+
+            $chanid=$filedetails[1][0];
+            $year=$filedetails[2][0];
+            $month=$filedetails[3][0];
+            $day=$filedetails[4][0];
+            $hour=$filedetails[5][0];
+            $minute=$filedetails[6][0];
+            $second=$filedetails[7][0];
+            $starttime="$year-$month-$day $hour:$minute:$second";
+            $datetime = new DateTime("$starttime");
+            $program_list = get_program_list(date("Y-m-d\TH:i:s\Z",strtotime($starttime)), $chanid);
+            $read_rate = "";
+
             if ($extension === "avi")
             {
                 $fileinput = "-i ".$hls_path."/".$filename."/video.mp4";
@@ -376,7 +514,6 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
             # Write encode script (just for cleanup, if no encode necessary)
             $fp = fopen($hls_path."/".$filename."/encode.sh", "w");
             fwrite($fp, "cd ".$hls_path."/".$filename."\n");
-            $STARTTIME= "";
             if ($mustencode)
             {
                 // Transmuxing from one container/format to mp4 – without re-encoding:
@@ -406,23 +543,13 @@ done\n");
             {
                 $hls_playlist_type = "undefined";
             }
-            // TODO: As of v34.0 the RecStatus can be checked using the Service API, see https://www.mythtv.org/wiki/Recording_Status
-            $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
-            $dbconn->set_charset("utf8");
-            mysqli_select_db($dbconn,$dbname);
-            $recstatus = sprintf("select recstatus from oldrecorded where starttime=(select starttime from recorded where basename='".$filename.".".$extension."') OR title=(select title from recorded where basename='".$filename.".".$extension."') AND subtitle=(select subtitle from recorded where basename='".$filename.".".$extension."');");
-            $result=mysqli_query($dbconn,$recstatus);
-            $read_rate = "";
-            $is_liverecording = "false";
-            while ($row_s = mysqli_fetch_assoc($result))
+
+            if (isset($program_list['Status']) && $program_list['Status'] === "-2")
             {
-                if ($row_s["recstatus"] === "-2")
-                {
-                    $is_liverecording= "true";
-                    // read input at native frame rate
-                    $read_rate = "-re";
-                }
+                // Still recording read input at native frame rate
+                $read_rate = "-re";
             }
+
             // NOTE: this hls dir contains meta data, thus should always exist
             $create_hls_dir  = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$hls_path."/".$filename.";";
             $create_live_dir = "";
@@ -516,7 +643,7 @@ done\n");
                     }
                 }
                 $option_live .= "\\': \\\n          master_pl_name=master_live.m3u8: \
-          hls_segment_filename=../live/$filename/stream_live_%v_data%02d.m4s]../live/$filename/stream_live_%v.m3u8";
+          hls_segment_filename=../$livedir/$filename/stream_live_%v_data%02d.m4s]../$livedir/$filename/stream_live_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -530,7 +657,7 @@ done\n");
           hls_list_size=10: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../live/$filename/sub_%v.m3u8";
+          hls_segment_filename=\'/dev/null\']../$livedir/$filename/sub_%v.m3u8";
                     $master_file = "$live_path/$filename/master_live.m3u8";
                     // This command is delayed until master_live.m3u8 is created by FFmpeg!!!
                     // NOTE: Add subtitles
@@ -707,7 +834,7 @@ done\n");
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../vod/".$filename."/sub_%v.m3u8";
+          hls_segment_filename=\'/dev/null\']../$voddir/".$filename."/sub_%v.m3u8";
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
                     // NOTE: the language setting is not written to the master_vod.m3u8 file.
@@ -833,7 +960,6 @@ cd ".$hls_path."/;
     -fix_sub_duration \
     ".$sub_format." \
     ".$hwaccel." \
-    ".$STARTTIME." \
     ".$read_rate." \
     ".$fileinput." \
     -progress ".$filename."/progress-log.txt \
@@ -1031,21 +1157,21 @@ done\n");
               }
 
               // TODO: add extra check if transcoding is finished?
-              if (checkFileExists("../vod/<?php echo $filename; ?>/manifest_vod.mpd")) {
+              if (checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd")) {
                   message_string = "DASH VOD Available";
                   // Show button to play DASH on Windows Edge browser
                   var dashVodButtonId = document.getElementById("dashVodButtonId");
                   dashVodButtonId.style.display = 'block';
                   dashVodButtonId.style.visibility = 'visible';
-                  dashVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $filename; ?>/manifest_vod.mpd'");
+                  dashVodButtonId.setAttribute('onclick',"window.location.href='../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd'");
               }
-              if (checkFileExists("../vod/<?php echo $filename; ?>/master_vod.m3u8")) {
+              if (checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8")) {
                   message_string = "HLS VOD Available";
                   // Show button to play VOD stream
                   var hlsVodButtonId = document.getElementById("hlsVodButtonId");
                   hlsVodButtonId.style.display = 'block';
                   hlsVodButtonId.style.visibility = 'visible';
-                  hlsVodButtonId.setAttribute('onclick',"window.location.href='../vod/<?php echo $filename; ?>/master_vod.m3u8'");
+                  hlsVodButtonId.setAttribute('onclick',"window.location.href='../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8'");
               }
               if (extension === "mp4" &&
                   checkFileExists("../hls/<?php echo $filename; ?>.mp4")) {
@@ -1068,20 +1194,20 @@ done\n");
                   eventButtonId.setAttribute('onclick',"window.location.href='../hls/<?php echo $filename; ?>/master_event.m3u8'");
               }
               if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8") &&
-                  checkFileExists("../vod/<?php echo $filename; ?>/master_vod.m3u8") &&
+                  checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
                   currentStatus.indexOf("encode finish success") >= 0) {
                   // Show button to delete event video leaving VOD intact
                   var cleanupEventId = document.getElementById('cleanupEventId');
                   cleanupEventId.style.display = 'block';
                   cleanupEventId.style.visibility = 'visible';
               }
-              if (checkFileExists("../live/<?php echo $filename; ?>/master_live.m3u8")) {
+              if (checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8")) {
                   message_string = "LIVE Available";
                   // Show button to play live stream
                   var liveButtonId = document.getElementById("liveButtonId");
                   liveButtonId.style.display = 'block';
                   liveButtonId.style.visibility = 'visible';
-                  liveButtonId.setAttribute('onclick',"window.location.href='../live/<?php echo $filename; ?>/master_live.m3u8'");
+                  liveButtonId.setAttribute('onclick',"window.location.href='../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8'");
               }
               if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                   currentStatus.indexOf("encode finish success") >= 0) {
@@ -1141,20 +1267,20 @@ done\n");
           // async does not work on Edge
           //async function initPlayer() {
           function initPlayer() {
-            var fileExists = checkFileExists("../vod/<?php echo $filename; ?>/manifest_vod.mpd");
+            var fileExists = checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd");
 
             if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
                 // Play DASH on Windows Edge browser
-                manifestUri = "../vod/<?php echo $filename; ?>/manifest_vod.mpd";
+                manifestUri = "../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd";
             } else if (fileExists) {
                 // Play VOD stream
-                manifestUri = "../vod/<?php echo $filename; ?>/master_vod.m3u8";
+                manifestUri = "../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8";
             } else if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8")) {
                 // Play HLS event stream
                 manifestUri = "../hls/<?php echo $filename; ?>/master_event.m3u8";
-            } else if (checkFileExists("../live/<?php echo $filename; ?>/master_live.m3u8")) {
+            } else if (checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8")) {
                 // Play live stream
-                manifestUri = "../live/<?php echo $filename; ?>/master_live.m3u8";
+                manifestUri = "../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8";
             } else if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                        currentStatus.indexOf("encode finish success") >= 0) {
                 // Play MP4 file
@@ -1433,57 +1559,59 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 $second=$filedetails[7][0];
                 $starttime="$year-$month-$day $hour:$minute:$second";
 
-                $dbconn=mysqli_connect($dbserver,$dbuser,$dbpass);
-                $dbconn->set_charset("utf8");
-                mysqli_select_db($dbconn,$dbname);
-                $sqlselect="select * from recordedmarkup where (chanid=$chanid and starttime='$starttime' and (type=".MARK_CUT_START." or type=".MARK_CUT_END.")) order by mark;";
-                $result=mysqli_query($dbconn,$sqlselect);
                 $fp = fopen($hls_path."/".$filename."/cutlist.txt", "w");
                 fprintf($fp, "ffconcat version 1.0\n");
-                $firstrow = true;
-                $midsegment = false;
-                $startsegment = 0;
                 $clippedlength = 0;
-                while ($row = mysqli_fetch_assoc($result))
+                $datetime = new DateTime("$starttime");
+                $program_list = get_program_list(date("Y-m-d\TH:i:s\Z",strtotime($starttime)), $chanid);
+                if (! (isset($program_list['Status']) && $program_list['Status'] === "-2"))
                 {
-                    $cutcount++;
-                    $mark = (double) $row['mark'];
-                    $mark = ($mark / $framerate);
-                    if ($row['type']==MARK_CUT_START)
-                    {
-                        if ($firstrow && $mark > 1)
+                    // Made sure we are not still recording
+                    $recorded = get_recorded($datetime->format(DateTime::ATOM), $chanid);
+                    $recorded_markup = get_recorded_markup($recorded['RecordedId']);
+
+                    $firstrow = true;
+                    $midsegment = false;
+                    $startsegment = 0;
+                    foreach ($recorded_markup[0] as $markup => $value) {
+                        $cutcount++;
+                        $mark = (double)$value / $framerate;
+                        if ($markup === 'CUT_START_' . $cutcount)
                         {
-                            fprintf($fp, "file ".$hls_path."/".$filename."/video.mp4\n");
-                            fprintf($fp, "inpoint 0\n");
-                            fprintf($fp, "outpoint %0.2f\n", $mark);
-                            $clippedlength = $mark + 1;
+                            if ($firstrow && $mark > 1)
+                            {
+                                fprintf($fp, "file ".$hls_path."/".$filename."/video.mp4\n");
+                                fprintf($fp, "inpoint 0\n");
+                                fprintf($fp, "outpoint %0.2f\n", $mark);
+                                $clippedlength = $mark + 1;
+                            }
+                            else if ($midsegment)
+                            {
+                                fprintf($fp, "outpoint %0.2f\n", $mark);
+                                $midsegment = false;
+                                $clippedlength += ($mark - $startsegment) + 1;
+                            }
                         }
-                        else if ($midsegment)
+                        else if ($markup === 'CUT_END_' . $cutcount)
                         {
-                            fprintf($fp, "outpoint %0.2f\n", $mark);
-                            $midsegment = false;
-                            $clippedlength += ($mark - $startsegment) + 1;
+                            if ($length - $mark > 10)
+                            {
+                                fprintf($fp, "file ".$hls_path."/".$filename."/video.mp4\n");
+                                fprintf($fp, "inpoint %0.2f\n", $mark);
+                                $midsegment = true;
+                                $startsegment = $mark;
+                            }
+                        }
+                        $firstrow = false;
+                        if ($midsegment)
+                        {
+                            fprintf($fp, "outpoint %0.2f\n", $length);
+                            $clippedlength += (($length - $startsegment) > 0 ? ($length - $startsegment) : 0) + 1;
                         }
                     }
-                    else if ($row['type']==MARK_CUT_END)
-                    {
-                        if ($length - $mark > 10)
-                        {
-                            fprintf($fp, "file ".$hls_path."/".$filename."/video.mp4\n");
-                            fprintf($fp, "inpoint %0.2f\n", $mark);
-                            $midsegment = true;
-                            $startsegment = $mark;
-                        }
-                    }
-                    $firstrow = false;
-                }
-                if ($midsegment)
-                {
-                    fprintf($fp, "outpoint %0.2f\n", $length);
-                    $clippedlength += (($length - $startsegment) > 0 ? ($length - $startsegment) : 0) + 1;
                 }
                 fclose($fp);
-                if ($clippedlength > 0)
+                if ($clippedlength >= 0)
                 {
                     $state["clippedlength"] = $clippedlength;
                 }
