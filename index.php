@@ -261,20 +261,29 @@ for ($i = 0; $i < count($file_list); $i++) {
                 $starttime = "$year-$month-$day $hour:$minute:$second";
                 $datetime = new DateTime("$starttime");
                 $recorded = get_recorded($datetime->format(DateTime::ATOM), $chanid);
-                $title = $recorded['Title'];
-                $subtitle = $recorded['SubTitle'];
-                $starttime = str_replace(":", "", str_replace(" ", "", str_replace("-", "", $starttime)));
-                $names[$chanid."_".$starttime] = $title.($subtitle ? " - ".$subtitle : "");
-                if ($_REQUEST["filename"] === pathinfo($recorded['FileName'], PATHINFO_FILENAME)) {
-                    $extension = pathinfo($recorded['FileName'], PATHINFO_EXTENSION);
-                    $storagegroup_dirs = get_storagegroup_dirs($recorded['StorageGroup'], $recorded['HostName']);
-                    foreach ($storagegroup_dirs as $storagegroup) {
-                        if (file_exists($storagegroup . "/" . $recorded['FileName'])) {
-                            $dirname = $storagegroup;
-                            $title_subtitle = $title. ($subtitle ? " - " . $subtitle : "");
+                if (is_array($recorded['Title'])) {
+                    // The file has probably been removed from MythTV
+                    $title = "Unknown";
+                    $subtitle = "";
+                    $extension = "Unknown";
+                    $dirname = "Unknown";
+                }
+                else {
+                    $title = $recorded['Title'];
+                    $subtitle = $recorded['SubTitle'];
+                    $starttime = str_replace(":", "", str_replace(" ", "", str_replace("-", "", $starttime)));
+                    $names[$chanid."_".$starttime] = $title.($subtitle ? " - ".$subtitle : "");
+                    if ($_REQUEST["filename"] === pathinfo($recorded['FileName'], PATHINFO_FILENAME)) {
+                        $extension = pathinfo($recorded['FileName'], PATHINFO_EXTENSION);
+                        $storagegroup_dirs = get_storagegroup_dirs($recorded['StorageGroup'], $recorded['HostName']);
+                        foreach ($storagegroup_dirs as $storagegroup) {
+                            if (file_exists($storagegroup . "/" . $recorded['FileName'])) {
+                                $dirname = $storagegroup;
+                            }
                         }
                     }
                 }
+                $title_subtitle = $title. ($subtitle ? " - " . $subtitle : "");
             }
         }
     }
