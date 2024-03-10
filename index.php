@@ -442,8 +442,6 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
             $frameNumber = shell_exec("/usr/bin/sudo -u".$webuser." /usr/bin/tail -n 23 ".$hls_path."/".$filename."/progress-log.txt | sudo -u".$webuser." /usr/bin/sed -n '/^frame=/p' | sudo -u".$webuser." sed -n 's/frame=//p'");
             if (isset($content["removecut"]) && $content["removecut"] === "on")
             {
-                // TODO: somehow the framerate is sometimes doubled when remuxing...why?
-                $framerate = shell_exec("/usr/bin/sudo -u".$webuser." /usr/bin/tail -n 20 ".$hls_path."/".$filename."/progress-log.txt | sudo -u".$webuser." /usr/bin/sed -n '/^fps=/p' | sudo -u".$webuser." sed -n 's/fps=//p'");
                 $status["presentationDuration"] = (int) $content["clippedlength"];
             }
             else {
@@ -484,7 +482,6 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
             $stream = $content["stream"];
             $mustencode = false;
             $fileinput = "";
-            // TODO: As of v34.0 the RecStatus can be checked using the Service API, see https://www.mythtv.org/wiki/Recording_Status
 
             // Fetch any cut marks
             preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/',$filename,$filedetails);
@@ -1520,14 +1517,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                     if ($ratedetails[1][0] == "") {
                         $framerate = (float)25.0;
                     } else {
-                        if ($extension === "mkv") {
-                            // framerate doubles, don't understand why?
-                            $framerate = ((double) 2 * $ratedetails[1][0]);
-                        }
-                        else {
-                            $framerate = ((double) $ratedetails[1][0]);
-                        }
-
+                        $framerate = ((double) $ratedetails[1][0]);
                     }
                 }
                 $language = "";
