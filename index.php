@@ -1518,10 +1518,16 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) (.*?)FPS/',$mediainfo,$ratedetails);
                 if(isset($ratedetails[1][0])) {
                     if ($ratedetails[1][0] == "") {
-                        $framerate = (double)25.0;
-                    }
-                    else {
-                        $framerate = ((double) $ratedetails[1][0]);
+                        $framerate = (float)25.0;
+                    } else {
+                        if ($extension === "mkv") {
+                            // framerate doubles, don't understand why?
+                            $framerate = ((double) 2 * $ratedetails[1][0]);
+                        }
+                        else {
+                            $framerate = ((double) $ratedetails[1][0]);
+                        }
+
                     }
                 }
                 $language = "";
