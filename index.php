@@ -267,6 +267,7 @@ for ($i = 0; $i < count($file_list); $i++) {
                     $subtitle = "";
                     $extension = "Unknown";
                     $dirname = "Unknown";
+                    $title_subtitle = $title. ($subtitle ? " - " . $subtitle : "");
                 }
                 else {
                     $title = $recorded['Title'];
@@ -279,11 +280,11 @@ for ($i = 0; $i < count($file_list); $i++) {
                         foreach ($storagegroup_dirs as $storagegroup) {
                             if (file_exists($storagegroup . "/" . $recorded['FileName'])) {
                                 $dirname = $storagegroup;
+                                $title_subtitle = $title. ($subtitle ? " - " . $subtitle : "");
                             }
                         }
                     }
                 }
-                $title_subtitle = $title. ($subtitle ? " - " . $subtitle : "");
             }
         }
     }
