@@ -449,6 +449,7 @@ done\n");
                 $read_rate = "-re";
                 $create_live_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$live_path."/".$_REQUEST["videoid"].";";
                 $option_live  = "[select=\'";
+                $audio_stream_number= 0;
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $bool_new_audio = true;
@@ -465,7 +466,7 @@ done\n");
                     {
                         for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
                         {
-                            $option_live .= "a:".$audiolanguagefound[0][$k][2].",";
+                            $option_live .= "a:".$audio_stream_number++.",";
                         }
                     }
                 }
@@ -488,6 +489,7 @@ done\n");
           hls_segment_type=fmp4: \
           var_stream_map=\'";
                 $audio_stream_number = 0;
+                $default = "yes";
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $bool_new_abitrate = true;
@@ -502,15 +504,10 @@ done\n");
                     }
                     if ($bool_new_abitrate)
                     {
-                        $default = "yes";
                         for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
                         {
-                            $option_live .= "a:".$audio_stream_number.",agroup:aac,language:".$audiolanguagefound[0][$k][0].",name:aac_".$audio_stream_number."_".$current_abitrate."k,default:".$default." ";
-                            if ($k === 0)
-                            {
-                                $default = "no";
-                            }
-                            $audio_stream_number++;
+                            $option_live .= "a:".$audio_stream_number.",agroup:aac,language:".$audiolanguagefound[0][$k][0]."_".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
+                            $default = "no";
                         }
                     }
                 }
@@ -551,6 +548,7 @@ done\n");
             if ($hls_playlist_type === "event")
             {
                 $option_hls  = "[select=\'";
+                $audio_stream_number= 0;
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $bool_new_audio = true;
@@ -567,7 +565,7 @@ done\n");
                     {
                         for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
                         {
-                            $option_hls .= "a:".$audiolanguagefound[0][$k][2].",";
+                            $option_hls .= "a:".$audio_stream_number++.",";
                         }
                     }
                 }
@@ -590,6 +588,7 @@ done\n");
           hls_segment_type=fmp4: \
           var_stream_map=\'";
                 $audio_stream_number = 0;
+                $default = "yes";
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $bool_new_abitrate = true;
@@ -604,15 +603,10 @@ done\n");
                     }
                     if ($bool_new_abitrate)
                     {
-                        $default = "yes";
                         for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
                         {
-                            $option_hls .= "a:".$audio_stream_number.",agroup:aac,language:".$audiolanguagefound[0][$k][0].",name:aac_".$audio_stream_number."_".$current_abitrate."k,default:".$default." ";
-                            if ($k === 0)
-                            {
-                                $default = "no";
-                            }
-                            $audio_stream_number++;
+                            $option_hls .= "a:".$audio_stream_number.",agroup:aac,language:".$audiolanguagefound[0][$k][0]."_".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
+                            $default = "no";
                         }
                     }
                 }
@@ -669,6 +663,7 @@ done\n");
             {
                 $create_vod_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$vod_path."/".$_REQUEST["videoid"].";";
                 $option_vod  = "[select=\'";
+                $audio_stream_number= 0;
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $bool_new_audio = true;
@@ -685,7 +680,7 @@ done\n");
                     {
                         for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
                         {
-                            $option_vod .= "a:".$audiolanguagefound[0][$k][2].",";
+                            $option_vod .= "a:".$audio_stream_number++.",";
                         }
                     }
                 }
@@ -721,7 +716,7 @@ done\n");
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']../<?php echo $voddir; ?>/".$_REQUEST["videoid"]."/sub_%v.m3u8";
+          hls_segment_filename=\'/dev/null\']../$voddir/".$_REQUEST["videoid"]."/sub_%v.m3u8";
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
                     // NOTE: the language setting is not written to the master_vod.m3u8 file.
@@ -732,8 +727,32 @@ done\n");
  done;
     /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
     /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."\"/' ".$master_file.";) & \n");
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";");
+                    $audio_stream_number= 0;
+                    $offset = 5;
+                    for ($i=0; $i < $nb_renditions; $i++)
+                    {
+                        $bool_new_audio = true;
+                        $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
+                        for ($j=0; $j < $i; $j++)
+                        {
+                            if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
+                            {
+                                // seen abitrate before
+                                $bool_new_audio = false;
+                            }
+                        }
+                        if ($bool_new_audio)
+                        {
+                            for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
+                            {
+                                $linenumber = $offset + $audio_stream_number;
+                                fwrite($fp, " \
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E '".$linenumber."s/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$audiolanguagefound[0][$k][0]."_".$audio_stream_number++."_".$current_abitrate."\"/' ".$master_file.";");
+                            }
+                        }
+                    }
+                    fwrite($fp, ") & \n");
                 }
                 else
                 {
@@ -745,8 +764,32 @@ done\n");
  do
         /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$_REQUEST["videoid"].";
  done;
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."\"/' ".$master_file.";) & \n");
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";");
+                    $audio_stream_number= 0;
+                    $offset = 4;
+                    for ($i=0; $i < $nb_renditions; $i++)
+                    {
+                        $bool_new_audio = true;
+                        $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
+                        for ($j=0; $j < $i; $j++)
+                        {
+                            if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
+                            {
+                                // seen abitrate before
+                                $bool_new_audio = false;
+                            }
+                        }
+                        if ($bool_new_audio)
+                        {
+                            for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
+                            {
+                                $linenumber = $offset + $audio_stream_number;
+                                fwrite($fp, " \
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E '".$linenumber."s/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$audiolanguagefound[0][$k][0]."_".$audio_stream_number++."_".$current_abitrate."\"/' ".$master_file.";");
+                            }
+                        }
+                    }
+                    fwrite($fp, ") & \n");
                 }
             }
             if(isset($_REQUEST["mp4"]))
@@ -847,9 +890,8 @@ done\n");
             {
                 for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
                 {
-                    $mapping .= "    -map a:".$audiolanguagefound[0][$k][2]." -c:a:".$k." aac -b:a:".$k." ".$current_abitrate."k -ac 2 \
-        -metadata:s:a:".$audio_stream_number." language=".$audiolanguagefound[0][$k][0]." \\\n";
-                    $audio_stream_number++;
+                    $mapping .= "    -map a:".$audiolanguagefound[0][$k][2]." -c:a:".$audio_stream_number." aac -b:a:".$audio_stream_number." ".$current_abitrate."k -ac 2 \
+        -metadata:s:a:".$audio_stream_number++." language=".$audiolanguagefound[0][$k][0]." \\\n";
                 }
             }
         }
