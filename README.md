@@ -26,23 +26,25 @@ What:
   MythVideo content.
 - Support for device independent viewing: web browser—mobile, desktop,
   tablet, etc.
-- Support for less reliable networks (e.g. cell phone browser).
+- Support for less reliable networks via video and audio renditions
+  (e.g. cell phone browser).
 - Support for live tv, live recording, video and recorded content.
 - Support for offline viewing.
 - Support for at most one (text based) embedded subtitle stream or
   external subtitle file.
-- Support for multiple audio streams in MythVideo content.
+- Support for multiple audio languages (and audio renditions) in
+  MythVideo content.
 - Support for MythTV cutlist (commercial cut) created using
   Mythfrontend.
 
 How:
 
-- Encode MythTV recordings and MythVideo content with `FFmpeg` providing
-  playlist types `live`, `event` and `VOD`.
 - MPEG-DASH and HLS with fragmented MP4 (fMP4) makes both compatible,
   therefore only the manifest file (playlist) is different.
-- Transcode to `MP4` for offline playback on mobile devices.
 - Video is codified in H.264 format and audio in AAC.
+- Encode MythTV recordings and MythVideo content with `FFmpeg` providing
+  playlist types `live`, `event` and `VOD`.
+- Transcode to `MP4` for offline playback on mobile devices.
 - HW accelerated support for VAAPI (other hw acceleration options are
   untested).
 - Simple browser UI.
@@ -241,14 +243,14 @@ index 44abe96fea..c17429ef6c 100644
      </div>
      <div class="channelText">
 -        <span>{{ channel.ChanNum}} {{ channel.CallSign }}</span>
-+        <span><a href="{{URLencode('http://yourserver/mythtv-stream-hls-dash/hdhomerunstream.php?quality[]=high480&hw=h264&channel=' + channel.CallSign + '&do=Watch+TV')}}" target="_blank">{{channel.ChanNum}} {{ channel.CallSign }}</a></span>
++        <span><a href="{{URLencode('http://yourserver/mythtv-stream-hls-dash/hdhomerunstream.php?quality[]=high480&hw=h264&channel=' + CallSignEncode(channel.CallSign) + '&do=Watch+TV')}}" target="_blank">{{channel.ChanNum}} {{ channel.CallSign }}</a></span>
      </div>
 </div>
 diff --git a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts
 index 97ae71efa8..f088012f94 100644
 --- a/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts
 +++ b/mythtv/html/backend/src/app/guide/components/channelicon/channelicon.component.ts
-@@ -16,4 +16,8 @@ export class ChannelIconComponent implements OnInit {
+@@ -16,4 +16,12 @@ export class ChannelIconComponent implements OnInit {
    ngOnInit(): void {
    }
 
@@ -256,7 +258,141 @@ index 97ae71efa8..f088012f94 100644
 +      let trimmed = x.replace(/\s+/g, '');
 +      return encodeURI(trimmed);
 +  }
++  CallSignEncode(x: string): string {
++    return x.replace(/\//g, '');
++  }
  }
+```
+
+</details>
+
+<details>
+<summary>
+Click me to configure web browser video selection.
+</summary>
+
+``` shell
+diff --git a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
+index 2d75b5e0ab..5302e8724e 100644
+--- a/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
++++ b/mythtv/html/backend/src/app/dashboard/videos/videos.component.html
+@@ -22,6 +22,7 @@
+                                 styleClass="p-button-primary">
+                             </p-button>
+                         </div>
++                        <p-columnFilter type="text" field="Title" [matchModeOptions]="matchModeOptions"></p-columnFilter>
+                         &nbsp;&nbsp;&nbsp;
+                         <p-checkbox inputId="showAllVideos" [(ngModel)]="showAllVideos" name="showAllVideos"
+diff --git a/mythtv/html/backend/src/app/dashboard/videos/videos.component.ts b/mythtv/html/backend/src/app/dashboard/videos/videos.component.ts
+index e46aa6c0aa..9c9a2a9aaa 100644
+--- a/mythtv/html/backend/src/app/dashboard/videos/videos.component.ts
++++ b/mythtv/html/backend/src/app/dashboard/videos/videos.component.ts
+@@ -5,6 +5,7 @@ import { LazyLoadEvent, MenuItem, MessageService } from 'primeng/api';
+ import { Menu } from 'primeng/menu';
+ import { Table } from 'primeng/table';
+ import { PartialObserver } from 'rxjs';
++import { SelectItem, FilterService, FilterMatchMode } from 'primeng/api';
+ import { GetVideoListRequest, UpdateVideoMetadataRequest, VideoMetadataInfo } from 'src/app/services/interfaces/video.interface';
+ import { UtilityService } from 'src/app/services/utility.service';
+ import { VideoService } from 'src/app/services/video.service';
+@@ -22,6 +23,7 @@ export class VideosComponent implements OnInit {
+   @ViewChild("table") table!: Table;
+
+   videos: VideoMetadataInfo[] = [];
++  searchVideos: VideoMetadataInfo[] = [];
+   refreshing = false;
+   successCount = 0;
+   errorCount = 0;
+@@ -33,6 +35,20 @@ export class VideosComponent implements OnInit {
+   showAllVideos = false;
+   lazyLoadEvent!: LazyLoadEvent;
+
++  matchModeOptions = [{
++      value: FilterMatchMode.STARTS_WITH,
++      label: 'Starts With',
++  },
++  {
++      value: FilterMatchMode.CONTAINS,
++      label: 'Contains',
++  },
++  {
++      value: FilterMatchMode.EQUALS,
++      label: 'Equals',
++  }
++  ];
++
+   mnu_markwatched: MenuItem = { label: 'dashboard.recordings.mnu_markwatched', command: (event) => this.markwatched(event, true) };
+   mnu_markunwatched: MenuItem = { label: 'dashboard.recordings.mnu_markunwatched', command: (event) => this.markwatched(event, false) };
+   mnu_updatemeta: MenuItem = { label: 'dashboard.recordings.mnu_updatemeta', command: (event) => this.updatemeta(event) };
+@@ -91,17 +107,60 @@ export class VideosComponent implements OnInit {
+       request.Count = event.rows;
+     }
+
+-    this.videoService.GetVideoList(request).subscribe(data => {
+-      let newList = data.VideoMetadataInfoList;
+-      this.videos.length = data.VideoMetadataInfoList.TotalAvailable;
+-      // populate page of virtual programs
+-      this.videos.splice(newList.StartIndex, newList.Count,
+-        ...newList.VideoMetadataInfos);
+-      // notify of change
+-      this.videos = [...this.videos]
+-      this.refreshing = false;
+-    });
++    let regex: RegExp;
++    let regexDefined: boolean = false;
++    if (event.filters) {
++      if (event.filters.Title.value) {
++        switch (event.filters.Title.matchMode) {
++          case FilterMatchMode.STARTS_WITH:
++            regex = new RegExp('^' + event.filters.Title.value, "i");
++            regexDefined = true;
++            break;
++          case FilterMatchMode.CONTAINS:
++            regex = new RegExp(event.filters.Title.value, "i");
++            regexDefined = true;
++            break;
++          case FilterMatchMode.EQUALS:
++            regex = new RegExp('^' + event.filters.Title.value + '$', "i");
++            regexDefined = true;
++            break;
++        }
++      }
++    }
+
++    if (regexDefined) {
++      // This is not lazy...
++      let requestAll: GetVideoListRequest = {
++        Sort: "title",
++        Folder: this.directory.join('/'),
++        CollapseSubDirs: this.showAllVideos,
++        StartIndex: 0,
++      };
++
++      this.videoService.GetVideoList(requestAll).subscribe(data => {
++        let newList = data.VideoMetadataInfoList;
++        this.searchVideos.length = data.VideoMetadataInfoList.TotalAvailable;
++        this.searchVideos.splice(newList.StartIndex, newList.Count,
++            ...newList.VideoMetadataInfos);
++        this.searchVideos = this.searchVideos.filter((value) => regex.test(value.Title));
++        if (this.searchVideos.length > 0) {
++          // notify of change
++          this.videos = [...this.searchVideos];
++          this.refreshing = false;
++        }
++      });
++    } else {
++      this.videoService.GetVideoList(request).subscribe(data => {
++        let newList = data.VideoMetadataInfoList;
++        this.videos.length = data.VideoMetadataInfoList.TotalAvailable;
++        // populate page of virtual programs
++        this.videos.splice(newList.StartIndex, newList.Count,
++           ...newList.VideoMetadataInfos);
++        // notify of change
++        this.videos = [...this.videos]
++        this.refreshing = false;
++      });
++    }
+   }
 ```
 
 </details>
@@ -1025,9 +1161,8 @@ player on macOS and Shaka player while encoding a set of random
 renditions: `720p high`, `480p normal`, `360p low`, and `240p low`. As
 is shown feature support varies. None of them provides the desired
 combination i.e. allowing one to manually select the desired video
-rendition and audio rendition[^18] (at least for testing purposes).
-Hopefully the players really do provide the best possible bitrate for
-the network "*automagically*".
+rendition and audio rendition[^18]. Hopefully the players really do
+provide the best possible bitrate for the network "*automagically*".
 
 **Table 3:** *Safari m3u8 player UI playlist support during Live
 Broadcasting (while encoding).*
@@ -1180,8 +1315,9 @@ Feedback, patches, other contributions and ideas are welcome!
 [^17]: All can be combined with `ABR`, `Cut commercials` and `subtitles`
     selection.
 
-[^18]: Currently only one audio rendition is supported. The stream used
-    for this test was manually created for testing purposes.
+[^18]: The stream used for this test was manually created for testing
+    purposes. In the current version of the scripts all audio rendition
+    are automatically created and shown in the UI.
 
 [^19]: One minute of playback.
 
