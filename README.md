@@ -324,6 +324,15 @@ index e46aa6c0aa..9c9a2a9aaa 100644
    mnu_markwatched: MenuItem = { label: 'dashboard.recordings.mnu_markwatched', command: (event) => this.markwatched(event, true) };
    mnu_markunwatched: MenuItem = { label: 'dashboard.recordings.mnu_markunwatched', command: (event) => this.markwatched(event, false) };
    mnu_updatemeta: MenuItem = { label: 'dashboard.recordings.mnu_updatemeta', command: (event) => this.updatemeta(event) };
+@@ -73,7 +89,7 @@ export class VideosComponent implements OnInit {
+     let request: GetVideoListRequest = {
+       Sort: "title",
+       Folder: this.directory.join('/'),
+-      CollapseSubDirs: !this.showAllVideos,
++      CollapseSubDirs: this.showAllVideos,
+       StartIndex: 0,
+       Count: 1
+     };
 @@ -91,17 +107,60 @@ export class VideosComponent implements OnInit {
        request.Count = event.rows;
      }
