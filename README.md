@@ -268,7 +268,7 @@ index 97ae71efa8..f088012f94 100644
 
 <details>
 <summary>
-Click me to configure web browser video selection.
+Click me to configure web browser adding video search.
 </summary>
 
 ``` shell
