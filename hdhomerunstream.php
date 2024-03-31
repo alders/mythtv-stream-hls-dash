@@ -127,6 +127,7 @@ function get_channel_info_list ($VideoMultiplexList) {
                 {
                     // remove spaces and forward slash from key
                     $channel_key = str_replace([' ', '/'],'', $value);
+                    $new_info_array += ['CallSign' => $value];
                 }
                 if ($key == "ServiceId")
                 {
@@ -189,8 +190,8 @@ $select_box .= "<label for=\"hwaccel\">HW acceleration: </label><select class=\"
 $select_box .= "<option value=\"\" disabled hidden>-- Please choose your HW Acceleration --</option>";
 foreach ($hwaccels as $hwaccel => $hwaccelset)
 {
-    $select_box .= "<option value=\"".$hwaccel."\"".((strpos($hwaccel, "h264") !== false)?" selected=\"selected\"":"").
-                ">".$hwaccelset["encoder"]."".
+    $select_box .= "<option value=\"".$hwaccel."\"".(($hwaccel === "h264")?" selected=\"selected\"":"").
+                ">".$hwaccel."".
                 "</option>\n";
 }
 $select_box .= "</form></select></div><br>";
@@ -201,17 +202,7 @@ $select_box .= "<select name=\"channel\" required>";
 $select_box .= "<option value=\"\" disabled hidden>-- Please choose a Channel --</option>";
 $select_first = "selected";
 foreach($channels as $key => $value) {
-    // try to recover original channel name: keep abbreviations and separate channel number
-    $regex = '/((?<=[a-z])(?=[A-Z])|(?=[A-Z][a-z]))/';
-    $string = preg_replace( $regex, ' $1', $key );
-    preg_match('/[0-9]+/', $string, $number);
-    if (isset($number[0]) && is_numeric($number[0]))
-    {
-        $select_box .= "<option value=\"$key\" ".$select_first.">".preg_replace('/[0-9]+/', '', ucfirst($string))." ".$number[0]."</option>";
-    }
-    else {
-        $select_box .= "<option value=\"$key\" ".$select_first.">".preg_replace('/[0-9]+/', '', ucfirst($string))."</option>";
-    }
+    $select_box .= "<option value=\"$key\" ".$select_first.">".$value['CallSign']."</option>";
     $select_first = "";
 }
 $select_box .= "</select></div><br><div style=\"float:left;width:90%;\"><input type=\"submit\" name=\"do\" value=\"Watch TV\"></div></form>";
@@ -525,7 +516,7 @@ else if (isset($_REQUEST["do"]))
                 var liveButtonId = document.getElementById("liveButtonId");
                 liveButtonId.style.display = 'block';
                 liveButtonId.style.visibility = 'visible';
-                liveButtonId.setAttribute('value',"<?php echo $channel; ?>");
+                liveButtonId.setAttribute('value',"<?php echo $channels[$channel]['CallSign']; ?>");
                 liveButtonId.setAttribute('onclick',"window.location.href='../live/<?php echo $channel; ?>/master_live.m3u8'");
             }
 
