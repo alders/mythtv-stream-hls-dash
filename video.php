@@ -509,7 +509,7 @@ done\n");
                     {
                         for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
                         {
-                            $option_live .= "a:".$audio_stream_number.",agroup:aac,language:".$audiolanguagefound[0][$k][0]."_".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
+                            $option_live .= "a:".$audio_stream_number.",agroup:aac,language:".$audiolanguagefound[0][$k][0]."-".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
                             $default = "no";
                         }
                     }
@@ -620,7 +620,7 @@ done\n");
                     {
                         for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
                         {
-                            $option_hls .= "a:".$audio_stream_number.",agroup:aac,language:".$audiolanguagefound[0][$k][0]."_".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
+                            $option_hls .= "a:".$audio_stream_number.",agroup:aac,language:".$audiolanguagefound[0][$k][0]."-".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
                             $default = "no";
                         }
                     }
@@ -765,7 +765,7 @@ done\n");
                             {
                                 $linenumber = $offset + $audio_stream_number;
                                 fwrite($fp, " \
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E '".$linenumber."s/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$audiolanguagefound[0][$k][0]."_".$audio_stream_number++."_".$current_abitrate."\"/' ".$master_file.";");
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E '".$linenumber."s/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$audiolanguagefound[0][$k][0]."-".$audio_stream_number++."_".$current_abitrate."\"/' ".$master_file.";");
                             }
                         }
                     }
@@ -803,7 +803,7 @@ done\n");
                             {
                                 $linenumber = $offset + $audio_stream_number;
                                 fwrite($fp, " \
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E '".$linenumber."s/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$audiolanguagefound[0][$k][0]."_".$audio_stream_number++."_".$current_abitrate."\"/' ".$master_file.";");
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E '".$linenumber."s/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$audiolanguagefound[0][$k][0]."-".$audio_stream_number++."_".$current_abitrate."\"/' ".$master_file.";");
                             }
                         }
                     }
