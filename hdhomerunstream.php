@@ -276,12 +276,13 @@ else if (isset($_REQUEST["do"]))
         $master_file = "".$live_path."/".$channel."/master_live.m3u8";
         // This command is delayed until master_live.m3u8 is created by ffmpeg!!!
         fwrite($fp, "    cd ".$channel_path.";
-       (while [ ! -f \"".$master_file."\" ] ; \
-        do \
-            /usr/bin/inotifywait -e close_write --include \"master_live.m3u8\" ".$live_path."/".$channel."; \
-        done; \
+        (while [ ! -f \"".$master_file."\" ] ; \
+         do \
+             /usr/bin/inotifywait -e close_write --include \"master_live.m3u8\" ".$live_path."/".$channel."; \
+         done; \
                  /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file."; \
-                 /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,RESOLUTION.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";  /usr/bin/sudo -u".$webuser." /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
+                 /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,RESOLUTION.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file."; \
+                 /usr/bin/sudo -u".$webuser." /usr/bin/sudo sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
         fwrite($fp, "fi\n");
         fwrite($fp, "/usr/bin/sudo -u".$webuser." /usr/bin/hdhomerun_config ".$HDHRID." save /".$tuner." - | /usr/bin/sudo -u".$webuser." ".$ffmpeg." \
                                          -fix_sub_duration \

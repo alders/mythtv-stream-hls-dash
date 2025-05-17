@@ -322,7 +322,7 @@ $hw_box .= "<option value=\"\" disabled hidden>-- Please choose your HW Accelera
      foreach ($hwaccels as $hwaccel => $hwaccelset)
      {
          $hw_box .= "            <option value=\"".$hwaccel."\"".(($hwaccel === "h264")?" selected=\"selected\"":"").
-                                ">".$hwaccelset["encoder"]."".
+                                ">".$hwaccel."".
                                 "</option>\n";
      }
 $hw_box .= "</select>";
@@ -351,6 +351,7 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
             array_map('unlink', glob($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4"));
             array_map('unlink', glob($hls_path."/".$filename."/video.mp4"));
             array_map('unlink', glob($hls_path."/".$filename."/init*.mp4"));
+            array_map('unlink', glob($hls_path."/".$filename."/*.mp4"));
             array_map('unlink', glob($hls_path."/".$filename."/*.txt*"));
             array_map('unlink', glob($hls_path."/".$filename."/*.vtt"));
             array_map('unlink', glob($hls_path."/".$filename."/sub.m3u8"));

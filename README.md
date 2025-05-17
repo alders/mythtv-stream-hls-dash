@@ -13,7 +13,8 @@ Why:
   [WebFrontend](https://www.mythtv.org/wiki/WebFrontend) is work in
   progress.
 - The new [Web Application](https://www.mythtv.org/wiki/Web_Application)
-  (MythTV v34) interface does not yet provide HTTP streaming support.
+  (available since MythTV v34) interface does not yet provide HTTP streaming
+  support.
 - An attempt to provide streaming support was made in github project
   [MythTV stream mpeg
   DASH](https://github.com/thecount2a/mythtv-stream-mpeg-dash).
@@ -70,8 +71,9 @@ measures should be taken. Use at your own risk.
 ## Dependency
 
 - MythTV
-  - Basically any version can be used. However, only version v0.34 can
-    provide the full experience via the new [Web
+  - Basically any version can be used. However, only version v0.34 and
+    later, when installed from source, can offer the complete experience
+    via the new [Web
     Application](https://www.mythtv.org/wiki/Web_Application) UI.
 - FFmpeg (for encoding)[^1]
   - FFmpeg version 5.1.3
@@ -90,8 +92,12 @@ measures should be taken. Use at your own risk.
 
 ## Install dependencies
 
+One can install MythTV using dnf as shown. However, as mentioned, the
+complete experience can only be achieved by installing from
+[source](https://www.mythtv.org/wiki/Build_from_source).
+
 ``` shell
-sudo dnf install mythtv ffmpeg screen mediainfo inotify-tools hdhomerun-devel sed mediainfo libva-utils intel-mediasdk mesa-va-drivers
+sudo dnf install ffmpeg screen mediainfo inotify-tools hdhomerun-devel sed mediainfo libva-utils intel-mediasdk mesa-va-drivers
 ```
 
 ## Create apache user
@@ -106,9 +112,9 @@ sudo chmod -R 755 /var/www/html
 
 ## Configure sudo
 
-The backend code generates `bash` scripts. The commands in the scripts
-should be run as a web content owner user, e.g. `apache`[^3], using
-`sudo`.
+The backend code produces `bash` scripts. The commands within these
+scripts should be executed as a web content owner user, e.g.
+`apache`[^3], using `sudo`.
 
 ``` shell
 cat /etc/sudoers.d/apache
@@ -145,8 +151,9 @@ sudo -uapache rsync -avnh --exclude='.git/' mythtv-stream-hls-dash/*.php /var/ww
 ## Patch MythWeb
 
 Optional step, modify 2 lines of
-[MythWeb](https://www.mythtv.org/wiki/MythWeb) code to change ASX Stream
-button on the "Recorded Programs" page to `Stream HLS DASH` button.
+[MythWeb](https://www.mythtv.org/wiki/MythWeb)[^4] code to change ASX
+Stream button on the "Recorded Programs" page to `Stream HLS DASH`
+button.
 
 <details>
 <summary>
@@ -176,7 +183,7 @@ index 8502305b..7bf3db0b 100644
 ## Patch Web Application
 
 Optionally change a few lines in the [Web
-Application](https://www.mythtv.org/wiki/Web_Application)[^4] to allow
+Application](https://www.mythtv.org/wiki/Web_Application)[^5] to allow
 recording and / or video and / or live tv selection from your browser.
 Replace `yourserver` in the patches below to point to your combined web
 server / `mythbackend` address.
@@ -268,7 +275,7 @@ index 97ae71efa8..f088012f94 100644
 
 <details>
 <summary>
-Click me to configure web browser adding video search.
+Click me to configure web browser adding video search to MythTV v34. For MythTV v35 a pull request can be found [[https://github.com/MythTV/mythtv/pull/1078/files][here]]. Part of this code has been merged into master offering category selection as well.
 </summary>
 
 ``` shell
@@ -484,7 +491,7 @@ Allow JavaScript in your browser.
 Figure 1 shows the user interface of `mythtv-stream-hls-dash` after
 selecting a recording in [MythWeb](https://www.mythtv.org/wiki/MythWeb)
 or the new [Web
-Application](https://www.mythtv.org/wiki/Web_Application)[^5].
+Application](https://www.mythtv.org/wiki/Web_Application)[^6].
 
 In case you do not want to patch
 [MythWeb](https://www.mythtv.org/wiki/MythWeb) and the new [Web
@@ -498,18 +505,18 @@ Application](https://www.mythtv.org/wiki/Web_Application) and browse to
 
 **Figure 1:** *User interface.*
 
-<img src="screenshots/user-selection.png" id="user-interface"
-width="400" />
+<img src="screenshots/user-selection.png" title="user-interface"
+id="user-interface" width="400" />
 
 User interface options from top to bottom:
 
-- Select an available recording from the list box[^6].
+- Select an available recording from the list box[^7].
 - Select the `ABR` renditions from the select dropdown list box.
-- Select the HW acceleration from the list box[^7].
-- Select if the `Cutlist` should be used using the list box[^8].
-- Select using the checkbox if `Subtitles` should be created[^9].
+- Select the HW acceleration from the list box[^8].
+- Select if the `Cutlist` should be used using the list box[^9].
+- Select using the checkbox if `Subtitles` should be created[^10].
 - Select using the checkboxes if playlist type `live` or `event` should
-  be used[^10].
+  be used[^11].
 - Select using the checkbox if playlist type `VOD` should be used.
 - Select using the checkbox if a `MP4` file should be created.
 - Press **Encode Video** when you are satisfied with your choices to
@@ -535,7 +542,8 @@ Ctrl-Click (Windows), Command-Click (Apple) to select the renditions.
 
 **Figure 2:** *Adaptive Bitrate UI.*
 
-<img src="screenshots/abr.png" id="adaptive-bitrate-ui" width="250" />
+<img src="screenshots/abr.png" title="adaptive-bitrate-ui"
+id="adaptive-bitrate-ui" width="250" />
 
 ### Remuxing
 
@@ -551,12 +559,12 @@ Figure 3 shows the user interface while remuxing. Because
 
 **Figure 3:** *Remuxing UI.*
 
-<img src="screenshots/remuxing-video.png" id="remuxing-video"
-width="700" />
+<img src="screenshots/remuxing-video.png" title="remuxing-video"
+id="remuxing-video" width="700" />
 
 Three buttons are shown below the available recording list box.
 
-The first button `Delete Video Files` basically does what is says[^11].
+The first button `Delete Video Files` basically does what is says[^12].
 
 The second status button displays a dynamic message. Figure 3 shows the
 `Remuxing
@@ -575,12 +583,12 @@ Figure 4 shows the user interface while encoding the video.
 
 **Figure 4:** *Generating m3u8.*
 
-<img src="screenshots/encoding-video.png" id="generating-video"
-width="500" />
+<img src="screenshots/encoding-video.png" title="generating-video"
+id="generating-video" width="500" />
 
 Progress of the encoding is shown on the status button as a percentage
 and the time of the video available. When there is about 24 seconds of
-content available the player automatically tries to load the video[^12].
+content available the player automatically tries to load the video[^13].
 
 At the right hand side of the `Shutdown Lock` button additional buttons
 dynamically appear when files become available on disk. In Figure 4 this
@@ -614,7 +622,8 @@ In this example three processing steps were required:
 
 **Figure 5:** *Status UI.*
 
-<img src="screenshots/status-button.png" id="status" width="300" />
+<img src="screenshots/status-button.png" title="status" id="status"
+width="300" />
 
 ### User interface after encoding
 
@@ -624,7 +633,7 @@ Figure 6 shows the interface after encoding is done.
 
 ![](screenshots/encoding-finished.png)
 
-Two additional buttons appeared in Figure 6, `Cleanup Video Files` [^13]
+Two additional buttons appeared in Figure 6, `Cleanup Video Files` [^14]
 and `Download MP4`.
 
 Since both playlists `HLS event` and `HLS VOD` basically provide similar
@@ -649,7 +658,7 @@ video to be remuxed to a `MP4` container as shown in the user interface
 of Figure 3. The code block below shows in detail how this is done.
 
 An `MP4` container allows FFmpeg to use the `concat demuxer` later in
-the script[^14].
+the script[^15].
 
 <details>
 <summary>
@@ -1139,7 +1148,7 @@ supported by all.
 **Table 1:** *Playlist and MP4 support for live broadcast and recorded
 video.*
 
-| Playlist | HLS | DASH | subtitle[^15] | subtitle[^16] | ABR |
+| Playlist | HLS | DASH | subtitle[^16] | subtitle[^17] | ABR |
 |----------|-----|------|---------------|---------------|-----|
 | live     | ✅  |      | ✅            |               | ✅  |
 | event    | ✅  |      | ✅            |               | ✅  |
@@ -1147,7 +1156,7 @@ video.*
 | MP4      |     |      |               | ✅            |     |
 
 All possible UI combinations of playlist types and MP4 that can be
-chosen by the user are shown in table 2[^17].
+chosen by the user are shown in table 2[^18].
 
 **Table 2:** *All possible UI combinations of playlist types and MP4.*
 
@@ -1170,7 +1179,7 @@ player on macOS and Shaka player while encoding a set of random
 renditions: `720p high`, `480p normal`, `360p low`, and `240p low`. As
 is shown feature support varies. None of them provides the desired
 combination i.e. allowing one to manually select the desired video
-rendition and audio rendition[^18]. Hopefully the players really do
+rendition and audio rendition[^19]. Hopefully the players really do
 provide the best possible bitrate for the network "*automagically*".
 
 **Table 3:** *Safari m3u8 player UI playlist support during Live
@@ -1188,7 +1197,7 @@ true)) UI playlist support during Live Broadcasting (while encoding).*
 
 | Playlist | Progress bar | Captions   | Resolution   | Language                                  | Quality          |
 |----------|--------------|------------|--------------|-------------------------------------------|------------------|
-| live     | ✅ [^19]     | Nederlands | Auto (nullp) | Nederlands                                | 🔴               |
+| live     | ✅ [^20]     | Nederlands | Auto (nullp) | Nederlands                                | 🔴               |
 | event    | ✅           | Nederlands | Auto (nullp) | Nederlands                                | 🔴               |
 | VOD      | ✅           | Nederlands | Auto (nullp) | Nederlands,Nederlands (2 out of 3 tracks) | 🔴               |
 | MP4      | ✅           |            | 🔴           | Nederlands                                | Auto (0 kbits/s) |
@@ -1212,15 +1221,15 @@ TV channel.
 
 **Figure 7:** *Select TV channel.*
 
-<img src="screenshots/select-tv-channel.png" id="select-tv-channel"
-width="400" />
+<img src="screenshots/select-tv-channel.png" title="select-tv-channel"
+id="select-tv-channel" width="400" />
 
 User interface options:
 
 - Select the `ABR` renditions from the select dropdown list box, see
   Figure 2.
-- Select the HW acceleration from the list box[^20].
-- Select the TV channel from the list box[^21].
+- Select the HW acceleration from the list box[^21].
+- Select the TV channel from the list box[^22].
 - Press **Watch TV** when you are satisfied with your choices to start
   watching.
 
@@ -1228,12 +1237,12 @@ Figure 8 shows the Live TV user interface.
 
 **Figure 8:** *Live TV user interface.*
 
-<img src="screenshots/live-tv.png" id="live-tv-user-interface"
-width="300" />
+<img src="screenshots/live-tv.png" title="live-tv-user-interface"
+id="live-tv-user-interface" width="300" />
 
 User interface options:
 
-- Select **Stop streaming** when you are done watching[^22]. This also
+- Select **Stop streaming** when you are done watching[^23]. This also
   cleans up the files on disk.
 - The status button indicates when the `Live stream is ready`.
 - Select `Shutdown Lock` in case one wants to prevent MythTV from
@@ -1280,60 +1289,62 @@ Feedback, patches, other contributions and ideas are welcome!
 [^3]: May depend on your distribution (e.g. 'data-www' is used for
     Ubuntu). May require one to configure the `php` scripts.
 
-[^4]: This requires installation of mythtv v34 from sources.
+[^4]: MythWeb is deprecated since MythTV v35.
 
-[^5]: A subset of the user interface is used after selecting a video in
+[^5]: This requires installation of mythtv v34 and later from source.
+
+[^6]: A subset of the user interface is used after selecting a video in
     [Web Application](https://www.mythtv.org/wiki/Web_Application).
 
-[^6]: The dropdown list shows the recordings available for streaming.
+[^7]: The dropdown list shows the recordings available for streaming.
     Leave as is since we are defining the settings for this recording.
 
-[^7]: Only VAAPI and no HW acceleration has been tested. Feedback on
+[^8]: Only VAAPI and no HW acceleration has been tested. Feedback on
     untested acceleration is appreciated.
 
-[^8]: This option is only visible in the UI when a `Cutlist` is defined
+[^9]: This option is only visible in the UI when a `Cutlist` is defined
     in MythTV. By default the `Cutlist` is not selected (checked).
 
-[^9]: This option is only visible and checked, by default, when
+[^10]: This option is only visible and checked, by default, when
     subtitles are available. Internal embedded subtitles are handled
     based on the user defined language preferences in the php files.
     Alternatively, one external subtitle (.srt) is supported (no
     language preference check can be performed) which should have the
     same filename as the video.
 
-[^10]: Either one of the two or none at all.
+[^11]: Either one of the two or none at all.
 
-[^11]: This will not delete any file from MythTV or change the MySQL
+[^12]: This will not delete any file from MythTV or change the MySQL
     database. All files can be recreated as long as the recording is
     available in MythTV.
 
-[^12]: If no still of the output is shown after 30 seconds, push the
+[^13]: If no still of the output is shown after 30 seconds, push the
     `HLS event` of `HLS VOD` button. As a last resort try to reload the
     browser page.
 
-[^13]: This button is only shown when both playlist types `event` and
+[^14]: This button is only shown when both playlist types `event` and
     `VOD` were selected as shown in Figure 1.
 
-[^14]: The `cutlist` itself was defined in MythTV which is translated
+[^15]: The `cutlist` itself was defined in MythTV which is translated
     into the inpoint's and outpoint's of the `cutlist` for the video.
 
-[^15]: Realtime.
+[^16]: Realtime.
 
-[^16]: After Post-processing.
+[^17]: After Post-processing.
 
-[^17]: All can be combined with `ABR`, `Cut commercials` and `subtitles`
+[^18]: All can be combined with `ABR`, `Cut commercials` and `subtitles`
     selection.
 
-[^18]: The stream used for this test was manually created for testing
+[^19]: The stream used for this test was manually created for testing
     purposes. In the current version of the scripts all audio rendition
     are automatically created and shown in the UI.
 
-[^19]: One minute of playback.
+[^20]: One minute of playback.
 
-[^20]: Only VAAPI and no HW acceleration has been tested. Feedback on
+[^21]: Only VAAPI and no HW acceleration has been tested. Feedback on
     untested acceleration is appreciated.
 
-[^21]: The channel information is extracted from MythTV automagically.
+[^22]: The channel information is extracted from MythTV automagically.
 
-[^22]: FFmpeg encoding is stopped without checking if other users are
+[^23]: FFmpeg encoding is stopped without checking if other users are
     watching the stream.

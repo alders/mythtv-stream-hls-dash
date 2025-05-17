@@ -100,7 +100,7 @@ function http_request($method, $endpoint, $rest)
 
 function get_video($Id)
 {
-    // http://localhost:6544/Dvr/GetRecorded?StartTime=2023-07-08T18:55&ChanId=11500
+    // http://localhost:6544/Video/GetVideo?Id=7135
 
     $xml_response = http_request(
         "GET",
@@ -167,13 +167,14 @@ for ($i = 0; $i < count($file_list); $i++)
     if (array_search($fn, $ids) === false)
     {
         $ids[] = $fn;
-        preg_match_all('/^(\d{4})$/', $fn, $filedetails);
+        preg_match_all('/^(\d+)$/', $fn, $filedetails);
         if (isset($filedetails[1][0])){
             $id = $filedetails[1][0];
             $video = get_video($id);
             $names[$id] = $video['Title'].($video['SubTitle'] ? " - ".$video['SubTitle'] : "");
             if ($_REQUEST["videoid"] === $id)
             {
+                // Requested video is available in a steaming format
                 $extension = pathinfo($video['FileName'], PATHINFO_EXTENSION);
                 // NOTE: GroupName "Videos" is hardcoded, cannot be derived from Video
                 $storagegroup_dirs = get_storagegroup_dirs("Videos", $video['HostName']);
@@ -182,7 +183,8 @@ for ($i = 0; $i < count($file_list); $i++)
                     if (file_exists($storagegroup . "/" . $video['FileName'])) {
                         $dirname= $storagegroup.pathinfo($video['FileName'], PATHINFO_DIRNAME);
                         $filename = pathinfo($video['FileName'], PATHINFO_FILENAME);
-                        $title_subtitle = $video['Title']. ($video['SubTitle'] ? " - " . $video['SubTitle'] : "");
+                        $title_subtitle = addslashes($video['Title']. ($video['SubTitle'] ? " - " . $video['SubTitle'] : ""));
+                        $title_subtitle_without_slashes = stripslashes($title_subtitle);
                     }
                 }
             }
@@ -199,7 +201,7 @@ for ($i = 0; $i < count($file_list); $i++)
     if (array_search($fn, $done) === false)
     {
         $done[] = $fn;
-        preg_match_all('/^(\d{4})$/', $fn, $filedetails);
+        preg_match_all('/^(\d+)$/', $fn, $filedetails);
         if (isset($filedetails[1][0]))
         {
             $select_box .= "          <option value=\"".$fn."\">".(array_key_exists($fn, $names)?$names[$fn]:"Unknown Title")."</option>\n";
@@ -952,18 +954,18 @@ done\n");
 /usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge start >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt';
 cd ".$hls_path."/".$_REQUEST["videoid"].";
 /usr/bin/sudo -u".$webuser." ".$ffmpeg." \
-    -i \"".$_REQUEST["videoid"]." - ".$title_subtitle.".mp4\" \
+    -i \"".$_REQUEST["videoid"]." - ".$title_subtitle_without_slashes.".mp4\" \
     -i subtitles.vtt \
     -c:v copy \
     -c:a copy \
     -map 0 \
     -c:s mov_text -metadata:s:s:0 language=".$language." -disposition:s:0 default \
     -map 1 \
-    \"".$_REQUEST["videoid"]." - ".$title_subtitle.".tmp.mp4\" \
+    \"".$_REQUEST["videoid"]." - ".$title_subtitle_without_slashes.".tmp.mp4\" \
 2>>/tmp/ffmpeg-subtitle-merge-".$hlsdir."-".$_REQUEST["videoid"].".log && \
 /usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt' || \
 /usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge failed >> ".$hls_path."/".$_REQUEST["videoid"]."/status.txt';
-/usr/bin/sudo /usr/bin/mv -f \"".$_REQUEST["videoid"]." - ".$title_subtitle.".tmp.mp4\" \"".$_REQUEST["videoid"]." - ".$title_subtitle.".mp4\" \n");
+/usr/bin/sudo /usr/bin/mv -f \"".$_REQUEST["videoid"]." - ".$title_subtitle_without_slashes.".tmp.mp4\" \"".$_REQUEST["videoid"]." - ".$title_subtitle_without_slashes.".mp4\" \n");
        	    }
             if ($mustencode)
             {
@@ -1452,7 +1454,7 @@ done\n");
                 $length = 0;
                 $framerate = 0;
                 // Get mediainfo
-                $mediainfo = shell_exec("/usr/bin/mediainfo \"--Output=General; Duration : %Duration/String%\r
+                $mediainfo = shell_exec("/usr/bin/sudo -uapache usr/bin/mediainfo \"--Output=General; Duration : %Duration/String%\r
 Video; Width : %Width% pixels\r Height : %Height% pixels\r Frame rate : %FrameRate/String%\r
 Audio; Audio : %Language/String%\r
 Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename.".$extension"."\"");
