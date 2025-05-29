@@ -17,11 +17,12 @@ $live_path = "$webroot/$livedir";
 $vod_path = "$webroot/$voddir";
 // NOTE: ISO 639-2/B language codes, the first match of the subtitle language preference is used
 $sublangpref = array(
-    "dut" => array("name" => "Dutch",        "ISO" => "dut"),
-    "dum" => array("name" => "dum",          "ISO" => "dum"),
-    "eng" => array("name" => "English",      "ISO" => "eng"),
-    "ger" => array("name" => "German",       "ISO" => "ger"),
+    "dut" => array("name" => "Dutch"),
+    "dum" => array("name" => "Middle Dutch"),
+    "eng" => array("name" => "English"),
+    "ger" => array("name" => "German"),
 );
+
 $ffmpeg="/usr/bin/ffmpeg";
 
 $webuser = "apache";
@@ -41,26 +42,37 @@ $hwaccels = array(
 
 // Ladder from which the user may choose, Aspect ratio 16:9
 // https://medium.com/@peer5/creating-a-production-ready-multi-bitrate-hls-vod-stream-dff1e2f1612c
-$settings = array(
-                "high1440" =>   array("height" => 1440, "width" => 2560, "vbitrate" => 8000, "abitrate" => 192),
-                "normal1440" => array("height" => 1440, "width" => 2560, "vbitrate" => 6000, "abitrate" => 192),
-                "low1440" =>    array("height" => 1440, "width" => 2560, "vbitrate" => 4000, "abitrate" => 192),
-                "high1080" =>   array("height" => 1080, "width" => 1920, "vbitrate" => 5300, "abitrate" => 192),
-                "normal1080" => array("height" => 1080, "width" => 1920, "vbitrate" => 4900, "abitrate" => 192),
-                "low1080" =>    array("height" => 1080, "width" => 1920, "vbitrate" => 4500, "abitrate" => 192),
-                "high720" =>    array("height" =>  720, "width" => 1280, "vbitrate" => 3200, "abitrate" => 128),
-                "normal720" =>  array("height" =>  720, "width" => 1280, "vbitrate" => 2850, "abitrate" => 128),
-                "low720" =>     array("height" =>  720, "width" => 1280, "vbitrate" => 2500, "abitrate" =>  64),
-                "high480" =>    array("height" =>  480, "width" =>  854, "vbitrate" => 1600, "abitrate" => 128),
-                "normal480" =>  array("height" =>  480, "width" =>  854, "vbitrate" => 1425, "abitrate" =>  64),
-                "low480" =>     array("height" =>  480, "width" =>  854, "vbitrate" => 1250, "abitrate" =>  48),
-                "high360" =>    array("height" =>  360, "width" =>  640, "vbitrate" =>  900, "abitrate" => 128),
-                "normal360" =>  array("height" =>  360, "width" =>  640, "vbitrate" =>  800, "abitrate" =>  64),
-                "low360" =>     array("height" =>  360, "width" =>  640, "vbitrate" =>  700, "abitrate" =>  48),
-                "high240" =>    array("height" =>  240, "width" =>  426, "vbitrate" =>  600, "abitrate" => 128),
-                "normal240" =>  array("height" =>  240, "width" =>  426, "vbitrate" =>  500, "abitrate" =>  64),
-                "low240" =>     array("height" =>  240, "width" =>  426, "vbitrate" =>  400, "abitrate" =>  48),
+$resolutions = array(
+    "1440" => array("height" => 1440, "width" => 2560, "abitrate" => 192),
+    "1080" => array("height" => 1080, "width" => 1920, "abitrate" => 192),
+    "720"  => array("height" => 720,  "width" => 1280, "abitrate" => 128),
+    "480"  => array("height" => 480,  "width" => 854,  "abitrate" => array("high" => 128, "normal" => 64, "low" => 48)),
+    "360"  => array("height" => 360,  "width" => 640,  "abitrate" => array("high" => 128, "normal" => 64, "low" => 48)),
+    "240"  => array("height" => 240,  "width" => 426,  "abitrate" => array("high" => 128, "normal" => 64, "low" => 48)),
 );
+
+$bitrates = array(
+    "1440" => array("high" => 8000, "normal" => 6000, "low" => 4000),
+    "1080" => array("high" => 5300, "normal" => 4900, "low" => 4500),
+    "720"  => array("high" => 3200, "normal" => 2850, "low" => 2500),
+    "480"  => array("high" => 1600, "normal" => 1425, "low" => 1250),
+    "360"  => array("high" => 900,  "normal" => 800,  "low" => 700),
+    "240"  => array("high" => 600,  "normal" => 500,  "low" => 400),
+);
+
+$settings = array();
+foreach ($resolutions as $resolution => $resolutionSettings) {
+    foreach ($bitrates[$resolution] as $quality => $vbitrate) {
+        $abitrate = is_array($resolutionSettings["abitrate"]) ? $resolutionSettings["abitrate"][$quality] : $resolutionSettings["abitrate"];
+        $settings[$quality . $resolution] = array(
+            "height" => $resolutionSettings["height"],
+            "width" => $resolutionSettings["width"],
+            "vbitrate" => $vbitrate,
+            "abitrate" => $abitrate,
+        );
+    }
+}
+
 /*********** DO NOT CHANGE ANYTHING BELOW THIS LINE UNLESS YOU KNOW WHAT YOU ARE DOING **********/
 
 $keys = array_keys($settings);
@@ -97,7 +109,6 @@ if (isset($_REQUEST["length"]))
 
 function http_request($method, $endpoint, $rest)
 {
-
     $params = array("http" => array(
         "method" => $method,
         "header" => 'Content-type: application/x-www-form-urlencoded; charset=uft-8'
@@ -118,96 +129,118 @@ function get_recorded($StartTime, $ChanId)
     // http://localhost:6544/Dvr/GetRecorded?StartTime=2023-07-08T18:55&ChanId=11500
     // NOTE: Only a selected subset of the values available is returned here
 
-    $xml_response = http_request(
-        "GET",
-        "Dvr/GetRecorded",
-        "StartTime=$StartTime&ChanId=$ChanId"
-    );
+    if (empty($StartTime) || empty($ChanId)) {
+        throw new InvalidArgumentException("StartTime and ChanId cannot be empty");
+    }
+
+    $url = "Dvr/GetRecorded";
+    $query = "StartTime=$StartTime&ChanId=$ChanId";
+    $xml_response = http_request("GET", $url, $query);
+
+    if ($xml_response === false) {
+        return array(); // or throw an exception
+    }
 
     $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    $json = json_encode($xml);
-    $array = json_decode($json, TRUE);
+    if ($xml === false) {
+        return array(); // or throw an exception
+    }
 
-    $recorded = array();
-    $recorded += ['FileName' => $array['FileName']];
-    $recorded += ['HostName' => $array['HostName']];
-    $recorded += ['Title'    => $array['Title']];
-    $recorded += ['SubTitle' => $array['SubTitle']];
+    $array = json_decode(json_encode($xml), TRUE);
+
+    $recorded = array(
+        'FileName' => $array['FileName'] ?? '',
+        'HostName' => $array['HostName'] ?? '',
+        'Title'    => $array['Title'] ?? '',
+        'SubTitle' => $array['SubTitle'] ?? '',
+    );
+
     if (isset($array['Recording']['RecordedId'])) {
-        $recorded += ['RecordedId'   => $array['Recording']['RecordedId']];
-        $recorded += ['StorageGroup' => $array['Recording']['StorageGroup']];
-        $recorded += ['Status'       => $array['Recording']['Status']];
+        $recorded = array_merge($recorded, array(
+            'RecordedId'   => $array['Recording']['RecordedId'],
+            'StorageGroup' => $array['Recording']['StorageGroup'],
+            'Status'       => $array['Recording']['Status'],
+        ));
     }
 
     return $recorded;
 }
 
-function get_program_list($StartTime, $ChanId)
+function get_program_status($StartTime, $ChanId, $TitleFilter)
 {
-    // http://localhost:6544/Guide/GetProgramList?StartTime=2023-07-08T18:55&ChanId=11500
-    // NOTE: Only a selected subset of the values available is returned here
-
-    $xml_response = http_request(
-        "GET",
-        "Guide/GetProgramList",
-        "StartTime=$StartTime&ChanId=$ChanId"
-    );
-
-    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    $json = json_encode($xml);
-    $array = json_decode($json, TRUE);
-
-    $program = array();
-    foreach ($array as $Programs) {
-        if (is_array($Programs)) {
-            foreach ($Programs as $Program) {
-                if (is_array($Program)) {
-                    foreach ($Program as $value ) {
-                        if (isset($value['Recording']['StartTs']) && $value['Recording']['StartTs'] === $StartTime &&
-                            isset($value['Channel']['ChanId'])    && $value['Channel']['ChanId']    === $ChanId) {
-                            $program += ['Status'  => $value['Recording']['Status']];
-                        }
-                    }
-                }
-            }
-        }
+    if (empty($StartTime) || empty($ChanId) || empty($TitleFilter)) {
+        throw new InvalidArgumentException("StartTime, ChanId and TitleFilter cannot be empty");
     }
 
-    return $program;
-}
+    $url = "Guide/GetProgramList";
+    $query = "StartTime=$StartTime&ChanId=$ChanId&TitleFilter=" . urlencode($TitleFilter);
+    $xml_response = http_request("GET", $url, $query);
 
+    if ($xml_response === false) {
+        return array(); // or throw an exception
+    }
+
+    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
+
+    if ($xml === false) {
+        return array(); // or throw an exception
+    }
+
+    // Use the adjusted XPath query
+    $xpath = $xml->xpath("//Program[Channel/ChanId='$ChanId' and Title='$TitleFilter']/Recording/Status");
+
+    // Check if the XPath returned any results
+    if (!empty($xpath)) {
+        // Return the status found
+        return (string)$xpath[0];
+    }
+
+    // Return status unknown if not found
+    return "-16";
+}
 
 function get_recorded_markup($RecordedId)
 {
     // http://localhost:6544/Dvr/GetRecordedMarkup?RecordedId=6474
     // NOTE: Only a selected subset of the values available is returned here
 
-    $xml_response = http_request(
-        "GET",
-        "Dvr/GetRecordedMarkup",
-        "RecordedId=$RecordedId"
-    );
+    if (empty($RecordedId)) {
+        throw new InvalidArgumentException("RecordedId cannot be empty");
+    }
+
+    $url = "Dvr/GetRecordedMarkup";
+    $query = "RecordedId=$RecordedId";
+    $xml_response = http_request("GET", $url, $query);
+
+    if ($xml_response === false) {
+        return array(); // or throw an exception
+    }
 
     $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    $json = json_encode($xml);
-    $array = json_decode($json, TRUE);
+    if ($xml === false) {
+        return array(); // or throw an exception
+    }
+
+    $array = json_decode(json_encode($xml), TRUE);
 
     $recorded_markup_cut = array();
-    $count_cut=1;
+    $count_cut = 1;
     foreach ($array['Mark'] as $Markup) {
         foreach ($Markup as $key2 => $Type) {
             if (isset($Type['Type'])) {
-                if ($Type['Type'] === "CUT_START") {
-                    $recorded_markup_cut += ['CUT_START_' . $count_cut++ => $Type['Frame']];
-                }
-                else if ($Type['Type'] === "CUT_END") {
-                    $recorded_markup_cut += ['CUT_END_' . $count_cut++ => $Type['Frame']];
+                switch ($Type['Type']) {
+                    case "CUT_START":
+                        $recorded_markup_cut['CUT_START_' . $count_cut++] = $Type['Frame'];
+                        break;
+                    case "CUT_END":
+                        $recorded_markup_cut['CUT_END_' . $count_cut++] = $Type['Frame'];
+                        break;
                 }
             }
         }
     }
 
-    return array($recorded_markup_cut);
+    return $recorded_markup_cut;
 }
 
 function get_storagegroup_dirs($StorageGroup, $HostName)
@@ -215,23 +248,37 @@ function get_storagegroup_dirs($StorageGroup, $HostName)
     // http://localhost:6544/Myth/GetStorageGroupDirs
     // NOTE: Only a selected subset of the values available is returned here
 
-    $xml_response = http_request(
-        "GET",
-        "Myth/GetStorageGroupDirs",
-        ""
-    );
+    if (empty($StorageGroup) || empty($HostName)) {
+        throw new InvalidArgumentException("StorageGroup and HostName cannot be empty");
+    }
+
+    $url = "Myth/GetStorageGroupDirs";
+    $query = "";
+    $xml_response = http_request("GET", $url, $query);
+
+    if ($xml_response === false) {
+        throw new RuntimeException("Failed to retrieve storage group directories");
+    }
 
     $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    $json = json_encode($xml);
-    $array = json_decode($json, TRUE);
+    if ($xml === false) {
+        throw new RuntimeException("Failed to parse XML response");
+    }
+
+    $array = json_decode(json_encode($xml), TRUE);
+
+    if (!isset($array['StorageGroupDirs'])) {
+        throw new RuntimeException("Invalid XML response: StorageGroupDirs not found");
+    }
 
     $storagegroup_dirs = array();
-    $count_dir_name=1;
+    $count_dir_name = 1;
     foreach ($array['StorageGroupDirs'] as $StorageGroupDir) {
         foreach ($StorageGroupDir as $item) {
-            if ($item['HostName'] == $HostName &&
+            if (isset($item['HostName'], $item['GroupName'], $item['DirName']) &&
+                $item['HostName'] == $HostName &&
                 $item['GroupName'] == $StorageGroup) {
-                $storagegroup_dirs += ['DirName' . $count_dir_name++ => $item['DirName']];
+                $storagegroup_dirs['DirName' . $count_dir_name++] = $item['DirName'];
             }
         }
     }
@@ -239,78 +286,176 @@ function get_storagegroup_dirs($StorageGroup, $HostName)
     return $storagegroup_dirs;
 }
 
+function generateStreamOptions($settings, $qualities, $nb_renditions, $isAudio = true) {
+    $stream_number = 0;
+    $seen_abitrates = [];
+    $options = '';
+
+    if ($isAudio) {
+        // Build audio options
+        foreach ($qualities as $i => $quality) {
+            $current_abitrate = $settings[$quality]["abitrate"];
+            if (!in_array($current_abitrate, $seen_abitrates)) {
+                $options .= "a:".$stream_number++.",";
+                $seen_abitrates[] = $current_abitrate; // Add to seen bitrates
+            }
+        }
+    }
+
+    // Build video options
+    for ($i = 0; $i < $nb_renditions; $i++) {
+        $options .= "v:".$i.($i === $nb_renditions - 1 ? "" : ",");
+    }
+
+    return rtrim($options, ','); // Remove trailing comma
+}
+
+function generateMediaStreamOptions($settings, $qualities, $nb_renditions, $language) {
+    $audio_stream_number = 0;
+    $default = "yes";
+    $options = '';
+
+    // Build audio options
+    $seen_abitrates = [];
+    foreach ($qualities as $i => $quality) {
+        $current_abitrate = $settings[$quality]["abitrate"];
+        if (!in_array($current_abitrate, $seen_abitrates)) {
+            $options .= "a:".$audio_stream_number.",agroup:aac,language:".$language."-".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
+            $default = "no"; // Set default to "no" after the first audio stream
+            $seen_abitrates[] = $current_abitrate; // Track seen bitrates
+        }
+    }
+
+    // Build video options
+    for ($i = 0; $i < $nb_renditions; $i++) {
+        $options .= "v:".$i.",agroup:aac,name:".$settings[$qualities[$i]]["height"]."p_".$settings[$qualities[$i]]["vbitrate"];
+        if ($i < $nb_renditions - 1) {
+            $options .= " ";
+        }
+    }
+
+    return trim($options); // Return the final options string
+}
+
+function getFileInfo($hls_path, $filename) {
+    $file = $hls_path . "/" . $filename . "/state.txt";
+    if (file_exists($file)) {
+        $content = json_decode(file_get_contents($file), true);
+        $title = isset($content["title"]) ? $content["title"] : "Unknown";
+        $subtitle = isset($content["subtitle"]) ? $content["subtitle"] : "";
+    } else {
+        $title = "Unknown";
+        $subtitle = "";
+    }
+
+    return [
+        'title' => $title,
+        'subtitle' => $subtitle,
+        'extension' => "Unknown",
+        'dirname' => "Unknown"
+    ];
+}
+
+function remove_duplicates($array) {
+    $result = array();
+    foreach ($array as $key => $value) {
+        if (!isset($result[$value])) {
+            $result[$value] = $key;
+        }
+    }
+    $unique_array = array();
+    foreach ($result as $value => $key) {
+        $unique_array[$key] = $value;
+    }
+    return $unique_array;
+}
+
 $file_list = scandir($hls_path);
 $file_list[] = $_REQUEST["filename"];
-$query_parts = array();
+
 $ids = array();
 $names = array();
-for ($i = 0; $i < count($file_list); $i++) {
-    $fn = explode(".", $file_list[$i])[0];
-    if (array_search($fn, $ids) === false) {
-        $ids[] = $fn;
-        preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/', $fn, $filedetails);
-        if (isset($filedetails[1][0])) {
-            $chanid = $filedetails[1][0];
-            if ($chanid) {
-                $year = $filedetails[2][0];
-                $month = $filedetails[3][0];
-                $day = $filedetails[4][0];
-                $hour = $filedetails[5][0];
-                $minute = $filedetails[6][0];
-                $second = $filedetails[7][0];
-                $starttime = "$year-$month-$day $hour:$minute:$second";
-                $datetime = new DateTime("$starttime");
-                $recorded = get_recorded($datetime->format(DateTime::ATOM), $chanid);
-                if (is_array($recorded['Title'])) {
-                    // The file has probably been removed from MythTV
-                    $title = "Unknown";
-                    $subtitle = "";
-                    $extension = "Unknown";
-                    $dirname = "Unknown";
-                    $title_subtitle = $title. ($subtitle ? " - " . $subtitle : "");
-                }
-                else {
-                    $title = $recorded['Title'];
-                    $subtitle = $recorded['SubTitle'];
-                    $starttime = str_replace(":", "", str_replace(" ", "", str_replace("-", "", $starttime)));
-                    $names[$chanid."_".$starttime] = $title.($subtitle ? " - ".$subtitle : "");
-                    if ($_REQUEST["filename"] === pathinfo($recorded['FileName'], PATHINFO_FILENAME)) {
-                        $extension = pathinfo($recorded['FileName'], PATHINFO_EXTENSION);
-                        $storagegroup_dirs = get_storagegroup_dirs($recorded['StorageGroup'], $recorded['HostName']);
-                        foreach ($storagegroup_dirs as $storagegroup) {
-                            if (file_exists($storagegroup . "/" . $recorded['FileName'])) {
-                                $dirname = $storagegroup;
-                                $title_subtitle = $title. ($subtitle ? " - " . $subtitle : "");
-                            }
+foreach ($file_list as $file) {
+    $fn = pathinfo($file, PATHINFO_FILENAME);
+    preg_match('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/', $fn, $filedetails);
+    if (isset($filedetails[1])) {
+        $chanid = $filedetails[1];
+        if ($chanid) {
+            $starttime = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $filedetails[2], $filedetails[3], $filedetails[4], $filedetails[5], $filedetails[6], $filedetails[7]);
+            $datetime = new DateTime($starttime);
+            $recorded = get_recorded($datetime->format(DateTime::ATOM), $chanid);
+            $title = '';
+            $subtitle = '';
+            $extension = '';
+            $dirname = '';
+            $title_subtitle = '';
+
+            if (!empty($recorded['Title'])) {
+                // File is available in MythTV
+                $title = $recorded['Title'];
+                $subtitle = $recorded['SubTitle'];
+                if ($_REQUEST["filename"] === pathinfo($recorded['FileName'], PATHINFO_FILENAME)) {
+                    $storagegroup_dirs = get_storagegroup_dirs($recorded['StorageGroup'], $recorded['HostName']);
+                    foreach ($storagegroup_dirs as $storagegroup) {
+                        if (file_exists($storagegroup . "/" . $recorded['FileName'])) {
+                            $extension = pathinfo($recorded['FileName'], PATHINFO_EXTENSION);
+                            $dirname = $storagegroup;
+                            $title_subtitle = $title . ($subtitle ? " - $subtitle" : "");
+                            break;
                         }
                     }
                 }
+            } else {
+                // File is not available in MythTV
+                $fileInfo = getFileInfo($hls_path, $fn);
+                $title = $fileInfo['title'];
+                $subtitle = $fileInfo['subtitle'];
+                if ($_REQUEST["filename"] === $fn) {
+                    $extension = $fileInfo['extension'];
+                    $dirname = $fileInfo['dirname'];
+                    $title_subtitle = $title . ($subtitle ? " - $subtitle" : "");
+                }
             }
+
+            if (empty($title_subtitle)) {
+                $title_subtitle = $title . ($subtitle ? " - $subtitle" : "");
+            }
+
+            $names[$fn] = $title . ($subtitle ? " - $subtitle" : "");
         }
     }
 }
 
-$done = array();
-$select_box = "            <form><select onChange=\"window.location.href='index.php?filename='+this.value;\">\n";
-$file_list = array_reverse($file_list);
-for ($i = 0; $i < count($file_list); $i++)
-{
-    $fn = explode(".", $file_list[$i])[0];
-    if (array_search($fn, $done) === false)
-    {
-        $done[] = $fn;
-        preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/', $fn, $filedetails);
+$file_list = remove_duplicates($file_list);
 
-        if (isset($filedetails[1][0]))
-        {
-           $chanid=$filedetails[1][0];
-           if ($chanid)
-           {
-               $year=$filedetails[2][0];
-               $month=$filedetails[3][0];
-               $day=$filedetails[4][0];
-               $select_box .= "            <option value=\"".$fn."\">".(array_key_exists($fn, $names)?$names[$fn]:"Unknown Title")." (".$month."/".$day."/".$year.")</option>\n";
-           }
+$select_box = "<form><select onChange=\"window.location.href='index.php?filename='+this.value;\">\n";
+$current_value = $_GET['filename'] ?? '';
+foreach ($file_list as $file) {
+    $fn = pathinfo($file, PATHINFO_FILENAME);
+    preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/', $fn, $filedetails);
+
+    if (isset($filedetails[1][0])) {
+        $chanid = $filedetails[1][0];
+        $year = $filedetails[2][0];
+        $month = $filedetails[3][0];
+        $day = $filedetails[4][0];
+        $selected = $current_value == $fn ? 'selected' : '';
+        if (array_key_exists($fn, $names)) {
+            // File is available in MythTV thus title is known
+            $select_box .= "            <option value=\"".$fn."\" $selected>".$names[$fn]." (".$month."/".$day."/".$year.")</option>\n";
+        } else {
+            // File is not available in MythTV attempt to retrieve title from 'state.txt'
+            $fileInfo = getFileInfo($hls_path, $fn);
+            if (!empty($fileInfo['subtitle'])) {
+                $locsubtitle = "_{$fileInfo['subtitle']}";
+            } else {
+                $locsubtitle = '';
+            }
+            if ($fileInfo) {
+                $select_box .= "<option value=\"$fn\" $selected>{$fileInfo['title']}{$locsubtitle} ($month/$day/$year)</option>\n";
+            } else {
+                $select_box .= "<option value=\"$fn\" $selected>Unknown Title ($month/$day/$year)</option>\n";
+            }
         }
     }
 }
@@ -327,70 +472,103 @@ $hw_box .= "<option value=\"\" disabled hidden>-- Please choose your HW Accelera
      }
 $hw_box .= "</select>";
 
-if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
-    file_exists($vod_path."/".$_REQUEST["filename"]."/master_vod.m3u8") ||
-    file_exists($live_path."/".$_REQUEST["filename"]."/master_live.m3u8") ||
-    file_exists($hls_path."/".$_REQUEST["filename"]."/".$_REQUEST["filename"].".mp4") ||
-    file_exists($hls_path."/".$_REQUEST["filename"]."/master_event.m3u8"))
+if (strpos($title_subtitle, ' - ') !== false) {
+    list($title, $subtitle) = explode(' - ',  $title_subtitle);
+    $title = trim($title);
+    $subtitle = trim($subtitle);
+} else {
+    $title = trim($title_subtitle);
+    $subtitle = '';
+}
+
+$filename = $_REQUEST["filename"];
+
+$paths_to_check = array(
+    $dirname."/".$filename.".$extension",
+    $vod_path."/".$filename."/master_vod.m3u8",
+    $hls_path."/".$filename."/master_event.m3u8",
+    $hls_path."/".$filename."/".$filename.".mp4",
+    $hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4",
+    $live_path."/".$filename."/master_live.m3u8"
+);
+
+$file_exists = false;
+foreach ($paths_to_check as $path) {
+    if (file_exists($path)) {
+        $file_exists = true;
+        break;
+    }
+}
+
+if ($file_exists)
 {
-    $filename = $_REQUEST["filename"];
     if (isset($_REQUEST['action']) && $_REQUEST["action"] === "delete")
     {
         // delete hls and vod files
         if (file_exists($hls_path."/".$filename))
         {
-            // Shut down all screen sessions
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_remux  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_encode  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
-            // kill dead screens
-            $response = shell_exec('/usr/bin/sudo /usr/bin/screen -wipe');
+            // Shut down all and kill dead screens
+            $commands = array(
+                "/usr/bin/sudo /usr/bin/screen -ls {$filename}_remux  | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done",
+                "/usr/bin/sudo /usr/bin/screen -ls {$filename}_encode | /usr/bin/grep -E '\s+[0-9]+.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done",
+                "/usr/bin/sudo /usr/bin/sudo /usr/bin/screen -wipe"
+            );
+
+            foreach ($commands as $command) {
+                shell_exec($command);
+            }
             // // Delete files
-            array_map('unlink', glob($hls_path."/".$filename."/*.log*"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.sh*"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.m4s*"));
-            array_map('unlink', glob($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/video.mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/init*.mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.txt*"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.vtt"));
-            array_map('unlink', glob($hls_path."/".$filename."/sub.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/sub_0.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/sub_0_vtt.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/master_event.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/stream_event_*.m3u8"));
-            array_map('unlink', glob($vod_path."/".$filename."/*.mpd"));
-            array_map('unlink', glob($vod_path."/".$filename."/init.mp4"));
-            array_map('unlink', glob($vod_path."/".$filename."/*.vtt"));
-            array_map('unlink', glob($vod_path."/".$filename."/sub_0.m3u8"));
-            array_map('unlink', glob($vod_path."/".$filename."/sub_0_vtt.m3u8"));
-            array_map('unlink', glob($vod_path."/".$filename."/sub.m3u8"));
-            array_map('unlink', glob($vod_path."/".$filename."/manifest_vod*.mp4*"));
-            array_map('unlink', glob($vod_path."/".$filename."/master_vod.m3u8"));
-            array_map('unlink', glob($vod_path."/".$filename."/media_*.m3u8"));
-            array_map('unlink', glob($live_path."/".$filename."/*.mp4"));
-            array_map('unlink', glob($live_path."/".$filename."/*.m4s"));
-            array_map('unlink', glob($live_path."/".$filename."/*.vtt"));
-            array_map('unlink', glob($live_path."/".$filename."/sub_0.m3u8"));
-            array_map('unlink', glob($live_path."/".$filename."/sub_0_vtt.m3u8"));
-            array_map('unlink', glob($live_path."/".$filename."/sub.m3u8"));
-            array_map('unlink', glob($live_path."/".$filename."/stream_live_*.m3u8"));
-            array_map('unlink', glob($live_path."/".$filename."/manifest_live*.mp4*"));
-            array_map('unlink', glob($live_path."/".$filename."/master_live.m3u8"));
-            //array_map('unlink', glob($live_path."/".$filename."/media_*.m3u8"));
+            $paths_to_delete = array(
+                $hls_path."/".$filename."/*.log*",
+                $hls_path."/".$filename."/*.sh*",
+                $hls_path."/".$filename."/*.m4s*",
+                $hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4",
+                $hls_path."/".$filename."/video.mp4",
+                $hls_path."/".$filename."/init*.mp4",
+                $hls_path."/".$filename."/*.mp4",
+                $hls_path."/".$filename."/*.txt*",
+                $hls_path."/".$filename."/*.vtt",
+                $hls_path."/".$filename."/sub.m3u8",
+                $hls_path."/".$filename."/sub_0.m3u8",
+                $hls_path."/".$filename."/sub_0_vtt.m3u8",
+                $hls_path."/".$filename."/master_event.m3u8",
+                $hls_path."/".$filename."/stream_event_*.m3u8",
+                $vod_path."/".$filename."/*.mpd",
+                $vod_path."/".$filename."/init.mp4",
+                $vod_path."/".$filename."/*.vtt",
+                $vod_path."/".$filename."/sub_0.m3u8",
+                $vod_path."/".$filename."/sub_0_vtt.m3u8",
+                $vod_path."/".$filename."/sub.m3u8",
+                $vod_path."/".$filename."/manifest_vod*.mp4*",
+                $vod_path."/".$filename."/master_vod.m3u8",
+                $vod_path."/".$filename."/media_*.m3u8",
+                $live_path."/".$filename."/*.mp4",
+                $live_path."/".$filename."/*.m4s",
+                $live_path."/".$filename."/*.vtt",
+                $live_path."/".$filename."/sub_0.m3u8",
+                $live_path."/".$filename."/sub_0_vtt.m3u8",
+                $live_path."/".$filename."/sub.m3u8",
+                $live_path."/".$filename."/stream_live_*.m3u8",
+                $live_path."/".$filename."/manifest_live*.mp4*",
+                $live_path."/".$filename."/master_live.m3u8",
+            );
+
+            foreach ($paths_to_delete as $path) {
+                array_map('unlink', glob($path));
+            }
+
             rmdir($hls_path."/".$filename);
-            if (is_dir($live_path."/".$filename))
-            {
+
+            if (is_dir($live_path."/".$filename)) {
                 rmdir($live_path."/".$filename);
             }
-            if (is_dir($vod_path."/".$filename) && $extension != "mp4")
-            {
-               rmdir($vod_path."/".$filename);
+
+            if (is_dir($vod_path."/".$filename) && $extension != "mp4") {
+                rmdir($vod_path."/".$filename);
             }
-         }
-        if (file_exists($hls_path."/".$filename.".mp4"))
-        {
-            array_map('unlink', glob($hls_path."/".$filename.".mp4"));
+        }
+        if (file_exists($hls_path."/".$filename.".mp4")) {
+            unlink($hls_path."/".$filename.".mp4");
         }
         echo "<html><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><head><title>Video Deleted</title></head><body>".$select_box."<h2>Video Deleted</h2></html>";
     }
@@ -400,23 +578,37 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
         // The VOD files remain on disk and can still be played.
         if (file_exists($hls_path."/".$filename))
         {
-            // Shut down all screen sessions
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_encode  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
-            $response = shell_exec("/usr/bin/sudo /usr/bin/screen -ls ".$filename."_remux  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done");
+            // Shut down all screens
+            $commands = array(
+                "/usr/bin/sudo /usr/bin/screen -ls {$filename}_encode | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done",
+                "/usr/bin/sudo /usr/bin/screen -ls {$filename}_remux  | /usr/bin/grep -E '\s+[0-9]+\.' | /usr/bin/awk '{print $1}' - | while read s; do /usr/bin/sudo /usr/bin/screen -XS \$s quit; done",
+                "/usr/bin/sudo /usr/bin/screen -wipe"
+            );
+
+            foreach ($commands as $command) {
+                shell_exec($command);
+            }
+
             // Delete files
-            array_map('unlink', glob($hls_path."/".$filename."/*.log*"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.sh*"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.vtt"));
-            array_map('unlink', glob($hls_path."/".$filename."/*.m4s*"));
-            array_map('unlink', glob($hls_path."/".$filename."/init_*.mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/video.mp4"));
-            array_map('unlink', glob($hls_path."/".$filename."/sub.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/master_event.m3u8"));
-            array_map('unlink', glob($hls_path."/".$filename."/stream_event_*.m3u8"));
+            $files_to_delete = array(
+                "*.log*",
+                "*.sh*",
+                "*.vtt",
+                "*.m4s*",
+                "init_*.mp4",
+                "video.mp4",
+                "sub.m3u8",
+                "master_event.m3u8",
+                "stream_event_*.m3u8"
+            );
+
+            foreach ($files_to_delete as $file) {
+                array_map('unlink', glob($hls_path."/".$filename."/".$file));
+            }
         }
         if (file_exists($hls_path."/".$filename.".mp4"))
         {
-            array_map('unlink', glob($hls_path."/".$filename.".mp4"));
+            unlink($hls_path."/".$filename.".mp4");
         }
         header("Location: /mythtv-stream-hls-dash/index.php?filename=".$filename);
     }
@@ -436,8 +628,8 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
         {
             $file = $hls_path."/".$filename."/state.txt";
             $content = json_decode(file_get_contents($file), TRUE);
-            $framerate = $content["framerate"];
-            $length = $content["length"];
+            $framerate = $content["framerate"] ?? null;
+            $length = $content["length"] ?? null;
             // TODO: would be nice to replace these shell commands with php
             // TODO: adapt number 23 into a search from the end of the file, it may go wrong in case of may renditions no progress number is shown.
             $frameNumber = shell_exec("/usr/bin/sudo -u".$webuser." /usr/bin/tail -n 23 ".$hls_path."/".$filename."/progress-log.txt | sudo -u".$webuser." /usr/bin/sed -n '/^frame=/p' | sudo -u".$webuser." sed -n 's/frame=//p'");
@@ -458,46 +650,76 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
         {
             $status["available"] = -1;
         }
-        echo json_encode($status);
+        echo json_encode($status, JSON_PRETTY_PRINT);
     }
     else if (isset($_REQUEST["do"]))
     {
+        $required_files = array(
+            $vod_path."/".$filename."/master_vod.m3u8",
+            $hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4",
+            $hls_path."/".$filename.".mp4",
+            $hls_path."/".$filename."/master_event.m3u8",
+            $live_path."/".$filename."/master_live.m3u8"
+        );
+
         // Encode
         if ($extension === "mp4" && !file_exists($hls_path."/".$filename.".".$extension))
         {
             symlink($dirname."/".$filename.".".$extension, $hls_path."/".$filename.".".$extension);
         }
-        else if (!file_exists($vod_path."/".$filename."/master_vod.m3u8") &&
-                 !file_exists($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4") &&
-                 !file_exists($hls_path."/".$filename.".mp4") &&
-                 !file_exists($hls_path."/".$filename."/master_event.m3u8") &&
-                 !file_exists($live_path."/".$filename."/master_live.m3u8"))
+        else if (!array_reduce($required_files, function ($carry, $file) {
+               return $carry || file_exists($file);
+             }, false))
         {
             $file = $hls_path."/".$filename."/state.txt";
             $content = json_decode(file_get_contents($file), TRUE);
-            $framerate = $content["framerate"];
-            $length = $content["length"];
-            $height = $content["height"];
-            $language = $content["language"];
-            $languagename = $content["languagename"];
-            $stream = $content["stream"];
+
+            $framerate = $content["framerate"] ?? null;
+            $length = $content["length"] ?? null;
+            $height = $content["height"] ?? null;
+            $language = $content["language"] ?? null;
+            $languagename = $content["languagename"] ?? null;
+            $stream = $content["stream"] ?? null;
+
             $mustencode = false;
             $fileinput = "";
 
             // Fetch any cut marks
             preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/',$filename,$filedetails);
 
-            $chanid=$filedetails[1][0];
-            $year=$filedetails[2][0];
-            $month=$filedetails[3][0];
-            $day=$filedetails[4][0];
-            $hour=$filedetails[5][0];
-            $minute=$filedetails[6][0];
-            $second=$filedetails[7][0];
-            $starttime="$year-$month-$day $hour:$minute:$second";
-            $datetime = new DateTime("$starttime");
-            $program_list = get_program_list(date("Y-m-d\TH:i:s\Z",strtotime($starttime)), $chanid);
-            $read_rate = "";
+            $recordingDetails = array(
+                "chanid" => $filedetails[1][0],
+                "year" => $filedetails[2][0],
+                "month" => $filedetails[3][0],
+                "day" => $filedetails[4][0],
+                "hour" => $filedetails[5][0],
+                "minute" => $filedetails[6][0],
+                "second" => $filedetails[7][0],
+            );
+
+            $starttime = sprintf("%s-%s-%s %s:%s:%s", $recordingDetails["year"], $recordingDetails["month"], $recordingDetails["day"], $recordingDetails["hour"], $recordingDetails["minute"], $recordingDetails["second"]);
+
+            $datetime = new DateTime($starttime);
+            $currentDateTime = new DateTime();
+            $interval = $currentDateTime->diff($datetime);
+            if ($interval->h < 12 && $interval->days == 0) {
+                // The given DateTime is within the last 12 hours, recordings don't take this long
+                $program_status = get_program_status(date("Y-m-d\TH:i:s\Z",strtotime($starttime)), $recordingDetails["chanid"], $title);
+            }
+            else
+            {
+                // Set the status on unknown without checking
+                $program_status = "-16";
+            }
+            if (isset($program_status) && $program_status === "-2")
+            {
+                // Still recording read input at native frame rate
+                $read_rate = "-re";
+            }
+            else
+            {
+                $read_rate = "";
+            }
 
             if ($extension === "avi")
             {
@@ -512,7 +734,7 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
                 $mustencode = true;
                 $content = json_decode(file_get_contents($file), TRUE);
                 $content["removecut"] = "on";
-                file_put_contents($file, json_encode($content));
+                file_put_contents($file, json_encode($content, JSON_PRETTY_PRINT));
             }
             else
             {
@@ -525,22 +747,26 @@ if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") ||
             if ($mustencode)
             {
                 // Transmuxing from one container/format to mp4 – without re-encoding:
-                fwrite($fp,"/usr/bin/sudo /usr/bin/screen -S ".$filename."_remux -dm /usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: remux start > ".$hls_path."/".$filename."/status.txt;
-/usr/bin/sudo -u".$webuser." ".$ffmpeg." \
-          -y \
-          ".$hwaccels[$_REQUEST["hw"]]["hwaccel"]." \
-          -txt_format text -txt_page 888 \
-          -fix_sub_duration \
-          -i \"".$dirname."/".$filename.".$extension\" \
-          -c copy \
-          -c:s mov_text \
-          ".$hls_path."/".$filename."/video.mp4 && \
-/usr/bin/echo `date`: remux finish success >> ".$hls_path."/".$filename."/status.txt || \
-/usr/bin/echo `date`: remux finish failed >> ".$hls_path."/".$filename."/status.txt'\n");
-                fwrite($fp, "while [ ! \"`/usr/bin/cat ".$hls_path."/".$filename."/status.txt | /usr/bin/grep 'remux finish success'`\" ] ; \
+                $remuxCommand = "/usr/bin/sudo /usr/bin/screen -S {$filename}_remux -dm /usr/bin/sudo -u{$webuser} /usr/bin/bash -c '/usr/bin/echo `date`: remux start > {$hls_path}/{$filename}/status.txt;
+/usr/bin/sudo -u{$webuser} {$ffmpeg} \
+  -y \
+  {$hwaccels[$_REQUEST["hw"]]["hwaccel"]} \
+  -txt_format text -txt_page 888 \
+  -fix_sub_duration \
+  -i \"{$dirname}/{$filename}.{$extension}\" \
+  -c copy \
+  -c:s mov_text \
+  {$hls_path}/{$filename}/video.mp4 && \
+/usr/bin/echo `date`: remux finish success >> {$hls_path}/{$filename}/status.txt || \
+/usr/bin/echo `date`: remux finish failed >> {$hls_path}/{$filename}/status.txt'";
+
+                $waitCommand = "while [ ! \"`/usr/bin/cat {$hls_path}/{$filename}/status.txt | /usr/bin/grep 'remux finish success'`\" ] ; \
 do \
     sleep 1; \
-done\n");
+done";
+
+                fwrite($fp, $remuxCommand . "\n");
+                fwrite($fp, $waitCommand . "\n");
             }
             $hls_playlist_type = "";
             if (isset($_REQUEST["hls_playlist_type"]))
@@ -552,7 +778,7 @@ done\n");
                 $hls_playlist_type = "undefined";
             }
 
-            if (isset($program_list['Status']) && $program_list['Status'] === "-2")
+            if (isset($program_status['Status']) && $program_status['Status'] === "-2")
             {
                 // Still recording read input at native frame rate
                 $read_rate = "-re";
@@ -586,35 +812,7 @@ done\n");
                 $read_rate = "-re";
                 $create_live_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$live_path."/".$filename.";";
                 $option_live  = "[select=\'";
-                $audio_stream_number = 0;
-                for ($i=0; $i < $nb_renditions; $i++)
-                {
-                    $bool_new_audio = true;
-                    $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
-                    for ($j=0; $j < $i; $j++)
-                    {
-                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
-                        {
-                            // seen abitrate before
-                            $bool_new_audio = false;
-                        }
-                    }
-                    if ($bool_new_audio)
-                    {
-                        $option_live .= "a:".$audio_stream_number++.",";
-                    }
-                }
-                for ($i=0; $i < $nb_renditions; $i++)
-                {
-                    if ($i === $nb_renditions - 1)
-                    {
-                        $option_live .= "v:".$i."";
-                    }
-                    else
-                    {
-                        $option_live .= "v:".$i.",";
-                    }
-                }
+                $option_live .= generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
                 $option_live  .= "\': \
           f=hls: \
           hls_time=2: \
@@ -622,34 +820,7 @@ done\n");
           hls_flags=+independent_segments+iframes_only+delete_segments: \
           hls_segment_type=fmp4: \
           var_stream_map=\'";
-                $audio_stream_number = 0;
-                $default = "yes";
-                for ($i=0; $i < $nb_renditions; $i++)
-                {
-                    $bool_new_abitrate = true;
-                    $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
-                    for ($j=0; $j < $i; $j++)
-                    {
-                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
-                        {
-                            // seen abitrate before
-                            $bool_new_abitrate = false;
-                        }
-                    }
-                    if ($bool_new_abitrate)
-                    {
-                        $option_live .= "a:".$audio_stream_number.",agroup:aac,language:".$language."-".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
-                        $default = "no";
-                    }
-                }
-                for ($i=0; $i < $nb_renditions; $i++)
-                {
-                    $option_live .= "v:".$i.",agroup:aac,name:".$settings[$_REQUEST["quality"][$i]]["height"]."p_".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."";
-                    if ($i < $nb_renditions - 1)
-                    {
-                        $option_live .= " ";
-                    }
-                }
+                $option_live .= generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
                 $option_live .= "\\': \\\n          master_pl_name=master_live.m3u8: \
           hls_segment_filename=../$livedir/$filename/stream_live_%v_data%02d.m4s]../$livedir/$filename/stream_live_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
@@ -691,35 +862,7 @@ done\n");
             if ($hls_playlist_type === "event")
             {
                 $option_hls  = "[select=\'";
-                $audio_stream_number = 0;
-                for ($i=0; $i < $nb_renditions; $i++)
-                {
-                    $bool_new_audio = true;
-                    $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
-                    for ($j=0; $j < $i; $j++)
-                    {
-                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
-                        {
-                            // seen abitrate before
-                            $bool_new_audio = false;
-                        }
-                    }
-                    if ($bool_new_audio)
-                    {
-                        $option_hls .= "a:".$audio_stream_number++.",";
-                    }
-                }
-                for ($i=0; $i < $nb_renditions; $i++)
-                {
-                    if ($i === $nb_renditions - 1)
-                    {
-                        $option_hls .= "v:".$i."";
-                    }
-                    else
-                    {
-                        $option_hls .= "v:".$i.",";
-                    }
-                }
+                $option_hls .= generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
                 $option_hls  .= "\': \
           f=hls: \
           hls_time=2: \
@@ -727,34 +870,7 @@ done\n");
           hls_flags=+independent_segments+iframes_only: \
           hls_segment_type=fmp4: \
           var_stream_map=\'";
-                $audio_stream_number = 0;
-                $default = "yes";
-                for ($i=0; $i < $nb_renditions; $i++)
-                {
-                    $bool_new_abitrate = true;
-                    $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
-                    for ($j=0; $j < $i; $j++)
-                    {
-                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
-                        {
-                            // seen abitrate before
-                            $bool_new_abitrate = false;
-                        }
-                    }
-                    if ($bool_new_abitrate)
-                    {
-                        $option_hls .= "a:".$audio_stream_number.",agroup:aac,language:".$language."-".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
-                        $default = "no";
-                    }
-                }
-                for ($i=0; $i < $nb_renditions; $i++)
-                {
-                    $option_hls .= "v:".$i.",agroup:aac,name:".$settings[$_REQUEST["quality"][$i]]["height"]."p_".$settings[$_REQUEST["quality"][$i]]["vbitrate"]."";
-                    if ($i < $nb_renditions - 1)
-                    {
-                        $option_hls .= " ";
-                    }
-                }
+                $option_hls .= generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
                 $option_hls .= "\\': \
           master_pl_name=master_event.m3u8: \
           hls_segment_filename=$filename/stream_event_%v_data%02d.m4s]$filename/stream_event_%v.m3u8";
@@ -803,35 +919,7 @@ done\n");
             {
                 $create_vod_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$vod_path."/".$filename.";";
                 $option_vod  = "[select=\'";
-                $audio_stream_number = 0;
-                for ($i=0; $i < $nb_renditions; $i++)
-                {
-                    $bool_new_audio = true;
-                    $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
-                    for ($j=0; $j < $i; $j++)
-                    {
-                        if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
-                        {
-                            // seen abitrate before
-                            $bool_new_audio = false;
-                        }
-                    }
-                    if ($bool_new_audio)
-                    {
-                        $option_vod .= "a:".$audio_stream_number++.",";
-                    }
-                }
-                for ($i=0; $i < $nb_renditions; $i++)
-                {
-                    if ($i === $nb_renditions - 1)
-                    {
-                        $option_vod .= "v:".$i."";
-                    }
-                    else
-                    {
-                        $option_vod .= "v:".$i.",";
-                    }
-                }
+                $option_vod .= generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
                 $option_vod  .= "\': \
           f=dash: \
           seg_duration=2: \
@@ -1115,6 +1203,10 @@ done\n");
           var currentStatus = "";
           var message_string = "";
           var extension = "<?php echo $extension; ?>";
+          var continueChecking = true;
+          let startTime = Date.now();
+          const timeFrame = 30000; // 30 seconds
+          let buttonsInitialized = false; // Flag to track button initialization
 
           navigator.sayswho = (function(){
               var ua= navigator.userAgent;
@@ -1165,6 +1257,7 @@ done\n");
                       if (status["status"][i].indexOf("fail") >= 0)
                       {
                           message = "Failed to generate video ("+status["status"][i]+")";
+                          continueChecking = false;
                       }
                   }
               }
@@ -1192,9 +1285,19 @@ done\n");
                           playerInitDone = initPlayer();
                       }
                   }
+                  else if (status['available'] ==  '100')
+                  {
+                      message = "MP4 Video Available";
+                      continueChecking = false;
+                      if (!playerInitDone)
+                      {
+                          playerInitDone = initPlayer();
+                      }
+                  }
                   else if (currentStatus.indexOf("encode finish success") > 0)
                   {
                       message = message_string;
+                      continueChecking = false;
                       if (!playerInitDone)
                       {
                           playerInitDone = initPlayer();
@@ -1218,73 +1321,165 @@ done\n");
                   }
               }
 
-              // TODO: add extra check if transcoding is finished?
-              if (checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd")) {
-                  message_string = "DASH VOD Available";
-                  // Show button to play DASH on Windows Edge browser
-                  var dashVodButtonId = document.getElementById("dashVodButtonId");
-                  dashVodButtonId.style.display = 'block';
-                  dashVodButtonId.style.visibility = 'visible';
-                  dashVodButtonId.setAttribute('onclick',"window.location.href='../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd'");
-              }
-              if (checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8")) {
-                  message_string = "HLS VOD Available";
-                  // Show button to play VOD stream
-                  var hlsVodButtonId = document.getElementById("hlsVodButtonId");
-                  hlsVodButtonId.style.display = 'block';
-                  hlsVodButtonId.style.visibility = 'visible';
-                  hlsVodButtonId.setAttribute('onclick',"window.location.href='../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8'");
-              }
-              if (extension === "mp4" &&
-                  checkFileExists("../hls/<?php echo $filename; ?>.mp4")) {
-                  message_string = "Linked MP4 Available";
-                  // Show button to play available mp4 (no encoding necessary)
-                  var linkButtonId = document.getElementById("linkButtonId");
-                  linkButtonId.style.display = 'block';
-                  linkButtonId.style.visibility = 'visible';
-                  linkButtonId.addEventListener("click", function() {
-                      var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>.mp4";
-                      copyToClipboard(url);
-                  }, false);
-              }
-              if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8")) {
-                  message_string = "HLS Available";
-                  // Show button to play HLS event stream
-                  var eventButtonId = document.getElementById("eventButtonId");
-                  eventButtonId.style.display = 'block';
-                  eventButtonId.style.visibility = 'visible';
-                  eventButtonId.setAttribute('onclick',"window.location.href='../hls/<?php echo $filename; ?>/master_event.m3u8'");
-              }
-              if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8") &&
-                  checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
-                  currentStatus.indexOf("encode finish success") >= 0) {
-                  // Show button to delete event video leaving VOD intact
-                  var cleanupEventId = document.getElementById('cleanupEventId');
-                  cleanupEventId.style.display = 'block';
-                  cleanupEventId.style.visibility = 'visible';
-              }
-              if (checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8")) {
-                  message_string = "LIVE Available";
-                  // Show button to play live stream
-                  var liveButtonId = document.getElementById("liveButtonId");
-                  liveButtonId.style.display = 'block';
-                  liveButtonId.style.visibility = 'visible';
-                  liveButtonId.setAttribute('onclick',"window.location.href='../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8'");
-              }
-              if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
-                  currentStatus.indexOf("encode finish success") >= 0) {
-                  message_string = "MP4 Video Available";
-                  // Show button to play MP4 stream
-                  var mp4ButtonId = document.getElementById("mp4ButtonId");
-                  mp4ButtonId.style.display = 'block';
-                  mp4ButtonId.style.visibility = 'visible';
-                  mp4ButtonId.addEventListener("click", function() {
-                      var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
-                      download(url);
-                          }, false);
-              }
               document.getElementById("statusbutton").value = message;
-          }
+
+              // Function to check the status of files
+              const checkFiles = () => {
+                  // Array of file checks and corresponding actions
+                  const fileChecks = [
+                      {
+                          check: () => checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd"),
+                              buttonId: "dashVodButtonId",
+                              action: () => activateButton("dashVodButtonId", "../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd", "DASH VOD Available")
+                              },
+                      {
+                          check: () => checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8"),
+                              buttonId: "hlsVodButtonId",
+                              action: () => activateButton("hlsVodButtonId", "../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8", "HLS VOD Available")
+                              },
+                      {
+                          check: () => extension === "mp4" && checkFileExists("../hls/<?php echo $filename; ?>.mp4"),
+                              buttonId: "linkButtonId",
+                              action: () => {
+                              var linkButtonId = document.getElementById("linkButtonId");
+                              linkButtonId.style.display = 'block';
+                              linkButtonId.style.visibility = 'visible';
+                              linkButtonId.addEventListener("click", function() {
+                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>.mp4";
+                                  download(url);
+                              }, false);
+                              linkButtonId.value = "Linked MP4 Available"; // Set the button's message
+                          }
+                      },
+                      {
+                          check: () => checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8"),
+                              buttonId: "eventButtonId",
+                              action: () => {
+                              activateButton("eventButtonId", "../hls/<?php echo $filename; ?>/master_event.m3u8", "HLS Available");
+                              deactivateButton("liveButtonId"); // Ensure mutual exclusivity
+                          }
+                      },
+                      {
+                          check: () => checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8"),
+                              buttonId: "liveButtonId",
+                              action: () => {
+                              activateButton("liveButtonId", "../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8", "LIVE Available");
+                              deactivateButton("eventButtonId"); // Ensure mutual exclusivity
+                          }
+                      },
+                      {
+                          check: () => checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8") &&
+                              checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
+                              currentStatus.indexOf("encode finish success") >= 0,
+                              buttonId: "cleanupEventId",
+                              action: () => activateButton("cleanupEventId", null, "Cleanup Event Available")
+                      },
+                      {
+                          check: () => checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+                              currentStatus.indexOf("encode finish success") >= 0,
+                              buttonId: "mp4ButtonId",
+                              action: () => {
+                              var linkButtonId = document.getElementById("mp4ButtonId");
+                              linkButtonId.style.display = 'block';
+                              linkButtonId.style.visibility = 'visible';
+                              linkButtonId.addEventListener("click", function() {
+                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                                  download(url);
+                              }, false);
+                              linkButtonId.value = "MP4 Video Available"; // Set the button's message
+                          }
+                      },
+                  ];
+
+                  // Check each file and execute corresponding actions
+                  for (const fileCheck of fileChecks) {
+                      if (fileCheck.check()) {
+                          fileCheck.action(); // Execute the action to activate the button
+                      }
+                  }
+              };
+
+              // Function to activate a button
+              const activateButton = (buttonId, url, message) => {
+                  var button = document.getElementById(buttonId);
+                  button.style.display = 'block';
+                  button.style.visibility = 'visible';
+                  if (url) {
+                      button.setAttribute('onclick', `window.location.href='${url}'; this.setAttribute('download', '');`);
+                  }
+                  if (message) {
+                      button.value = message; // Set the button's value or text to the message
+                  }
+              };
+
+              // Function to deactivate a button
+              const deactivateButton = (buttonId) => {
+                  var button = document.getElementById(buttonId);
+                  button.style.display = 'none';
+                  button.style.visibility = 'hidden';
+              };
+
+              // Initialize buttons only once
+              if (!buttonsInitialized) {
+                  const buttonIds = [
+                      "dashVodButtonId",
+                      "hlsVodButtonId",
+                      "linkButtonId",
+                      "eventButtonId",
+                      "liveButtonId",
+                      "cleanupEventId",
+                      "mp4ButtonId"
+                  ];
+                  buttonIds.forEach(deactivateButton); // Deactivate all buttons initially
+                  buttonsInitialized = true; // Set the flag to true after initialization
+              }
+
+              // Check the elapsed time
+              const elapsedTime = Date.now() - startTime;
+
+              // Call the checkFiles function to perform the checks
+              if (elapsedTime < timeFrame) {
+                  // If within the first 30 seconds, check all files
+                  checkFiles();
+              } else {
+                  // After 30 seconds, only check specific files
+                  const limitedFileChecks = [
+                      {
+                          check: () => checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8") &&
+                              checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
+                              currentStatus.indexOf("encode finish success") >= 0,
+                              buttonId: "cleanupEventId",
+                              action: () => activateButton("cleanupEventId", null, "Cleanup Event Available")
+                      },
+                      {
+                          check: () => checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+                              currentStatus.indexOf("encode finish success") >= 0,
+                              buttonId: "mp4ButtonId",
+                              action: () => {
+                              var linkButtonId = document.getElementById("mp4ButtonId");
+                              linkButtonId.style.display = 'block';
+                              linkButtonId.style.visibility = 'visible';
+                              linkButtonId.addEventListener("click", function() {
+                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                                  download(url);
+                              }, false);
+                              linkButtonId.value = "MP4 Video Available"; // Set the button's message
+                          }
+                      }
+                  ];
+
+                  // Check each limited file and execute corresponding actions
+                  for (const fileCheck of limitedFileChecks) {
+                      if (fileCheck.check()) {
+                          fileCheck.action(); // Execute the action to activate the button
+                      }
+                  }
+              }
+
+              if (!continueChecking) {
+                  clearInterval(statusInterval);
+              }
+          };
 
           function copyToClipboard(url) {
               window.prompt("Copy to clipboard: Ctrl+C, Enter", url);
@@ -1536,16 +1731,43 @@ done\n");
     }
     else
     {
-        if (file_exists($dirname."/".$_REQUEST["filename"].".$extension") && $extension !== "mp4")
+        if (file_exists($dirname."/".$filename.".$extension") && $extension !== "mp4")
         {
-            if (!file_exists($hls_path."/".$filename))
+            if (!is_dir($hls_path."/".$filename))
             {
                 mkdir($hls_path."/".$filename);
             }
-            $file = $hls_path."/".$_REQUEST["filename"]."/state.txt";
+            $file = $hls_path."/".$filename."/state.txt";
             $cutcount = 0;
-            if (!file_exists($file))
+            if (file_exists($file))
             {
+                // (partial) state.txt available
+                $content = json_decode(file_get_contents($file), TRUE);
+                $framerate = $content["framerate"] ?? null;
+                $length = $content["length"] ?? null;
+                // Check if title and subtitle are defined
+                if (!isset($content["title"])) {
+                    if (isset($title)) {
+                        $content["title"] = $title;
+                    }
+                    else {
+                        $content["title"] = "Default Title";
+                    }
+                }
+                if (!isset($content["subtitle"])) {
+                    if (isset($subtitle)) {
+                        $content["subtitle"] = $subtitle;
+                    }
+                    else {
+                        $content["subtitle"] = "Default Subtitle";
+                    }
+                }
+                $jsonContent = json_encode($content, JSON_PRETTY_PRINT);
+                file_put_contents($file, $jsonContent);
+            }
+            else
+            {
+                // no state.txt available
                 $length = 0;
                 $framerate = 0;
                 // Get mediainfo
@@ -1587,7 +1809,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                     foreach ($formatsub as $key => $value) {
                         if ($prefvalue['name'] == $value[0] && ($value[1] == "ASS" || $value[1] == "UTF-8" || $value[1] == "Teletext Subtitle"))
                         {
-                            $language = $prefvalue["ISO"];
+                            $language = $prefkey;
                             $languagename = $prefvalue["name"];
                             $stream = $key;
                             break 2;
@@ -1597,35 +1819,43 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 if ($language === "")
                 {
                     // if no language is found assume the first preferred language
-                    $language = $sublangpref[array_key_first($sublangpref)]["ISO"];
+                    $language = array_key_first($sublangpref);
                     $languagename = $sublangpref[array_key_first($sublangpref)]["name"];
                 }
-                $state = array();
-                $state["framerate"] = $framerate;
-                $state["length"] = $length;
-                $state["height"] = $height;
-                $state["language"] = $language;
-                $state["languagename"] = $languagename;
-                $state["stream"] = $stream;
+                $state = [
+                    "framerate" => $framerate,
+                    "length" => $length,
+                    "height" => $height,
+                    "language" => $language,
+                    "languagename" => $languagename,
+                    "stream" => $stream,
+                    "title" => $title,
+                    "subtitle" => $subtitle,
+                ];
 
                 // Fetch any cut marks
-                preg_match_all('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/',$filename,$filedetails);
+                preg_match('/^(\d*)_(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/',$filename,$filedetails);
 
-                $chanid=$filedetails[1][0];
-                $year=$filedetails[2][0];
-                $month=$filedetails[3][0];
-                $day=$filedetails[4][0];
-                $hour=$filedetails[5][0];
-                $minute=$filedetails[6][0];
-                $second=$filedetails[7][0];
+                list($chanid, $year, $month, $day, $hour, $minute, $second) = array_slice($filedetails, 1);
+
                 $starttime="$year-$month-$day $hour:$minute:$second";
 
                 $fp = fopen($hls_path."/".$filename."/cutlist.txt", "w");
                 fprintf($fp, "ffconcat version 1.0\n");
                 $clippedlength = 0;
-                $datetime = new DateTime("$starttime");
-                $program_list = get_program_list(date("Y-m-d\TH:i:s\Z",strtotime($starttime)), $chanid);
-                if (! (isset($program_list['Status']) && $program_list['Status'] === "-2"))
+                $datetime = new DateTime($starttime);
+                $currentDateTime = new DateTime();
+                $interval = $currentDateTime->diff($datetime);
+                if ($interval->h < 12 && $interval->days == 0) {
+                    // The given DateTime is within the last 12 hours
+                    $program_status = get_program_status(date("Y-m-d\TH:i:s\Z",strtotime($starttime)), $chanid, $title);
+                }
+                else
+                {
+                    // Set the status on unknown without checking, assumption recordings don't last more than 12 hours...
+                    $program_status = "-16";
+                }
+                if ((isset($program_status) && $program_status !== "-2"))
                 {
                     // Made sure we are not still recording
                     $recorded = get_recorded($datetime->format(DateTime::ATOM), $chanid);
@@ -1634,7 +1864,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                     $firstrow = true;
                     $midsegment = false;
                     $startsegment = 0;
-                    foreach ($recorded_markup[0] as $markup => $value) {
+                    foreach ($recorded_markup as $markup => $value) {
                         $cutcount++;
                         $mark = (double)$value / $framerate;
                         if ($markup === 'CUT_START_' . $cutcount)
@@ -1676,13 +1906,8 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 {
                     $state["clippedlength"] = $clippedlength;
                 }
-                $content = json_encode($state);
+                $content = json_encode($state, JSON_PRETTY_PRINT);
                 file_put_contents($file, $content);
-            }
-            else {
-                $content = json_decode(file_get_contents($file), TRUE);
-                $framerate = $content["framerate"];
-                $length = $content["length"];
             }
         }
             ?>
@@ -1694,12 +1919,25 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
             <form name="FC" action="index.php" method="GET">
             <input type="hidden" name="filename" value="<?php echo $filename; ?>">
 <?php
-        if (file_exists($vod_path."/".$filename."/master_vod.m3u8") ||
-            file_exists($hls_path."/".$filename."/master_event.m3u8") ||
-            file_exists($dirname."/".$filename.".mp4") ||
-            file_exists($hls_path."/".$filename."/video.mp4") ||
-            file_exists($hls_path."/".$filename."/".$filename." - ".$title_subtitle.".mp4") ||
-            file_exists($live_path."/".$filename."/master_live.m3u8"))
+        $paths_to_check = [
+            $dirname . "/" . $filename . ".mp4",
+            $vod_path . "/" . $filename . "/master_vod.m3u8",
+            $hls_path . "/" . $filename . "/master_event.m3u8",
+            $dirname . "/" . $filename . ".mp4",
+            $hls_path . "/" . $filename . "/video.mp4",
+            $hls_path . "/" . $filename . "/" . $filename . " - " . $title_subtitle . ".mp4",
+            $live_path . "/" . $filename . "/master_live.m3u8"
+        ];
+
+        $file_found = false;
+        foreach ($paths_to_check as $path) {
+            if (file_exists($path)) {
+                $file_found = true;
+                break;
+            }
+        }
+
+        if ($file_found)
         {
             // ready for streaming
             ?>
@@ -1797,7 +2035,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
 }
 else
 {
-    if (file_exists($dirname."".$_REQUEST["filename"].".$extension"))
+    if (file_exists($dirname."".$filename.".$extension"))
     {
         echo "Video file exists, but is not supported.\n";
     }
