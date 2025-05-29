@@ -275,7 +275,7 @@ index 97ae71efa8..f088012f94 100644
 
 <details>
 <summary>
-Click me to configure web browser adding video search to MythTV v34. For MythTV v35 a pull request can be found [[https://github.com/MythTV/mythtv/pull/1078/files][here]]. Part of this code has been merged into master offering category selection as well.
+Click me to configure web browser adding video search to MythTV v34. For MythTV v35 a pull request can be found [here](https://github.com/MythTV/mythtv/pull/1078/files]. This code has been cherry picked and merged into master offering category selection as well.
 </summary>
 
 ``` shell
