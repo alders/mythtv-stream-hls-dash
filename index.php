@@ -822,7 +822,7 @@ done";
           var_stream_map=\'";
                 $option_live .= generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
                 $option_live .= "\\': \\\n          master_pl_name=master_live.m3u8: \
-          hls_segment_filename=$live_path/$filename/stream_live_%v_data%02d.m4s]$live_path/$filename/stream_live_%v.m3u8";
+          hls_segment_filename=../$livedir/$filename/stream_live_%v_data%02d.m4s]../$livedir/$filename/stream_live_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -836,7 +836,7 @@ done";
           hls_list_size=10: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']$live_path/$filename/sub_%v.m3u8";
+          hls_segment_filename=\'/dev/null\']../$livedir/$filename/sub_%v.m3u8";
                     $master_file = "$live_path/$filename/master_live.m3u8";
                     // This command is delayed until master_live.m3u8 is created by FFmpeg!!!
                     // NOTE: Add subtitles
@@ -927,7 +927,7 @@ done";
           single_file=true: \
           adaptation_sets=\'id=0,streams=a id=1,streams=v\' : \
           media_seg_name=\'stream_vod_\$RepresentationID\$-\$Number%05d\$.\$ext\$\': \
-          hls_master_name=master_vod.m3u8]".$vod_path."/".$filename."/manifest_vod.mpd";
+          hls_master_name=master_vod.m3u8]../".$voddir."/".$filename."/manifest_vod.mpd";
                 $master_file = "".$vod_path."/".$filename."/master_vod.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
@@ -942,7 +942,7 @@ done";
           hls_playlist_type=event: \
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
-          hls_segment_filename=\'/dev/null\']$vod_path/".$filename."/sub_%v.m3u8";
+          hls_segment_filename=\'/dev/null\']../$voddir/".$filename."/sub_%v.m3u8";
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Correct for FFmpeg bug?: even though $mapping uses -metadata:s:a:".$i." language=$language
                     // NOTE: the language setting is not written to the master_vod.m3u8 file.
@@ -1328,54 +1328,54 @@ done\n");
                   // Array of file checks and corresponding actions
                   const fileChecks = [
                       {
-                          check: () => checkFileExists("<?php echo $vod_path; ?>/<?php echo $filename; ?>/manifest_vod.mpd"),
+                          check: () => checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd"),
                               buttonId: "dashVodButtonId",
-                              action: () => activateButton("dashVodButtonId", "<?php echo $vod_path; ?>/<?php echo $filename; ?>/manifest_vod.mpd", "DASH VOD Available")
+                              action: () => activateButton("dashVodButtonId", "../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd", "DASH VOD Available")
                               },
                       {
-                          check: () => checkFileExists("<?php echo $vod_path; ?>/<?php echo $filename; ?>/master_vod.m3u8"),
+                          check: () => checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8"),
                               buttonId: "hlsVodButtonId",
-                              action: () => activateButton("hlsVodButtonId", "<?php echo $vod_path; ?>/<?php echo $filename; ?>/master_vod.m3u8", "HLS VOD Available")
+                              action: () => activateButton("hlsVodButtonId", "../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8", "HLS VOD Available")
                               },
                       {
-                          check: () => extension === "mp4" && checkFileExists("<?php echo $hls_path; ?>/<?php echo $filename; ?>.mp4"),
+                          check: () => extension === "mp4" && checkFileExists("../hls/<?php echo $filename; ?>.mp4"),
                               buttonId: "linkButtonId",
                               action: () => {
                               var linkButtonId = document.getElementById("linkButtonId");
                               linkButtonId.style.display = 'block';
                               linkButtonId.style.visibility = 'visible';
                               linkButtonId.addEventListener("click", function() {
-                                  var url = "http://<?php echo $yourserver; ?>/<?php echo $hlsdir ?>/<?php echo $filename; ?>.mp4";
+                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>.mp4";
                                   download(url);
                               }, false);
                               linkButtonId.value = "Linked MP4 Available"; // Set the button's message
                           }
                       },
                       {
-                          check: () => checkFileExists("<?php echo $hls_path; ?>/<?php echo $filename; ?>/master_event.m3u8"),
+                          check: () => checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8"),
                               buttonId: "eventButtonId",
                               action: () => {
-                              activateButton("eventButtonId", "<?php echo $hls_path; ?>/<?php echo $filename; ?>/master_event.m3u8", "HLS Available");
+                              activateButton("eventButtonId", "../hls/<?php echo $filename; ?>/master_event.m3u8", "HLS Available");
                               deactivateButton("liveButtonId"); // Ensure mutual exclusivity
                           }
                       },
                       {
-                          check: () => checkFileExists("<?php echo $live_path; ?>/<?php echo $filename; ?>/master_live.m3u8"),
+                          check: () => checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8"),
                               buttonId: "liveButtonId",
                               action: () => {
-                              activateButton("liveButtonId", "<?php echo $live_path; ?>/<?php echo $filename; ?>/master_live.m3u8", "LIVE Available");
+                              activateButton("liveButtonId", "../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8", "LIVE Available");
                               deactivateButton("eventButtonId"); // Ensure mutual exclusivity
                           }
                       },
                       {
-                          check: () => checkFileExists("<?php echo $hls_path; ?>/<?php echo $filename; ?>/master_event.m3u8") &&
-                              checkFileExists("<?php echo $vod_path; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
+                          check: () => checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8") &&
+                              checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
                               currentStatus.indexOf("encode finish success") >= 0,
                               buttonId: "cleanupEventId",
                               action: () => activateButton("cleanupEventId", null, "Cleanup Event Available")
                       },
                       {
-                          check: () => checkFileExists("<?php echo $hls_path; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+                          check: () => checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                               currentStatus.indexOf("encode finish success") >= 0,
                               buttonId: "mp4ButtonId",
                               action: () => {
@@ -1383,7 +1383,7 @@ done\n");
                               linkButtonId.style.display = 'block';
                               linkButtonId.style.visibility = 'visible';
                               linkButtonId.addEventListener("click", function() {
-                                  var url = "http://<?php echo $yourserver; ?>/<?php echo $hlsdir ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
                                   download(url);
                               }, false);
                               linkButtonId.value = "MP4 Video Available"; // Set the button's message
@@ -1445,14 +1445,14 @@ done\n");
                   // After 30 seconds, only check specific files
                   const limitedFileChecks = [
                       {
-                          check: () => checkFileExists("<?php echo $hls_path; ?>/<?php echo $filename; ?>/master_event.m3u8") &&
-                              checkFileExists("<?php echo $vod_path; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
+                          check: () => checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8") &&
+                              checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
                               currentStatus.indexOf("encode finish success") >= 0,
                               buttonId: "cleanupEventId",
                               action: () => activateButton("cleanupEventId", null, "Cleanup Event Available")
                       },
                       {
-                          check: () => checkFileExists("<?php echo $hls_path; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+                          check: () => checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                               currentStatus.indexOf("encode finish success") >= 0,
                               buttonId: "mp4ButtonId",
                               action: () => {
@@ -1460,7 +1460,7 @@ done\n");
                               linkButtonId.style.display = 'block';
                               linkButtonId.style.visibility = 'visible';
                               linkButtonId.addEventListener("click", function() {
-                                  var url = "http://<?php echo $yourserver; ?>/<?php echo $hlsdir ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
                                   download(url);
                               }, false);
                               linkButtonId.value = "MP4 Video Available"; // Set the button's message
@@ -1524,27 +1524,27 @@ done\n");
           // async does not work on Edge
           //async function initPlayer() {
           function initPlayer() {
-            var fileExists = checkFileExists("<?php echo $vod_path; ?>/<?php echo $filename; ?>/manifest_vod.mpd");
+            var fileExists = checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd");
 
             if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
                 // Play DASH on Windows Edge browser
-                manifestUri = "<?php echo $vod_path; ?>/<?php echo $filename; ?>/manifest_vod.mpd";
+                manifestUri = "../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd";
             } else if (fileExists) {
                 // Play VOD stream
-                manifestUri = "<?php echo $vod_path; ?>/<?php echo $filename; ?>/master_vod.m3u8";
-            } else if (checkFileExists("<?php echo $hls_path; ?>/<?php echo $filename; ?>/master_event.m3u8")) {
+                manifestUri = "../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8";
+            } else if (checkFileExists("../hls/<?php echo $filename; ?>/master_event.m3u8")) {
                 // Play HLS event stream
-                manifestUri = "<?php echo $hls_path; ?>/<?php echo $filename; ?>/master_event.m3u8";
-            } else if (checkFileExists("<?php echo $live_path; ?>/<?php echo $filename; ?>/master_live.m3u8")) {
+                manifestUri = "../hls/<?php echo $filename; ?>/master_event.m3u8";
+            } else if (checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8")) {
                 // Play live stream
-                manifestUri = "<?php echo $live_path; ?>/<?php echo $filename; ?>/master_live.m3u8";
-            } else if (checkFileExists("<?php echo $hls_path; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+                manifestUri = "../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8";
+            } else if (checkFileExists("../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
                        currentStatus.indexOf("encode finish success") >= 0) {
                 // Play MP4 file
-                manifestUri = "<?php echo $hls_path; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                manifestUri = "../hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
             } else if (extension === "mp4") {
                 // Play existing mp4, no encoding required
-                manifestUri = "<?php echo $hls_path; ?>/<?php echo $filename; ?>.mp4";
+                manifestUri = "../hls/<?php echo $filename; ?>.mp4";
             } else {
                     return false;
             }
