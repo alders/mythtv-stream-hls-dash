@@ -94,14 +94,14 @@ if (isset($_REQUEST["quality"]))
 }
 if (isset($_REQUEST["clippedlength"]))
 {
-    if (!ctype_digit($_REQUEST["clippedlength"]))
+    if (!is_numeric($_REQUEST["clippedlength"]))
     {
         throw new InvalidArgumentException('Invalid clippedlength');
     }
 }
 if (isset($_REQUEST["length"]))
 {
-    if (!ctype_digit($_REQUEST["length"]))
+    if (!is_numeric($_REQUEST["length"]))
     {
         throw new InvalidArgumentException('Invalid length');
     }
@@ -1956,6 +1956,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
             <?php
                 $content = json_decode(file_get_contents($file), TRUE);
                 $height = $content["height"];
+                $clippedlength = $content["clippedlength"];
                 foreach ($settings as $setting => $settingset)
                 {
                     // TODO: remove hack adding 300, need to be even higher?
