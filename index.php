@@ -754,9 +754,14 @@ if ($file_exists)
   -txt_format text -txt_page 888 \
   -fix_sub_duration \
   -i \"{$dirname}/{$filename}.{$extension}\" \
-  -c copy \
-  -c:s mov_text \
-  {$hls_path}/{$filename}/video.mp4 && \
+  -c copy \\";
+                if (isset($_REQUEST["checkbox_subtitles"]))
+                {
+                    $remuxCommand = $remuxCommand . "
+  -c:s mov_text \\";
+                }
+                $remuxCommand = $remuxCommand . "
+{$hls_path}/{$filename}/video.mp4 && \
 /usr/bin/echo `date`: remux finish success >> {$hls_path}/{$filename}/status.txt || \
 /usr/bin/echo `date`: remux finish failed >> {$hls_path}/{$filename}/status.txt'";
 
@@ -1375,7 +1380,7 @@ done\n");
                               action: () => activateButton("cleanupEventId", null, "Cleanup Event Available")
                       },
                       {
-                          check: () => checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+                          check: () => checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4") &&
                               currentStatus.indexOf("encode finish success") >= 0,
                               buttonId: "mp4ButtonId",
                               action: () => {
@@ -1383,7 +1388,7 @@ done\n");
                               linkButtonId.style.display = 'block';
                               linkButtonId.style.visibility = 'visible';
                               linkButtonId.addEventListener("click", function() {
-                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4";
                                   download(url);
                               }, false);
                               linkButtonId.value = "MP4 Video Available"; // Set the button's message
@@ -1452,7 +1457,7 @@ done\n");
                               action: () => activateButton("cleanupEventId", null, "Cleanup Event Available")
                       },
                       {
-                          check: () => checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+                          check: () => checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4") &&
                               currentStatus.indexOf("encode finish success") >= 0,
                               buttonId: "mp4ButtonId",
                               action: () => {
@@ -1460,7 +1465,7 @@ done\n");
                               linkButtonId.style.display = 'block';
                               linkButtonId.style.visibility = 'visible';
                               linkButtonId.addEventListener("click", function() {
-                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4";
                                   download(url);
                               }, false);
                               linkButtonId.value = "MP4 Video Available"; // Set the button's message
@@ -1538,10 +1543,10 @@ done\n");
             } else if (checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8")) {
                 // Play live stream
                 manifestUri = "../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8";
-            } else if (checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4") &&
+            } else if (checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4") &&
                        currentStatus.indexOf("encode finish success") >= 0) {
                 // Play MP4 file
-                manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo $title_subtitle; ?>.mp4";
+                manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4";
             } else if (extension === "mp4") {
                 // Play existing mp4, no encoding required
                 manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>.mp4";
