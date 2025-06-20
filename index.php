@@ -428,7 +428,7 @@ foreach ($file_list as $file) {
 
 $file_list = remove_duplicates($file_list);
 
-$select_box = "<form><select onChange=\"window.location.href='index.php?filename='+this.value;\">\n";
+$select_box = "    <form>\n    <select onChange=\"window.location.href='index.php?filename='+this.value;\">\n";
 $current_value = $_GET['filename'] ?? '';
 foreach ($file_list as $file) {
     $fn = pathinfo($file, PATHINFO_FILENAME);
@@ -442,7 +442,7 @@ foreach ($file_list as $file) {
         $selected = $current_value == $fn ? 'selected' : '';
         if (array_key_exists($fn, $names)) {
             // File is available in MythTV thus title is known
-            $select_box .= "            <option value=\"".$fn."\" $selected>".$names[$fn]." (".$month."/".$day."/".$year.")</option>\n";
+            $select_box .= "        <option value=\"".$fn."\" $selected>".$names[$fn]." (".$month."/".$day."/".$year.")</option>\n";
         } else {
             // File is not available in MythTV attempt to retrieve title from 'state.txt'
             $fileInfo = getFileInfo($hls_path, $fn);
@@ -459,7 +459,7 @@ foreach ($file_list as $file) {
         }
     }
 }
-$select_box .= "          </select></form>\n";
+$select_box .= "    </select></form>\n";
 
 $hw_box = "<br>";
 $hw_box .= "<label for=\"hwaccel\">HW acceleration: </label><select class=\"select\" name=\"hw\" required>";
@@ -570,7 +570,7 @@ if ($file_exists)
         if (file_exists($hls_path."/".$filename.".mp4")) {
             unlink($hls_path."/".$filename.".mp4");
         }
-        echo "<html><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><head><title>Video Deleted</title></head><body>".$select_box."<h2>Video Deleted</h2></html>";
+        echo "<html lang=\"en\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><head><title>Video Deleted</title></head><body>".$select_box."<h2>Video Deleted</h2></html>";
     }
     else if (isset($_REQUEST['action']) && $_REQUEST["action"] === "clean")
     {
@@ -1174,435 +1174,497 @@ done\n");
             $response = shell_exec("/usr/bin/sudo /usr/bin/screen -S ".$filename."_encode -X stuff '".$hls_path."/".$filename."/encode.sh\n'");
         }
         ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DASH and HLS fMP4 Video Player</title>
+    <style>
+        #liveButtonId { display: none; visibility: hidden; }
+        #dashVodButtonId { display:none; visibility:hidden; }
+        #hlsVodButtonId { display:none; visibility:hidden; }
+        #linkButtonId { display:none; visibility:hidden; }
+        #eventButtonId { display:none; visibility:hidden; }
+        #mp4ButtonId { display:none; visibility:hidden; }
+    </style>
+    <!-- Load the Shaka Player library. -->
+    <script src="../dist/shaka-player.compiled.js"></script>
+    <!-- Shaka Player ui compiled library: -->
+    <script src="../dist/shaka-player.ui.js"></script>
+    <!-- Shaka Player ui compiled library default CSS: -->
+    <link rel="stylesheet" type="text/css" href="../dist/controls.css">
+    <script defer src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
+</head>
+<body>
+    <?php echo $select_box; ?>
+    <table cellspacing="10">
+      <tr>
+        <td>
+          <form action="index.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
+            <input type="hidden" name="filename" value="<?php echo $filename; ?>">
+            <input type="hidden" name="action" value="delete">
+            <input type="submit" value="Delete Video Files">
+          </form>
+        </td>
+        <td valign="top">
+          <form>
+            <input type="button" onclick="showStatus();" id="statusbutton" value="Loading...">
+          </form>
+        </td>
+        <td>
+          <form action="index.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
+            <input type="hidden" name="filename" value="<?php echo $filename; ?>">
+            <input type="hidden" name="action" value="clean">
+            <input type="submit" style="display: none; visibility: hidden;" id="cleanupEventId" value="Cleanup Video Files">
+          </form>
+        </td>
+      </tr>
+    </table>
+    <table cellspacing="10"
+      <tr>
+        <td>
+          <a href='./shutdownlock.php' target='_blank' rel="noopener noreferrer"><button type="button">Shutdown Lock</button></a>
+        </td>
+        <td>
+          <input type="button" style="display: none; visibility: hidden;" id="linkButtonId" value="Video link" />
+        </td>
+        <td>
+          <input type="button" style="display: none; visibility: hidden;" id="eventButtonId" value="HLS event" />
+        </td>
+        <td>
+          <input type="button" style="display: none; visibility: hidden;" id="liveButtonId" value="LIVE" />
+        </td>
+        <td>
+          <input type="button" style="display: none; visibililty: hidden;" id="hlsVodButtonId" value="HLS VOD" />
+        </td>
+        <td>
+          <input type="button" style="display: none; visibilily: hidden;" id="dashVodButtonId" value="DASH VOD" />
+        </td>
+        <td>
+          <input type="button" style="display: none; visibilily: hidden;" id="mp4ButtonId" value="Download MP4" />
+        </td>
+      </tr>
+    </table>
+    <!-- The data-shaka-player-container tag will make the UI library place the controls in this div.
+         The data-shaka-player-cast-receiver-id tag allows you to provide a Cast Application ID that
+	     the cast button will cast to; the value provided here is the sample cast receiver. -->
+    <div data-shaka-player-container style="max-width:40em"
+       data-shaka-player-cast-receiver-id="930DEB06">
+         <video autoplay data-shaka-player id="video" style="width:100%;height:100%">
+            Your browser does not support HTML5 video.
+         </video>
+    </div>
+    <script>
+        var manifestUri = "";
+        var statusInterval = null;
+        var filename = "<?php echo $filename; ?>";
+        var playerInitDone = false;
+        var currentStatus = "";
+        var message_string = "";
+        var extension = "<?php echo $extension; ?>";
+        var continueChecking = true;
+        let startTime = Date.now();
+        const timeFrame = 60000; // 60 seconds
+        let buttonsInitialized = false; // Flag to track button initialization
 
-        <!DOCTYPE html>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <html>
-        <head><title>DASH and HLS fMP4 Video Player</title>
-        <style>
-          #liveButtonId { display: none;
-                          visibility: hidden; }
-          #dashVodButtonId { display:none;
-                             visibility:hidden; }
-          #hlsVodButtonId { display:none;
-                            visibility:hidden; }
-          #linkButtonId { display:none;
-                          visibility:hidden; }
-          #eventButtonId { display:none;
-                           visibility:hidden; }
-          #mp4ButtonId { display:none;
-                         visibility:hidden; }
-        </style>
-        <!-- Load the Shaka Player library. -->
-        <script src="../dist/shaka-player.compiled.js"></script>
-        <!-- Shaka Player ui compiled library: -->
-        <script src="../dist/shaka-player.ui.js"></script>
-        <!-- Shaka Player ui compiled library default CSS: -->
-        <link rel="stylesheet" type="text/css" href="../dist/controls.css">
-        <script defer src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
-        <script>
-          var manifestUri = "";
-          var statusInterval = null;
-          var filename = "<?php echo $filename; ?>";
-          var playerInitDone = false;
-          var currentStatus = "";
-          var message_string = "";
-          var extension = "<?php echo $extension; ?>";
-          var continueChecking = true;
-          let startTime = Date.now();
-          const timeFrame = 60000; // 60 seconds
-          let buttonsInitialized = false; // Flag to track button initialization
-
-          navigator.sayswho = (function(){
-              var ua= navigator.userAgent;
-              var tem;
-              var M= ua.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
-              if(/trident/i.test(M[1])){
-                  tem= /\brv[ :]+(\d+)/g.exec(ua) || [];
-                  return 'IE '+(tem[1] || '');
-              }
-              if(M[1]=== 'Chrome'){
-                  tem= ua.match(/\b(OPR|Edge)\/(\d+)/);
-                  if(tem!= null) return tem.slice(1).join(' ').replace('OPR', 'Opera');
-              }
-              M= M[2]? [M[1], M[2]]: [navigator.appName, navigator.appVersion, '-?'];
-              if((tem= ua.match(/version\/(\d+)/i))!= null) M.splice(1, 1, tem[1]);
-              return M.join(' ');
-          })();
-
-          function checkFileExists(url) {
-              var xhr = new XMLHttpRequest();
-              xhr.open('HEAD', url, false);
-              xhr.send();
-              return xhr.status === 200;
-          }
-
-          function showStatus()
-          {
-              alert(currentStatus);
-          }
-
-          function pad(num)
-          {
-              var str = "" + num;
-              var pad = "00";
-              return pad.substring(0, pad.length - str.length) + str;
-          }
-
-          function checkStatusListener()
-          {
-              console.log(this.responseText);
-              var status = JSON.parse(this.responseText);
-              var message = "";
-              if (status["status"])
-              {
-                  currentStatus = status["status"].join("");
-                  for (var i = 0; i < status["status"].length; i++)
-                  {
-                      if (status["status"][i].indexOf("fail") >= 0)
-                      {
-                          message = "Failed to generate video ("+status["status"][i]+")";
-                          continueChecking = false;
-                      }
-                  }
-              }
-              if (!message)
-              {
-                  if (status["available"] >= 0 &&
-                      currentStatus.indexOf("encode start") >= 0 &&
-                      currentStatus.indexOf("encode finish success") < 0)
-                  {
-                      message = "Generating Video "+Math.ceil(status["available"] / status["presentationDuration"] * 100).toString()+"% - ";
-                      var secs = Math.floor(status["available"]);
-                      if (secs > 3600)
-                      {
-                          message = message + Math.floor(secs / 3600) + ":";
-                          secs -= (Math.floor(secs / 3600) * 3600);
-                      }
-                      message = message + pad(Math.floor(secs / 60)) + ":";
-                      secs -= (Math.floor(secs / 60) * 60);
-                      message = message + pad(Math.floor(secs));
-
-                      message = message + " available";
-                      // NOTE: 24 seconds is equal to 6x segment size is just an empirical guess
-                      if (!playerInitDone && Math.ceil(status["available"] > 24))
-                      {
-                          playerInitDone = initPlayer();
-                      }
-                  }
-                  else if (status['available'] ==  '100')
-                  {
-                      message = "MP4 Video Available";
-                      continueChecking = false;
-                      if (!playerInitDone)
-                      {
-                          playerInitDone = initPlayer();
-                      }
-                  }
-                  else if (currentStatus.indexOf("encode finish success") > 0)
-                  {
-                      message = message_string;
-                      continueChecking = false;
-                      if (!playerInitDone)
-                      {
-                          playerInitDone = initPlayer();
-                      }
-                  }
-                  else if (status["remuxBytesDone"])
-                  {
-                      message = "Remuxing Video "+(Math.ceil(status["remuxBytesDone"] / status["remuxBytesTotal"] * 20)*5).toString()+"%";
-                  }
-                  else if (extension === "mp4")
-                  {
-                      message = message_string;
-                      if (!playerInitDone)
-                      {
-                          playerInitDone = initPlayer();
-                      }
-                  }
-                  else if (!playerInitDone)
-                  {
-                      message = message_string;
-                  }
-              }
-
-              document.getElementById("statusbutton").value = message;
-
-              // Function to check the status of files
-              const checkFiles = () => {
-                  // Array of file checks and corresponding actions
-                  const fileChecks = [
-                      {
-                          check: () => checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd"),
-                              buttonId: "dashVodButtonId",
-                              action: () => activateButton("dashVodButtonId", "../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd", "DASH VOD Available")
-                              },
-                      {
-                          check: () => checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8"),
-                              buttonId: "hlsVodButtonId",
-                              action: () => activateButton("hlsVodButtonId", "../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8", "HLS VOD Available")
-                              },
-                      {
-                          check: () => extension === "mp4" && checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>.mp4"),
-                              buttonId: "linkButtonId",
-                              action: () => {
-                              var linkButtonId = document.getElementById("linkButtonId");
-                              linkButtonId.style.display = 'block';
-                              linkButtonId.style.visibility = 'visible';
-                              linkButtonId.addEventListener("click", function() {
-                                  var url = "http://<?php echo $yourserver; ?>/<?php echo $hlsdir ?>/<?php echo $filename; ?>.mp4";
-                                  download(url);
-                              }, false);
-                              linkButtonId.value = "Linked MP4 Available"; // Set the button's message
-                          }
-                      },
-                      {
-                          check: () => checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8"),
-                              buttonId: "eventButtonId",
-                              action: () => {
-                              activateButton("eventButtonId", "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8", "HLS Available");
-                              deactivateButton("liveButtonId"); // Ensure mutual exclusivity
-                          }
-                      },
-                      {
-                          check: () => checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8"),
-                              buttonId: "liveButtonId",
-                              action: () => {
-                              activateButton("liveButtonId", "../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8", "LIVE Available");
-                              deactivateButton("eventButtonId"); // Ensure mutual exclusivity
-                          }
-                      },
-                      {
-                          check: () => checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8") &&
-                              checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
-                              currentStatus.indexOf("encode finish success") >= 0,
-                              buttonId: "cleanupEventId",
-                              action: () => activateButton("cleanupEventId", null, "Cleanup Event Available")
-                      },
-                      {
-                          check: () => checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4") &&
-                              currentStatus.indexOf("encode finish success") >= 0,
-                              buttonId: "mp4ButtonId",
-                              action: () => {
-                              var linkButtonId = document.getElementById("mp4ButtonId");
-                              linkButtonId.style.display = 'block';
-                              linkButtonId.style.visibility = 'visible';
-                              linkButtonId.addEventListener("click", function() {
-                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4";
-                                  download(url);
-                              }, false);
-                              linkButtonId.value = "MP4 Video Available"; // Set the button's message
-                          }
-                      },
-                  ];
-
-                  // Check each file and execute corresponding actions
-                  for (const fileCheck of fileChecks) {
-                      if (fileCheck.check()) {
-                          fileCheck.action(); // Execute the action to activate the button
-                      }
-                  }
-              };
-
-              // Function to activate a button
-              const activateButton = (buttonId, url, message) => {
-                  var button = document.getElementById(buttonId);
-                  button.style.display = 'block';
-                  button.style.visibility = 'visible';
-                  if (url) {
-                      button.setAttribute('onclick', `window.location.href='${url}'; this.setAttribute('download', '');`);
-                  }
-                  if (message) {
-                      button.value = message; // Set the button's value or text to the message
-                  }
-              };
-
-              // Function to deactivate a button
-              const deactivateButton = (buttonId) => {
-                  var button = document.getElementById(buttonId);
-                  button.style.display = 'none';
-                  button.style.visibility = 'hidden';
-              };
-
-              // Initialize buttons only once
-              if (!buttonsInitialized) {
-                  const buttonIds = [
-                      "dashVodButtonId",
-                      "hlsVodButtonId",
-                      "linkButtonId",
-                      "eventButtonId",
-                      "liveButtonId",
-                      "cleanupEventId",
-                      "mp4ButtonId"
-                  ];
-                  buttonIds.forEach(deactivateButton); // Deactivate all buttons initially
-                  buttonsInitialized = true; // Set the flag to true after initialization
-              }
-
-              // Check the elapsed time
-              const elapsedTime = Date.now() - startTime;
-
-              // Call the checkFiles function to perform the checks
-              if (elapsedTime < timeFrame) {
-                  // If within the first 60 seconds, check all files
-                  checkFiles();
-              } else {
-                  // After 60 seconds, only check specific files
-                  const limitedFileChecks = [
-                      {
-                          check: () => checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8") &&
-                              checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
-                              currentStatus.indexOf("encode finish success") >= 0,
-                              buttonId: "cleanupEventId",
-                              action: () => activateButton("cleanupEventId", null, "Cleanup Event Available")
-                      },
-                      {
-                          check: () => checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4") &&
-                              currentStatus.indexOf("encode finish success") >= 0,
-                              buttonId: "mp4ButtonId",
-                              action: () => {
-                              var linkButtonId = document.getElementById("mp4ButtonId");
-                              linkButtonId.style.display = 'block';
-                              linkButtonId.style.visibility = 'visible';
-                              linkButtonId.addEventListener("click", function() {
-                                  var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4";
-                                  download(url);
-                              }, false);
-                              linkButtonId.value = "MP4 Video Available"; // Set the button's message
-                          }
-                      }
-                  ];
-
-                  // Check each limited file and execute corresponding actions
-                  for (const fileCheck of limitedFileChecks) {
-                      if (fileCheck.check()) {
-                          fileCheck.action(); // Execute the action to activate the button
-                      }
-                  }
-              }
-
-              if (!continueChecking) {
-                  clearInterval(statusInterval);
-              }
-          };
-
-          function copyToClipboard(url) {
-              window.prompt("Copy to clipboard: Ctrl+C, Enter", url);
-          }
-
-          function download(url) {
-              //creating an invisible element
-              var element = document.createElement('a');
-              element.download = "";
-              element.href = url;
-              document.body.appendChild(element);
-              element.click();
-              document.body.removeChild(element);
-              delete element;
-          }
-
-          function checkStatus()
-          {
-              var oReq = new XMLHttpRequest();
-              var newHandle = function(event) { handle(event, myArgument); };
-              oReq.addEventListener("load", checkStatusListener);
-              oReq.open("GET", "index.php?filename="+filename+"&action=status");
-              oReq.send();
-          }
-
-          function initApp() {
-              // Install built-in polyfills to patch browser incompatibilities.
-              shaka.polyfill.installAll();
-
-              // Check to see if the browser supports the basic APIs Shaka needs.
-              if (shaka.Player.isBrowserSupported()) {
-                  // Everything looks good!
-
-                  statusInterval = window.setInterval(function() { checkStatus(); }, 5000);
-                  checkStatus();
-              } else {
-                  // This browser does not have the minimum set of APIs we need.
-                  console.error('Browser not supported!');
-              }
-          }
-
-          // async does not work on Edge
-          //async function initPlayer() {
-          function initPlayer() {
-            var fileExists = checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd");
-
-            if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
-                // Play DASH on Windows Edge browser
-                manifestUri = "../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd";
-            } else if (fileExists) {
-                // Play VOD stream
-                manifestUri = "../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8";
-            } else if (checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8")) {
-                // Play HLS event stream
-                manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8";
-            } else if (checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8")) {
-                // Play live stream
-                manifestUri = "../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8";
-            } else if (checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4") &&
-                       currentStatus.indexOf("encode finish success") >= 0) {
-                // Play MP4 file
-                manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4";
-            } else if (extension === "mp4") {
-                // Play existing mp4, no encoding required
-                manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>.mp4";
-            } else {
-                    return false;
+        navigator.sayswho = (function(){
+            var ua= navigator.userAgent;
+            var tem;
+            var M= ua.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
+            if(/trident/i.test(M[1])){
+                tem= /\brv[ :]+(\d+)/g.exec(ua) || [];
+                return 'IE '+(tem[1] || '');
             }
+            if(M[1]=== 'Chrome'){
+                tem= ua.match(/\b(OPR|Edge)\/(\d+)/);
+                if(tem!= null) return tem.slice(1).join(' ').replace('OPR', 'Opera');
+            }
+            M= M[2]? [M[1], M[2]]: [navigator.appName, navigator.appVersion, '-?'];
+            if((tem= ua.match(/version\/(\d+)/i))!= null) M.splice(1, 1, tem[1]);
+            return M.join(' ');
+        })();
 
-            // When using the UI, the player is made automatically by the UI object.
-            const video = document.getElementById('video');
-            const ui = video['ui'];
-            const controls = ui.getControls();
-            const player = controls.getPlayer();
+        function showStatus()
+        {
+            alert(currentStatus);
+        }
 
-            player.configure('streaming.useNativeHlsOnSafari', true);
+        function pad(num)
+        {
+            var str = "" + num;
+            var pad = "00";
+            return pad.substring(0, pad.length - str.length) + str;
+        }
 
-            // Attach player and ui to the window to make it easy to access in the JS console.
-            window.player = player;
-            window.ui = ui;
-            ui.configure('castReceiverAppId', '930DEB06');
+        // Function to download a file
+        async function download(url) {
+            // Creating an invisible element
+            var element = document.createElement('a');
+            element.download = "";
+            element.href = url;
+            element.target = "_blank";
+            element.rel = "noopener noreferrer";
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+            delete element;
+        }
 
-            // Listen for error events.
-            player.addEventListener('error', onPlayerErrorEvent);
-            controls.addEventListener('error', onUIErrorEvent);
-            controls.addEventListener('caststatuschanged', onCastStatusChanged);
+        // Function to check if a file exists
+        async function checkFileExists(url) {
+            return new Promise((resolve, reject) => {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('HEAD', url, true);
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            resolve(true);
+                        } else {
+                            resolve(false);
+                        }
+                    };
+                    xhr.onerror = function() {
+                        reject(false);
+                    };
+                    xhr.send();
+            });
+        }
 
-            basicKeyboardShortcuts();
-
-            // Try to load a manifest.
-            // This is an asynchronous process.
+        // Function to check the status of files
+        async function checkStatusListener() {
             try {
-                // await does not work on Edge
-                // await player.load(manifestUri);
-                player.load(manifestUri);
-                // This runs if the asynchronous load is successful.
+                const response = await fetch(`index.php?filename=${filename}&action=status`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const status = await response.json();
+                var message = "";
+                if (status["status"]) {
+                    currentStatus = status["status"].join("");
+                    for (var i = 0; i < status["status"].length; i++) {
+                        if (status["status"][i].indexOf("fail") >= 0) {
+                            message = "Failed to generate video (" + status["status"][i] + ")";
+                            continueChecking = false;
+                        }
+                    }
+                }
+                if (!message) {
+                    if (status["available"] >= 0 &&
+                        currentStatus.indexOf("encode start") >= 0 &&
+                        currentStatus.indexOf("encode finish success") < 0) {
+                        message = "Generating Video " + Math.ceil(status["available"] / status["presentationDuration"] * 100).toString() + "% - ";
+                        var secs = Math.floor(status["available"]);
+                        if (secs > 3600) {
+                            message = message + Math.floor(secs / 3600) + ":";
+                            secs -= (Math.floor(secs / 3600) * 3600);
+                        }
+                        message = message + pad(Math.floor(secs / 60)) + ":";
+                        secs -= (Math.floor(secs / 60) * 60);
+                        message = message + pad(Math.floor(secs));
+
+                        message = message + " available";
+                        // NOTE: 24 seconds is equal to 6x segment size is just an empirical guess
+                        if (!playerInitDone && Math.ceil(status["available"] > 24)) {
+                            playerInitDone = initPlayer();
+                        }
+                    } else if (status['available'] == '100') {
+                        message = "MP4 Video Available";
+                        continueChecking = false;
+                        if (!playerInitDone) {
+                            playerInitDone = initPlayer();
+                        }
+                    } else if (currentStatus.indexOf("encode finish success") > 0) {
+                        message = message_string;
+                        continueChecking = false;
+                        if (!playerInitDone) {
+                            playerInitDone = initPlayer();
+                        }
+                    } else if (status["remuxBytesDone"]) {
+                        message = "Remuxing Video " + (Math.ceil(status["remuxBytesDone"] / status["remuxBytesTotal"] * 20) * 5).toString() + "%";
+                    } else if (extension === "mp4") {
+                        message = message_string;
+                        if (!playerInitDone) {
+                            playerInitDone = initPlayer();
+                        }
+                    } else if (!playerInitDone) {
+                        message = message_string;
+                    }
+                }
+
+                document.getElementById("statusbutton").value = message;
+
+                // Function to check the status of files
+                const checkFiles = async () => {
+                    // Array of file checks and corresponding actions
+                    const fileChecks = [
+                        {
+                            check: async () => await checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd"),
+                                buttonId: "dashVodButtonId",
+                                action: () => activateButton("dashVodButtonId", "../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd", "DASH VOD Available")
+                                },
+                        {
+                            check: async () => await checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8"),
+                                buttonId: "hlsVodButtonId",
+                                action: () => activateButton("hlsVodButtonId", "../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8", "HLS VOD Available")
+                                },
+                        {
+                            check: async () => extension === "mp4" && await checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>.mp4"),
+                                buttonId: "linkButtonId",
+                                action: () => {
+                                var linkButtonId = document.getElementById("linkButtonId");
+                                linkButtonId.style.display = 'block';
+                                linkButtonId.style.visibility = 'visible';
+                                linkButtonId.addEventListener("click", function() {
+                                    var url = "http://<?php echo $yourserver; ?>/<?php echo $hlsdir ?>/<?php echo $filename; ?>.mp4";
+                                    download(url);
+                                }, false);
+                                linkButtonId.value = "Linked MP4 Available"; // Set the button's message
+                            }
+                        },
+                        {
+                            check: async () => await checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8"),
+                                buttonId: "eventButtonId",
+                                action: () => {
+                                activateButton("eventButtonId", "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8", "HLS Available");
+                                deactivateButton("liveButtonId"); // Ensure mutual exclusivity
+                            }
+                        },
+                        {
+                            check: async () => await checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8"),
+                                buttonId: "liveButtonId",
+                                action: () => {
+                                activateButton("liveButtonId", "../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8", "LIVE Available");
+                                deactivateButton("eventButtonId"); // Ensure mutual exclusivity
+                            }
+                        },
+                        {
+                            check: async () => await checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8") &&
+                                await checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
+                                currentStatus.indexOf("encode finish success") >= 0,
+                                buttonId: "cleanupEventId",
+                                action: () => activateButton("cleanupEventId", null, "Cleanup Event Available")
+                                },
+                        {
+                            check: async () => await checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4") &&
+                                currentStatus.indexOf("encode finish success") >= 0,
+                                buttonId: "mp4ButtonId",
+                                action: () => {
+                                var linkButtonId = document.getElementById("mp4ButtonId");
+                                linkButtonId.style.display = 'block';
+                                linkButtonId.style.visibility = 'visible';
+                                linkButtonId.addEventListener("click", function() {
+                                    var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4";
+                                    download(url);
+                                }, false);
+                                linkButtonId.value = "MP4 Video Available"; // Set the button's message
+                            }
+                        },
+                    ];
+
+                    // Check each file and execute corresponding actions
+                    for (const fileCheck of fileChecks) {
+                        if (await fileCheck.check()) {
+                            fileCheck.action(); // Execute the action to activate the button
+                        }
+                    }
+                };
+
+                // Function to activate a button
+                const activateButton = (buttonId, url, message) => {
+                    var button = document.getElementById(buttonId);
+                    button.style.display = 'block';
+                    button.style.visibility = 'visible';
+                    if (url) {
+                        button.addEventListener('click', function(event) {
+                            event.preventDefault();
+                            window.open(url, '_blank');
+                        });
+                    }
+                    if (message) {
+                        button.value = message; // Set the button's value or text to the message
+                    }
+                };
+
+                // Function to deactivate a button
+                const deactivateButton = (buttonId) => {
+                    var button = document.getElementById(buttonId);
+                    button.style.display = 'none';
+                    button.style.visibility = 'hidden';
+                };
+
+                // Initialize buttons only once
+                if (!buttonsInitialized) {
+                    const buttonIds = [
+                        "dashVodButtonId",
+                        "hlsVodButtonId",
+                        "linkButtonId",
+                        "eventButtonId",
+                        "liveButtonId",
+                        "cleanupEventId",
+                        "mp4ButtonId"
+                    ];
+                    buttonIds.forEach(deactivateButton); // Deactivate all buttons initially
+                    buttonsInitialized = true; // Set the flag to true after initialization
+                }
+
+                // Check the elapsed time
+                const elapsedTime = Date.now() - startTime;
+
+                // Call the checkFiles function to perform the checks
+                if (elapsedTime < timeFrame) {
+                    // If within the first 60 seconds, check all files
+                    await checkFiles();
+                } else {
+                    // After 60 seconds, only check specific files
+                    const limitedFileChecks = [
+                        {
+                            check: async () => await checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8") &&
+                                await checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8") &&
+                                currentStatus.indexOf("encode finish success") >= 0,
+                                buttonId: "cleanupEventId",
+                                action: () => activateButton("cleanupEventId", null, "Cleanup Event Available")
+                                },
+                        {
+                            check: async () => await checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4") &&
+                                currentStatus.indexOf("encode finish success") >= 0,
+                                buttonId: "mp4ButtonId",
+                                action: () => {
+                                var linkButtonId = document.getElementById("mp4ButtonId");
+                                linkButtonId.style.display = 'block';
+                                linkButtonId.style.visibility = 'visible';
+                                linkButtonId.addEventListener("click", function() {
+                                    var url = "http://<?php echo $yourserver; ?>/hls/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4";
+                                    download(url);
+                                }, false);
+                                linkButtonId.value = "MP4 Video Available"; // Set the button's message
+                            }
+                        }
+                    ];
+
+                    // Check each limited file and execute corresponding actions
+                    for (const fileCheck of limitedFileChecks) {
+                        if (await fileCheck.check()) {
+                            fileCheck.action(); // Execute the action to activate the button
+                        }
+                    }
+                }
+
+                if (!continueChecking) {
+                    clearInterval(statusInterval);
+                }
+            } catch (error) {
+                console.error('Error parsing JSON data:', error);
+            }
+        }
+
+        function copyToClipboard(url) {
+            window.prompt("Copy to clipboard: Ctrl+C, Enter", url);
+        }
+
+        function checkStatus()
+        {
+            var oReq = new XMLHttpRequest();
+            var newHandle = function(event) { handle(event, myArgument); };
+            oReq.addEventListener("load", checkStatusListener);
+            oReq.open("GET", "index.php?filename="+filename+"&action=status");
+            oReq.send();
+        }
+
+        function initApp() {
+            // Install built-in polyfills to patch browser incompatibilities.
+            shaka.polyfill.installAll();
+
+            // Check to see if the browser supports the basic APIs Shaka needs.
+            if (shaka.Player.isBrowserSupported()) {
+                // Everything looks good!
+
+                statusInterval = window.setInterval(function() { checkStatus(); }, 5000);
+                checkStatus();
+            } else {
+                // This browser does not have the minimum set of APIs we need.
+                console.error('Browser not supported!');
+            }
+        }
+
+        async function initPlayer() {
+            try {
+                var fileExists = await checkFileExists("../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd");
+
+                if (fileExists && navigator.sayswho.match(/\bEdge\/(\d+)/)) {
+                    // Play DASH on Windows Edge browser
+                    manifestUri = "../<?php echo $voddir; ?>/<?php echo $filename; ?>/manifest_vod.mpd";
+                } else if (fileExists) {
+                    // Play VOD stream
+                    manifestUri = "../<?php echo $voddir; ?>/<?php echo $filename; ?>/master_vod.m3u8";
+                } else if (await checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8")) {
+                    // Play HLS event stream
+                    manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/master_event.m3u8";
+                } else if (await checkFileExists("../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8")) {
+                    // Play live stream
+                    manifestUri = "../<?php echo $livedir; ?>/<?php echo $filename; ?>/master_live.m3u8";
+                } else if (await checkFileExists("../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4") &&
+                           currentStatus.indexOf("encode finish success") >= 0) {
+                    // Play MP4 file
+                    manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>/<?php echo $filename; ?> - <?php echo rawurlencode($title_subtitle); ?>.mp4";
+                } else if (extension === "mp4") {
+                    // Play existing mp4, no encoding required
+                    manifestUri = "../<?php echo $hlsdir; ?>/<?php echo $filename; ?>.mp4";
+                } else {
+                    return false;
+                }
+
+                const video = document.getElementById('video');
+                const ui = video['ui'];
+                const controls = ui.getControls();
+                const player = controls.getPlayer();
+
+                player.configure('streaming.useNativeHlsOnSafari', true);
+
+                // Attach player and ui to the window to make it easy to access in the JS console.
+                window.player = player;
+                window.ui = ui;
+
+                const config = {
+                    castReceiverAppId: 'shaka-player',
+                };
+                ui.configure(config);
+
+                // Listen for error events.
+                player.addEventListener('error', onPlayerErrorEvent);
+                controls.addEventListener('error', onUIErrorEvent);
+                controls.addEventListener('caststatuschanged', onCastStatusChanged);
+
+                basicKeyboardShortcuts();
+
+                // Try to load a manifest.
+                // This is an asynchronous process.
+                await player.load(manifestUri);
                 console.log('The video has now been loaded!');
-                         video.requestFullscreen().catch(err => {
-                                      console.log(err)
-                                             });
+
+                // Add an event listener to the video element to request fullscreen on click
+                video.addEventListener('click', () => {
+                        video.requestFullscreen().catch(err => {
+                                console.log(err);
+                            });
+                    });
             } catch (error) {
                 onPlayerError(error);
             }
 
             return true;
-          }
+        }
 
-          function basicKeyboardShortcuts () {
+        function basicKeyboardShortcuts () {
             document.addEventListener('keydown', (e) => {
                     const videoContainer = document.querySelector('video');
                     let is_fullscreen = () => !!document.fullscreenElement
-                              let audio_vol = video.volume;
+                        let audio_vol = video.volume;
                     if (e.key == 'f') {
                         if (is_fullscreen()) {
                             document.exitFullscreen();
                         } else {
                             videoContainer.requestFullscreen();
-                        }
+                      }
                         e.preventDefault();
                     }
                     else if (e.key == ' ') {
@@ -1613,132 +1675,72 @@ done\n");
                         }
                         e.preventDefault();
                     }
-                    else if (e.key == "ArrowUp") {
-                        e.preventDefault();
-                        if (audio_vol != 1) {
-                            try {
-                                video.volume = audio_vol + 0.05;
-                            }
-                            catch (err) {
-                                video.volume = 1;
-                            }
-                        }
-                    }
-                    else if (e.key == "ArrowDown") {
-                        e.preventDefault();
-                        if (audio_vol != 0) {
-                            try {
-                                video.volume = audio_vol - 0.05;
-                            }
-                            catch (err) {
-                                video.volume = 0;
-                            }
-                        }
-                    }
+                  else if (e.key == "ArrowUp") {
+                      e.preventDefault();
+                      if (audio_vol != 1) {
+                          try {
+                              video.volume = audio_vol + 0.05;
+                          }
+                          catch (err) {
+                              video.volume = 1;
+                          }
+                      }
+                  }
+                  else if (e.key == "ArrowDown") {
+                      e.preventDefault();
+                      if (audio_vol != 0) {
+                          try {
+                              video.volume = audio_vol - 0.05;
+                          }
+                          catch (err) {
+                              video.volume = 0;
+                          }
+                      }
+                  }
                 });
-          }
+        }
 
-          function onCastStatusChanged(event) {
-            const newCastStatus = event['newStatus'];
-            // Handle cast status change
-            console.log('The new cast status is: ' + newCastStatus);
-          }
+        function onCastStatusChanged(event) {
+          const newCastStatus = event['newStatus'];
+          // Handle cast status change
+          console.log('The new cast status is: ' + newCastStatus);
+        }
 
-          function onPlayerErrorEvent(errorEvent) {
-              // Extract the shaka.util.Error object from the event.
-              onPlayerError(event.detail);
-          }
+        function onPlayerErrorEvent(errorEvent) {
+            // Extract the shaka.util.Error object from the event.
+            onPlayerError(errorEvent.detail);
+        }
 
-          function onPlayerError(error) {
-              // Handle player error
-              console.error('Error code', error.code, 'object', error);
-          }
+        function onPlayerError(error) {
+            // Handle player error
+            console.error('Error code', error.code, 'object', error);
+        }
 
-          function onUIErrorEvent(errorEvent) {
-              // Extract the shaka.util.Error object from the event.
-              onPlayerError(event.detail);
-          }
+        function onUIErrorEvent(errorEvent) {
+            // Extract the shaka.util.Error object from the event.
+            onPlayerError(errorEvent.detail);
+        }
 
-          function initFailed(errorEvent) {
-              // Handle the failure to load; errorEvent.detail.reasonCode has a
-              // shaka.ui.FailReasonCode describing why.
-              console.error('Unable to load the UI library!');
-          }
+        function initFailed(errorEvent) {
+            // Handle the failure to load; errorEvent.detail.reasonCode has a
+            // shaka.ui.FailReasonCode describing why.
+            console.error('Unable to load the UI library!', errorEvent.detail);
+        }
 
-          document.addEventListener('DOMContentLoaded', initApp);
-          // Listen to the custom shaka-ui-load-failed event, in case Shaka Player fails
-          // to load (e.g. due to lack of browser support).
-          document.addEventListener('shaka-ui-load-failed', initFailed);
-        </script>
-        </head>
-        <body>
-        <?php echo $select_box; ?>
-        <table cellspacing="10">
-          <tr>
-            <td>
-              <form action="index.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
-                <input type="hidden" name="filename" value="<?php echo $filename; ?>">
-                <input type="hidden" name="action" value="delete">
-                <input type="submit" value="Delete Video Files">
-              </form>
-            </td>
-            <td valign="top">
-              <form>
-                <input type="button" onclick="showStatus();" id="statusbutton" value="Loading...">
-              </form>
-            </td>
-            <td>
-              <form action="index.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
-                <input type="hidden" name="filename" value="<?php echo $filename; ?>">
-                <input type="hidden" name="action" value="clean">
-                <input type="submit" style="display: none; visibility: hidden;" id="cleanupEventId" value="Cleanup Video Files">
-              </form>
-            </td>
-          </tr>
-        </table>
-        <table cellspacing="10"
-          <tr>
-            <td>
-              <a href='./shutdownlock.php' target='_blank' rel="noopener noreferrer"><button type="button">Shutdown Lock</button></a>
-            </td>
-            <td>
-              <input type="button" style="display: none; visibility: hidden;" id="linkButtonId" value="Video link" />
-            </td>
-            <td>
-              <input type="button" style="display: none; visibility: hidden;" id="eventButtonId" value="HLS event" />
-            </td>
-            <td>
-              <input type="button" style="display: none; visibility: hidden;" id="liveButtonId" value="LIVE" />
-            </td>
-            <td>
-              <input type="button" style="display: none; visibililty: hidden;" id="hlsVodButtonId" value="HLS VOD" />
-            </td>
-            <td>
-              <input type="button" style="display: none; visibilily: hidden;" id="dashVodButtonId" value="DASH VOD" />
-            </td>
-            <td>
-              <input type="button" style="display: none; visibilily: hidden;" id="mp4ButtonId" value="Download MP4" />
-            </td>
-          </tr>
-        </table>
-        <!-- The data-shaka-player-container tag will make the UI library place the controls in this div.
-             The data-shaka-player-cast-receiver-id tag allows you to provide a Cast Application ID that
-             the cast button will cast to; the value provided here is the sample cast receiver. -->
-          <div data-shaka-player-container style="max-width:40em"
-               data-shaka-player-cast-receiver-id="930DEB06">
-            <video autoplay data-shaka-player id="video" style="width:100%;height:100%">
-               Your browser does not support HTML5 video.
-            </video>
-           </div>
-         </body>
-        </html>
-        <?php
+        document.addEventListener('DOMContentLoaded', initApp);
+        // Listen to the custom shaka-ui-load-failed event, in case Shaka Player fails
+        // to load (e.g. due to lack of browser support).
+        document.addEventListener('shaka-ui-load-failed', initFailed);
+    </script>
+    </body>
+</html>
+<?php
     }
     else
     {
         if (file_exists($dirname."/".$filename.".$extension") && $extension !== "mp4")
         {
-            if (!is_dir($hls_path."/".$filename))
+            if (!file_exists($hls_path."/".$filename) || !is_dir($hls_path."/".$filename))
             {
                 mkdir($hls_path."/".$filename);
             }
@@ -1916,13 +1918,15 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
             }
         }
             ?>
-            <html>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <head><title>Select Video Settings</title></head>
-            <body>
+<html lang="en">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<head>
+    <title>Select Video Settings</title>
+</head>
+<body>
 <?php echo $select_box; ?>
-            <form name="FC" action="index.php" method="GET">
-            <input type="hidden" name="filename" value="<?php echo $filename; ?>">
+    <form name="FC" action="index.php" method="GET">
+        <input type="hidden" name="filename" value="<?php echo $filename; ?>">
 <?php
         $paths_to_check = [
             $dirname . "/" . $filename . ".mp4",
@@ -1946,9 +1950,9 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
         {
             // ready for streaming
             ?>
-            <br>
-            <input type="submit" name="do" value="Watch Video">
-            <?php
+        <br>
+        <input type="submit" name="do" value="Watch Video">
+    <?php
         }
         else
         {
@@ -2034,9 +2038,9 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
         }
         ?>
 </form>
-        </body>
-        </html>
-        <?php
+</body>
+</html>
+    <?php
     }
 }
 else
