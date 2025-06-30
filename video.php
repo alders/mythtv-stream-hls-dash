@@ -1,5 +1,7 @@
 <?php
 
+include 'common.php';
+
 /**
  * Configure video.php
  *
@@ -92,329 +94,6 @@ if (isset($_REQUEST["quality"]))
     }
 }
 
-function http_request($method, $endpoint, $rest)
-{
-    $params = array("http" => array(
-        "method" => $method,
-        "header" => 'Content-type: application/x-www-form-urlencoded; charset=uft-8'
-    ));
-
-    $context = stream_context_create($params);
-
-    if (($xml_response = file_get_contents("http://localhost:6544/$endpoint?$rest", false, $context)) === false) {
-        $error = error_get_last();
-        echo "HTTP request failed. Error was: " . $error['message'];
-    }
-
-    return $xml_response;
-}
-
-function get_video($Id)
-{
-    // http://localhost:6544/Video/GetVideo?Id=7135
-
-    if (empty($Id)) {
-        throw new InvalidArgumentException("Id cannot be empty");
-    }
-
-    $url = "Video/GetVideo";
-    $query = "Id=$Id";
-    $xml_response = http_request("GET", $url, $query);
-
-    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    if ($xml  === false) {
-        return array();
-    }
-    $array = json_decode(json_encode($xml), TRUE);
-
-    $video = array(
-        'Id' => $array['Id'] ?? '',
-        'Title' => $array['Title'] ?? '',
-        'SubTitle' => $array['SubTitle'] ?? '',
-        'FileName' => $array['FileName'] ?? '',
-        'HostName' => $array['HostName'] ?? '',
-    );
-
-    return $video;
-}
-
-function get_storagegroup_dirs($StorageGroup, $HostName)
-{
-    // http://localhost:6544/Myth/GetStorageGroupDirs
-    // NOTE: Only a selected subset of the values available is returned here
-
-    if (empty($StorageGroup) || empty($HostName)) {
-        throw new InvalidArgumentException("StorageGroup and HostName cannot be empty");
-    }
-
-    $url = "Myth/GetStorageGroupDirs";
-    $query = "";
-    $xml_response = http_request("GET", $url, $query);
-
-    if ($xml_response === false) {
-        throw new RuntimeException("Failed to retrieve storage group directories");
-    }
-
-    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    if ($xml === false) {
-        throw new RuntimeException("Failed to parse XML response");
-    }
-
-    $array = json_decode(json_encode($xml), TRUE);
-
-    if (!isset($array['StorageGroupDirs'])) {
-        throw new RuntimeException("Invalid XML response: StorageGroupDirs not found");
-    }
-
-    $storagegroup_dirs = array();
-    $count_dir_name = 1;
-    foreach ($array['StorageGroupDirs'] as $StorageGroupDir) {
-        foreach ($StorageGroupDir as $item) {
-            if (isset($item['HostName'], $item['GroupName'], $item['DirName']) &&
-                $item['HostName'] == $HostName &&
-                $item['GroupName'] == $StorageGroup) {
-                $storagegroup_dirs['DirName' . $count_dir_name++] = $item['DirName'];
-            }
-        }
-    }
-
-    return $storagegroup_dirs;
-}
-
-function generateStreamOptions($settings, $qualities, $nb_renditions, $isAudio = true) {
-    $stream_number = 0;
-    $seen_abitrates = [];
-    $options = '';
-
-    if ($isAudio) {
-        // Build audio options
-        foreach ($qualities as $i => $quality) {
-            $current_abitrate = $settings[$quality]["abitrate"];
-            if (!in_array($current_abitrate, $seen_abitrates)) {
-                $options .= "a:".$stream_number++.",";
-                $seen_abitrates[] = $current_abitrate; // Add to seen bitrates
-            }
-        }
-    }
-
-    // Build video options
-    for ($i = 0; $i < $nb_renditions; $i++) {
-        $options .= "v:".$i.($i === $nb_renditions - 1 ? "" : ",");
-    }
-
-    return rtrim($options, ','); // Remove trailing comma
-}
-
-function generateMediaStreamOptions($settings, $qualities, $nb_renditions, $language) {
-    $audio_stream_number = 0;
-    $default = "yes";
-    $options = '';
-
-    // Build audio options
-    $seen_abitrates = [];
-    foreach ($qualities as $i => $quality) {
-        $current_abitrate = $settings[$quality]["abitrate"];
-        if (!in_array($current_abitrate, $seen_abitrates)) {
-            $options .= "a:".$audio_stream_number.",agroup:aac,language:".$language."-".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
-            $default = "no"; // Set default to "no" after the first audio stream
-            $seen_abitrates[] = $current_abitrate; // Track seen bitrates
-        }
-    }
-
-    // Build video options
-    for ($i = 0; $i < $nb_renditions; $i++) {
-        $options .= "v:".$i.",agroup:aac,name:".$settings[$qualities[$i]]["height"]."p_".$settings[$qualities[$i]]["vbitrate"];
-        if ($i < $nb_renditions - 1) {
-            $options .= " ";
-        }
-    }
-
-    return trim($options); // Return the final options string
-}
-
-function getFileInfo($path, $filename) {
-    $file = $path . "/" . $filename . "/state.txt";
-    if (file_exists($file)) {
-        $content = json_decode(file_get_contents($file), TRUE);
-        $title = isset($content["title"]) ? $content["title"] : "Unknown";
-        $subtitle = isset($content["subtitle"]) ? $content["subtitle"] : "";
-    } else {
-        $title = "Unknown";
-        $subtitle = "";
-    }
-
-    return [
-        'title' => $title,
-        'subtitle' => $subtitle,
-        'extension' => "Unknown",
-        'dirname' => "Unknown"
-    ];
-}
-
-function remove_duplicates($array) {
-    $result = array();
-    foreach ($array as $key => $value) {
-        if (!isset($result[$value])) {
-            $result[$value] = $key;
-        }
-    }
-    $unique_array = array();
-    foreach ($result as $value => $key) {
-        $unique_array[$key] = $value;
-    }
-    return $unique_array;
-}
-
-
-function get_program_status($StartTime, $ChanId, $TitleFilter)
-{
-    if (empty($StartTime) || empty($ChanId) || empty($TitleFilter)) {
-        throw new InvalidArgumentException("StartTime, ChanId and TitleFilter cannot be empty");
-    }
-
-    $url = "Guide/GetProgramList";
-    $query = "StartTime=$StartTime&ChanId=$ChanId&TitleFilter=" . urlencode($TitleFilter);
-    $xml_response = http_request("GET", $url, $query);
-
-    if ($xml_response === false) {
-        return array(); // or throw an exception
-    }
-
-    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-
-    if ($xml === false) {
-        return array(); // or throw an exception
-    }
-
-    // Use the adjusted XPath query
-    $xpath = $xml->xpath("//Program[Channel/ChanId='$ChanId' and Title='$TitleFilter']/Recording/Status");
-
-    // Check if the XPath returned any results
-    if (!empty($xpath)) {
-        // Return the status found
-        return (string)$xpath[0];
-    }
-
-    // Return status unknown if not found
-    return "-16";
-}
-
-function get_recorded_markup($RecordedId)
-{
-    // http://localhost:6544/Dvr/GetRecordedMarkup?RecordedId=6474
-    // NOTE: Only a selected subset of the values available is returned here
-
-    if (empty($RecordedId)) {
-        throw new InvalidArgumentException("RecordedId cannot be empty");
-    }
-
-    $url = "Dvr/GetRecordedMarkup";
-    $query = "RecordedId=$RecordedId";
-    $xml_response = http_request("GET", $url, $query);
-
-    if ($xml_response === false) {
-        return array(); // or throw an exception
-    }
-
-    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    if ($xml === false) {
-        return array(); // or throw an exception
-    }
-
-    $array = json_decode(json_encode($xml), TRUE);
-
-    $recorded_markup_cut = array();
-    $count_cut = 1;
-    foreach ($array['Mark'] as $Markup) {
-        foreach ($Markup as $key2 => $Type) {
-            if (isset($Type['Type'])) {
-                switch ($Type['Type']) {
-                    case "CUT_START":
-                        $recorded_markup_cut['CUT_START_' . $count_cut++] = $Type['Frame'];
-                        break;
-                    case "CUT_END":
-                        $recorded_markup_cut['CUT_END_' . $count_cut++] = $Type['Frame'];
-                        break;
-                }
-            }
-        }
-    }
-
-    return $recorded_markup_cut;
-}
-
-function getMediaInfo($file, $webuser) {
-    // Gebruik ffprobe om de stream-informatie te verkrijgen in JSON-formaat
-    $command = "/usr/bin/ffprobe -v error -show_streams -show_format -of json \"$file\"";
-    $output = shell_exec($command);
-
-    if ($output === null) {
-        die("Fout bij het uitvoeren van ffprobe");
-    }
-
-    // Parse de JSON-output
-    $info = json_decode($output, TRUE);
-
-    // Controleer of de sleutels bestaan
-    if (!isset($info['streams']) || !isset($info['format'])) {
-        die("Ongeldige JSON-output van ffprobe");
-    }
-
-    // Extraheer de video-afmetingen en frame rate
-    $videoWidth = null;
-    $videoHeight = null;
-    $frameRate = null;
-    foreach ($info['streams'] as $stream) {
-        if ($stream['codec_type'] == 'video') {
-            $videoWidth = $stream['width'];
-            $videoHeight = $stream['height'];
-            $frameRate = $stream['r_frame_rate'];
-            break;
-        }
-    }
-
-    // Extraheer de lengte van de film in seconden
-    $duration = $info['format']['duration'];
-
-    // Extraheer de taal-informatie voor ondertitel-streams en filter op gewenste formaten
-    $subtitleInfo = [];
-    foreach ($info['streams'] as $stream) {
-        if ($stream['codec_type'] == 'subtitle') {
-            $codecName = $stream['codec_name'];
-            if (in_array($codecName, ['ass', 'mov_text', 'srt','subrip'])) {
-                $language = isset($stream['tags']['language']) ? $stream['tags']['language'] : 'unknown';
-                $subtitleInfo[] = [
-                    'index' => $stream['index'],
-                    'codec_name' => $codecName,
-                    'language' => $language
-                ];
-            }
-        }
-    }
-
-    // Extraheer de taal-informatie voor audio-streams
-    $audioInfo = [];
-    foreach ($info['streams'] as $stream) {
-        if ($stream['codec_type'] == 'audio') {
-            $language = isset($stream['tags']['language']) ? $stream['tags']['language'] : 'unknown';
-            $audioInfo[] = [
-                'index' => $stream['index'],
-                'codec_name' => $stream['codec_name'],
-                'language' => $language
-            ];
-        }
-    }
-
-    return [
-        'videoWidth' => $videoWidth,
-        'videoHeight' => $videoHeight,
-        'frameRate' => $frameRate,
-        'duration' => $duration,
-        'subtitleInfo' => $subtitleInfo,
-        'audioInfo' => $audioInfo
-    ];
-}
-
 $file_list = scandir($hls_path);
 $videoid = $_REQUEST["videoid"];
 $file_list[] = $videoid;
@@ -428,7 +107,7 @@ foreach ($file_list as $file) {
     if (isset($filedetails[1])) {
         $id = $filedetails[1];
         if ($id) {
-            $video = get_video($id);
+            $video = Common::get_video($id);
             $title = "";
             $subtitle = "";
             $extension = "";
@@ -439,7 +118,7 @@ foreach ($file_list as $file) {
             {
                 // File is available in MythTV
                 if ($videoid ===  $id) {
-                    $storagegroup_dirs = get_storagegroup_dirs("Videos", $video['HostName']);
+                    $storagegroup_dirs = Common::get_storagegroup_dirs("Videos", $video['HostName']);
                     foreach ($storagegroup_dirs as $storagegroup) {
                         if (file_exists($storagegroup . "/" . $video['FileName'])) {
                             $extension = pathinfo($video['FileName'], PATHINFO_EXTENSION);
@@ -454,7 +133,7 @@ foreach ($file_list as $file) {
                 }
             } else {
                 // File is not available in MythTV
-                $fileInfo = getFileInfo($hls_path, $fn);
+                $fileInfo = Common::getFileInfo($hls_path, $fn);
                 $title = $fileInfo['title'];
                 $subtitle = $fileInfo['subtitle'];
                 if ($videoid === $fn) {
@@ -473,7 +152,7 @@ foreach ($file_list as $file) {
     }
 }
 
-$file_list = remove_duplicates($file_list);
+$file_list = Common::remove_duplicates($file_list);
 
 $select_box = "<form>\n    <select onChange=\"window.location.href='video.php?videoid='+this.value;\">\n";
 foreach ($file_list as $file) {
@@ -488,7 +167,7 @@ foreach ($file_list as $file) {
             $select_box .= "      <option value=\"".$fn."\" $selected>".$names[$fn]."</option>\n";
         } else {
             // File is not available in MythTV attempt to retrieve title from 'state.txt'
-            $fileInfo = getFileInfo($hls_path, $fn);
+            $fileInfo = Common::getFileInfo($hls_path, $fn);
             $locsubtitle = '';
             if (!empty($fileInfo['subtitle'])) {
                 $locsubtitle = "_{$fileInfo['subtitle']}";
@@ -788,7 +467,7 @@ done\n");
                 $read_rate = "-re";
                 $create_live_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$live_path."/".$videoid.";";
                 $option_live  = "[select=\'";
-                $option_live .= generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
+                $option_live .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
                 $option_live  .= "\': \
           f=hls: \
           hls_time=2: \
@@ -796,7 +475,7 @@ done\n");
           hls_flags=+independent_segments+iframes_only+delete_segments: \
           hls_segment_type=fmp4: \
           var_stream_map=\'";
-                $option_live .= generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
+                $option_live .= Common::generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
                 $option_live .= "\\': \\\n          master_pl_name=master_live.m3u8: \
           hls_segment_filename=../$livedir/".$videoid."/stream_live_%v_data%02d.m4s]../$livedir/".$videoid."/stream_live_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
@@ -838,7 +517,7 @@ done\n");
             if ($hls_playlist_type === "event")
             {
                 $option_hls  = "[select=\'";
-                $option_hls .= generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
+                $option_hls .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
                 $option_hls  .= "\': \
           f=hls: \
           hls_time=2: \
@@ -846,7 +525,7 @@ done\n");
           hls_flags=+independent_segments+iframes_only: \
           hls_segment_type=fmp4: \
           var_stream_map=\'";
-                $option_hls .= generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
+                $option_hls .= Common::generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
                 $option_hls .= "\\': \
           master_pl_name=master_event.m3u8: \
           hls_segment_filename=".$videoid."/stream_event_%v_data%02d.m4s]".$videoid."/stream_event_%v.m3u8";
@@ -894,7 +573,7 @@ done\n");
             {
                 $create_vod_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$vod_path."/".$videoid.";";
                 $option_vod  = "[select=\'";
-                $option_vod .= generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
+                $option_vod .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
                 $option_vod  .= "\': \
           f=dash: \
           seg_duration=2: \
@@ -1196,7 +875,7 @@ done\n");
           <form action="video.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
             <input type="hidden" name="videoid" value="<?php echo $videoid; ?>">
             <input type="hidden" name="action" value="delete">
-            <input type="submit" value="Delete Video Files">
+            <input type="submit" value="Delete Files">
           </form>
         </td>
         <td valign="top">
@@ -1208,7 +887,7 @@ done\n");
           <form action="video.php" method="GET" onSubmit="return confirm('Are you sure you want to delete the video file?');">
             <input type="hidden" name="videoid" value="<?php echo $videoid; ?>">
             <input type="hidden" name="action" value="clean">
-            <input type="submit" style="display: none; visibility: hidden;" id="cleanupEventId" value="Cleanup Video Files">
+            <input type="submit" style="display: none; visibility: hidden;" id="cleanupEventId" value="Cleanup Files">
           </form>
         </td>
       </tr>
@@ -1613,7 +1292,7 @@ done\n");
                   }
                   else if (status["remuxBytesDone"])
                   {
-                      message = "Remuxing Video "+(Math.ceil(status["remuxBytesDone"] / status["remuxBytesTotal"] * 20)*5).toString()+"%";
+                      message = "Remuxing "+(Math.ceil(status["remuxBytesDone"] / status["remuxBytesTotal"] * 20)*5).toString()+"%";
                   }
                   else if (extension === "mp4")
                   {
@@ -1921,6 +1600,7 @@ done\n");
             }
             else
             {
+                // no state.txt available
                 $length = 0;
                 $framerate = 0;
                 // Get mediainfo
@@ -2009,14 +1689,17 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                     // if no language is found assume the first preferred language
                     $audiolangfound[] = array($sublangpref[array_key_first($sublangpref)], $sublangpref[array_key_first($sublangpref)]["name"], 0);
                 }
-                $state = array();
-                $state["framerate"] = $framerate;
-                $state["length"] = $length;
-                $state["height"] = $height;
-                $state["language"] = $language;
-                $state["languagename"] = $languagename;
-                $state["stream"] = $stream;
-                $state["audiolanguagefound"] = $audiolangfound;
+                $state = [
+                    "framerate" => $framerate,
+                    "length" => $length,
+                    "height" => $height,
+                    "language" => $language,
+                    "languagename" => $languagename,
+                    "stream" => $stream,
+                    "title" => $title,
+                    "subtitle" => $subtitle,
+                    "audiolanguagefound" => $audiolangfound,
+                ];
                 $content = json_encode($state, JSON_PRETTY_PRINT);
                 file_put_contents($file, $content);
             }

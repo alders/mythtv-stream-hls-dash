@@ -1,5 +1,7 @@
 <?php
 
+include 'common.php';
+
 /**
  * Configure index.php
  *
@@ -107,269 +109,6 @@ if (isset($_REQUEST["length"]))
     }
 }
 
-function http_request($method, $endpoint, $rest)
-{
-    $params = array("http" => array(
-        "method" => $method,
-        "header" => 'Content-type: application/x-www-form-urlencoded; charset=uft-8'
-    ));
-
-    $context = stream_context_create($params);
-
-    if (($xml_response = file_get_contents("http://localhost:6544/$endpoint?$rest", false, $context)) === false) {
-        $error = error_get_last();
-        echo "HTTP request failed. Error was: " . $error['message'];
-    }
-
-    return $xml_response;
-}
-
-function get_recorded($StartTime, $ChanId)
-{
-    // http://localhost:6544/Dvr/GetRecorded?StartTime=2023-07-08T18:55&ChanId=11500
-    // NOTE: Only a selected subset of the values available is returned here
-
-    if (empty($StartTime) || empty($ChanId)) {
-        throw new InvalidArgumentException("StartTime and ChanId cannot be empty");
-    }
-
-    $url = "Dvr/GetRecorded";
-    $query = "StartTime=$StartTime&ChanId=$ChanId";
-    $xml_response = http_request("GET", $url, $query);
-
-    if ($xml_response === false) {
-        return array(); // or throw an exception
-    }
-
-    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    if ($xml === false) {
-        return array(); // or throw an exception
-    }
-
-    $array = json_decode(json_encode($xml), TRUE);
-
-    $recorded = array(
-        'FileName' => $array['FileName'] ?? '',
-        'HostName' => $array['HostName'] ?? '',
-        'Title'    => $array['Title'] ?? '',
-        'SubTitle' => $array['SubTitle'] ?? '',
-    );
-
-    if (isset($array['Recording']['RecordedId'])) {
-        $recorded = array_merge($recorded, array(
-            'RecordedId'   => $array['Recording']['RecordedId'],
-            'StorageGroup' => $array['Recording']['StorageGroup'],
-            'Status'       => $array['Recording']['Status'],
-        ));
-    }
-
-    return $recorded;
-}
-
-function get_program_status($StartTime, $ChanId, $TitleFilter)
-{
-    if (empty($StartTime) || empty($ChanId) || empty($TitleFilter)) {
-        throw new InvalidArgumentException("StartTime, ChanId and TitleFilter cannot be empty");
-    }
-
-    $url = "Guide/GetProgramList";
-    $query = "StartTime=$StartTime&ChanId=$ChanId&TitleFilter=" . urlencode($TitleFilter);
-    $xml_response = http_request("GET", $url, $query);
-
-    if ($xml_response === false) {
-        return array(); // or throw an exception
-    }
-
-    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-
-    if ($xml === false) {
-        return array(); // or throw an exception
-    }
-
-    // Use the adjusted XPath query
-    $xpath = $xml->xpath("//Program[Channel/ChanId='$ChanId' and Title='$TitleFilter']/Recording/Status");
-
-    // Check if the XPath returned any results
-    if (!empty($xpath)) {
-        // Return the status found
-        return (string)$xpath[0];
-    }
-
-    // Return status unknown if not found
-    return "-16";
-}
-
-function get_recorded_markup($RecordedId)
-{
-    // http://localhost:6544/Dvr/GetRecordedMarkup?RecordedId=6474
-    // NOTE: Only a selected subset of the values available is returned here
-
-    if (empty($RecordedId)) {
-        throw new InvalidArgumentException("RecordedId cannot be empty");
-    }
-
-    $url = "Dvr/GetRecordedMarkup";
-    $query = "RecordedId=$RecordedId";
-    $xml_response = http_request("GET", $url, $query);
-
-    if ($xml_response === false) {
-        return array(); // or throw an exception
-    }
-
-    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    if ($xml === false) {
-        return array(); // or throw an exception
-    }
-
-    $array = json_decode(json_encode($xml), TRUE);
-
-    $recorded_markup_cut = array();
-    $count_cut = 1;
-    foreach ($array['Mark'] as $Markup) {
-        foreach ($Markup as $key2 => $Type) {
-            if (isset($Type['Type'])) {
-                switch ($Type['Type']) {
-                    case "CUT_START":
-                        $recorded_markup_cut['CUT_START_' . $count_cut++] = $Type['Frame'];
-                        break;
-                    case "CUT_END":
-                        $recorded_markup_cut['CUT_END_' . $count_cut++] = $Type['Frame'];
-                        break;
-                }
-            }
-        }
-    }
-
-    return $recorded_markup_cut;
-}
-
-function get_storagegroup_dirs($StorageGroup, $HostName)
-{
-    // http://localhost:6544/Myth/GetStorageGroupDirs
-    // NOTE: Only a selected subset of the values available is returned here
-
-    if (empty($StorageGroup) || empty($HostName)) {
-        throw new InvalidArgumentException("StorageGroup and HostName cannot be empty");
-    }
-
-    $url = "Myth/GetStorageGroupDirs";
-    $query = "";
-    $xml_response = http_request("GET", $url, $query);
-
-    if ($xml_response === false) {
-        throw new RuntimeException("Failed to retrieve storage group directories");
-    }
-
-    $xml = simplexml_load_string($xml_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    if ($xml === false) {
-        throw new RuntimeException("Failed to parse XML response");
-    }
-
-    $array = json_decode(json_encode($xml), TRUE);
-
-    if (!isset($array['StorageGroupDirs'])) {
-        throw new RuntimeException("Invalid XML response: StorageGroupDirs not found");
-    }
-
-    $storagegroup_dirs = array();
-    $count_dir_name = 1;
-    foreach ($array['StorageGroupDirs'] as $StorageGroupDir) {
-        foreach ($StorageGroupDir as $item) {
-            if (isset($item['HostName'], $item['GroupName'], $item['DirName']) &&
-                $item['HostName'] == $HostName &&
-                $item['GroupName'] == $StorageGroup) {
-                $storagegroup_dirs['DirName' . $count_dir_name++] = $item['DirName'];
-            }
-        }
-    }
-
-    return $storagegroup_dirs;
-}
-
-function generateStreamOptions($settings, $qualities, $nb_renditions, $isAudio = true) {
-    $stream_number = 0;
-    $seen_abitrates = [];
-    $options = '';
-
-    if ($isAudio) {
-        // Build audio options
-        foreach ($qualities as $i => $quality) {
-            $current_abitrate = $settings[$quality]["abitrate"];
-            if (!in_array($current_abitrate, $seen_abitrates)) {
-                $options .= "a:".$stream_number++.",";
-                $seen_abitrates[] = $current_abitrate; // Add to seen bitrates
-            }
-        }
-    }
-
-    // Build video options
-    for ($i = 0; $i < $nb_renditions; $i++) {
-        $options .= "v:".$i.($i === $nb_renditions - 1 ? "" : ",");
-    }
-
-    return rtrim($options, ','); // Remove trailing comma
-}
-
-function generateMediaStreamOptions($settings, $qualities, $nb_renditions, $language) {
-    $audio_stream_number = 0;
-    $default = "yes";
-    $options = '';
-
-    // Build audio options
-    $seen_abitrates = [];
-    foreach ($qualities as $i => $quality) {
-        $current_abitrate = $settings[$quality]["abitrate"];
-        if (!in_array($current_abitrate, $seen_abitrates)) {
-            $options .= "a:".$audio_stream_number.",agroup:aac,language:".$language."-".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
-            $default = "no"; // Set default to "no" after the first audio stream
-            $seen_abitrates[] = $current_abitrate; // Track seen bitrates
-        }
-    }
-
-    // Build video options
-    for ($i = 0; $i < $nb_renditions; $i++) {
-        $options .= "v:".$i.",agroup:aac,name:".$settings[$qualities[$i]]["height"]."p_".$settings[$qualities[$i]]["vbitrate"];
-        if ($i < $nb_renditions - 1) {
-            $options .= " ";
-        }
-    }
-
-    return trim($options); // Return the final options string
-}
-
-function getFileInfo($path, $filename) {
-    $file = $path . "/" . $filename . "/state.txt";
-    if (file_exists($file)) {
-        $content = json_decode(file_get_contents($file), true);
-        $title = isset($content["title"]) ? $content["title"] : "Unknown";
-        $subtitle = isset($content["subtitle"]) ? $content["subtitle"] : "";
-    } else {
-        $title = "Unknown";
-        $subtitle = "";
-    }
-
-    return [
-        'title' => $title,
-        'subtitle' => $subtitle,
-        'extension' => "Unknown",
-        'dirname' => "Unknown"
-    ];
-}
-
-function remove_duplicates($array) {
-    $result = array();
-    foreach ($array as $key => $value) {
-        if (!isset($result[$value])) {
-            $result[$value] = $key;
-        }
-    }
-    $unique_array = array();
-    foreach ($result as $value => $key) {
-        $unique_array[$key] = $value;
-    }
-    return $unique_array;
-}
-
 $file_list = scandir($hls_path);
 $filename = $_REQUEST["filename"];
 $file_list[] = $filename;
@@ -384,7 +123,7 @@ foreach ($file_list as $file) {
         if ($chanid) {
             $starttime = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $filedetails[2], $filedetails[3], $filedetails[4], $filedetails[5], $filedetails[6], $filedetails[7]);
             $datetime = new DateTime($starttime);
-            $recorded = get_recorded($datetime->format(DateTime::ATOM), $chanid);
+            $recorded = Common::get_recorded($datetime->format(DateTime::ATOM), $chanid);
             $title = '';
             $subtitle = '';
             $extension = '';
@@ -396,7 +135,7 @@ foreach ($file_list as $file) {
                 $title = $recorded['Title'];
                 $subtitle = $recorded['SubTitle'];
                 if ($filename === pathinfo($recorded['FileName'], PATHINFO_FILENAME)) {
-                    $storagegroup_dirs = get_storagegroup_dirs($recorded['StorageGroup'], $recorded['HostName']);
+                    $storagegroup_dirs = Common::get_storagegroup_dirs($recorded['StorageGroup'], $recorded['HostName']);
                     foreach ($storagegroup_dirs as $storagegroup) {
                         if (file_exists($storagegroup . "/" . $recorded['FileName'])) {
                             $extension = pathinfo($recorded['FileName'], PATHINFO_EXTENSION);
@@ -408,7 +147,7 @@ foreach ($file_list as $file) {
                 }
             } else {
                 // File is not available in MythTV
-                $fileInfo = getFileInfo($hls_path, $fn);
+                $fileInfo = Common::getFileInfo($hls_path, $fn);
                 $title = $fileInfo['title'];
                 $subtitle = $fileInfo['subtitle'];
                 if ($filename === $fn) {
@@ -427,7 +166,7 @@ foreach ($file_list as $file) {
     }
 }
 
-$file_list = remove_duplicates($file_list);
+$file_list = Common::remove_duplicates($file_list);
 
 $select_box = "<form>\n    <select onChange=\"window.location.href='index.php?filename='+this.value;\">\n";
 $current_value = $_GET['filename'] ?? '';
@@ -446,7 +185,7 @@ foreach ($file_list as $file) {
             $select_box .= str_repeat(' ', 4) . "<option value=\"".$fn."\" $selected>".$names[$fn]." (".$month."/".$day."/".$year.")</option>\n";
         } else {
             // File is not available in MythTV attempt to retrieve title from 'state.txt'
-            $fileInfo = getFileInfo($hls_path, $fn);
+            $fileInfo = Common::getFileInfo($hls_path, $fn);
             $locsubtitle = '';
             if (!empty($fileInfo['subtitle'])) {
                 $locsubtitle = "_{$fileInfo['subtitle']}";
@@ -461,8 +200,8 @@ foreach ($file_list as $file) {
 }
 $select_box .= str_repeat(' ', 4) . "</select></form>\n";
 
-$hw_box = "<br>";
-$hw_box .= "<label for=\"hwaccel\">HW acceleration: </label>\n";
+$hw_box = "<br>\n";
+$hw_box .= str_repeat(' ', 12) . "<label for=\"hwaccel\">HW acceleration: </label>\n";
 $hw_box .= str_repeat(' ', 12) . "<select class=\"select\" name=\"hw\" required>\n";
 $hw_box .= str_repeat(' ', 16) . "<option value=\"\" disabled hidden>-- Please choose your HW Acceleration --</option>\n";
 foreach ($hwaccels as $hwaccel => $hwaccelset)
@@ -703,7 +442,7 @@ if ($file_exists)
             $interval = $currentDateTime->diff($datetime);
             if ($interval->h < 12 && $interval->days == 0) {
                 // The given DateTime is within the last 12 hours, recordings don't take this long
-                $program_status = get_program_status(date("Y-m-d\TH:i:s\Z",strtotime($starttime)), $recordingDetails["chanid"], $title);
+                $program_status = Common::get_program_status(date("Y-m-d\TH:i:s\Z",strtotime($starttime)), $recordingDetails["chanid"], $title);
             }
             else
             {
@@ -816,7 +555,7 @@ done";
                 $read_rate = "-re";
                 $create_live_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$live_path."/".$filename.";";
                 $option_live  = "[select=\'";
-                $option_live .= generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
+                $option_live .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
                 $option_live  .= "\': \
           f=hls: \
           hls_time=2: \
@@ -824,7 +563,7 @@ done";
           hls_flags=+independent_segments+iframes_only+delete_segments: \
           hls_segment_type=fmp4: \
           var_stream_map=\'";
-                $option_live .= generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
+                $option_live .= Common::generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
                 $option_live .= "\\': \\\n          master_pl_name=master_live.m3u8: \
           hls_segment_filename=../$livedir/$filename/stream_live_%v_data%02d.m4s]../$livedir/$filename/stream_live_%v.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
@@ -866,7 +605,7 @@ done";
             if ($hls_playlist_type === "event")
             {
                 $option_hls  = "[select=\'";
-                $option_hls .= generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
+                $option_hls .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
                 $option_hls  .= "\': \
           f=hls: \
           hls_time=2: \
@@ -874,7 +613,7 @@ done";
           hls_flags=+independent_segments+iframes_only: \
           hls_segment_type=fmp4: \
           var_stream_map=\'";
-                $option_hls .= generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
+                $option_hls .= Common::generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
                 $option_hls .= "\\': \
           master_pl_name=master_event.m3u8: \
           hls_segment_filename=$filename/stream_event_%v_data%02d.m4s]$filename/stream_event_%v.m3u8";
@@ -923,7 +662,7 @@ done";
             {
                 $create_vod_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$vod_path."/".$filename.";";
                 $option_vod  = "[select=\'";
-                $option_vod .= generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
+                $option_vod .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
                 $option_vod  .= "\': \
           f=dash: \
           seg_duration=2: \
@@ -1609,7 +1348,7 @@ done\n");
                           playerInitDone = initPlayer();
                       }
                   } else if (status["remuxBytesDone"]) {
-                      message = "Remuxing" + (Math.ceil(status["remuxBytesDone"] / status["remuxBytesTotal"] * 20) * 5).toString() + "%";
+                      message = "Remuxing " + (Math.ceil(status["remuxBytesDone"] / status["remuxBytesTotal"] * 20) * 5).toString() + "%";
                   } else if (extension === "mp4") {
                       message = message_string;
                       if (!playerInitDone) {
@@ -1996,7 +1735,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 $interval = $currentDateTime->diff($datetime);
                 if ($interval->h < 12 && $interval->days == 0) {
                     // The given DateTime is within the last 12 hours
-                    $program_status = get_program_status(date("Y-m-d\TH:i:s\Z",strtotime($starttime)), $chanid, $title);
+                    $program_status = Common::get_program_status(date("Y-m-d\TH:i:s\Z",strtotime($starttime)), $chanid, $title);
                 }
                 else
                 {
@@ -2006,8 +1745,8 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 if ((isset($program_status) && $program_status !== "-2"))
                 {
                     // Made sure we are not still recording
-                    $recorded = get_recorded($datetime->format(DateTime::ATOM), $chanid);
-                    $recorded_markup = get_recorded_markup($recorded['RecordedId']);
+                    $recorded = Common::get_recorded($datetime->format(DateTime::ATOM), $chanid);
+                    $recorded_markup = Common::get_recorded_markup($recorded['RecordedId']);
 
                     $firstrow = true;
                     $midsegment = false;
@@ -2117,6 +1856,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
             ?>
             </select>
             <?php echo $hw_box; ?>
+            <br>
             <?php
             if ($cutcount > 0)
             {
