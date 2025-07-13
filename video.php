@@ -385,20 +385,19 @@ if ($file_exists && strtolower($extension) !== "iso")
 
             $mustencode = false;
             $fileinput = "";
-            $escaped_filename = trim(escapeshellarg($filename),"'");
             if ($extension === "avi")
             {
-                $fileinput = "-i ".$hls_path."/".$videoid."/video.mp4";
+                $fileinput = "-i \"".$hls_path."/".$videoid."/video.mp4\"";
                 $mustencode = true;
             }
             else
             {
-                $fileinput = "-i \"".$dirname."/".$escaped_filename.".".$extension."\"";
+                $fileinput = "-i \"".$dirname."/".$filename.".".$extension."\"";
             }
             if ($stream === "-2")
             {
                 // external subtitles found
-                $fileinput .= "\\\n    -i \"".$dirname."/".$escaped_filename.".srt\"";
+                $fileinput .= "\\\n    -i \"".$dirname."/".$filename.".srt\"";
             }
             # Write encode script (just for cleanup, if no encode necessary)
             $fp = fopen($hls_path."/".$videoid."/encode.sh", "w");
@@ -413,7 +412,7 @@ if ($file_exists && strtolower($extension) !== "iso")
   {$hwaccels[$_REQUEST["hw"]]["hwaccel"]} \
   -txt_format text -txt_page 888 \
   -fix_sub_duration \
-  -i \"{$dirname}/{$escaped_filename}.{$extension}\" \\";
+  -i \"{$dirname}/{$filename}.{$extension}\" \\";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // copy one video, one audio and one subtitle stream

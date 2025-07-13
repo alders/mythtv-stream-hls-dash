@@ -35,8 +35,7 @@ What:
 - Support for offline viewing.
 - Support for at most one (text based) embedded subtitle stream or
   external subtitle file.
-- Support for multiple audio languages (and audio renditions) in
-  MythVideo content.
+- Support for multiple audio languages (and audio renditions).
 - Support for MythTV cutlist (commercial cut) created using
   Mythfrontend.
 - Support for VLC as an external player, which also enables Chromecast

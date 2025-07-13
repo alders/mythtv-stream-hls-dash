@@ -463,7 +463,7 @@ if ($file_exists)
 
             if ($extension === "avi")
             {
-                $fileinput = "-i ".$hls_path."/".$filename."/video.mp4";
+                $fileinput = "-i \"" . $hls_path . "/" . $filename . "/video.mp4\"";
                 $cut = "uncut";
                 $mustencode = true;
             }
