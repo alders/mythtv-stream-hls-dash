@@ -20,7 +20,8 @@ $vod_path = "$webroot/$voddir";
 // NOTE: ISO 639-2/B language codes, the first match of the subtitle language preference is used
 $sublangpref = array(
     "dut" => array("name" => "Dutch"),
-    "dum" => array("name" => "Middle Dutch"),
+    "gos" => array("name" => "gos"), // Gesproken ondertiteling Visual impaired commentary
+    "dum" => array("name" => "dum"), // Middle Dutch (ca. 1050-1350)
     "eng" => array("name" => "English"),
     "ger" => array("name" => "German"),
 );
@@ -417,6 +418,7 @@ if ($file_exists)
             $height = $content["height"] ?? null;
             $language = $content["language"] ?? null;
             $languagename = $content["languagename"] ?? null;
+            $audiolanguagefound[] = $content["audiolanguagefound"] ?? null;
             $stream = $content["stream"] ?? null;
 
             $mustencode = false;
@@ -465,7 +467,7 @@ if ($file_exists)
                 $cut = "uncut";
                 $mustencode = true;
             }
-            else if (ISSET($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and $_REQUEST["cutcount"] > 0)
+            else if (isset($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and $_REQUEST["cutcount"] > 0)
             {
                 $fileinput = "-f concat -async 1 -safe 0 -i ".$hls_path."/".$filename."/cutlist.txt";
                 $cut = "cut";
@@ -491,12 +493,23 @@ if ($file_exists)
   {$hwaccels[$_REQUEST["hw"]]["hwaccel"]} \
   -txt_format text -txt_page 888 \
   -fix_sub_duration \
-  -i \"{$dirname}/{$filename}.{$extension}\" \
-  -c copy \\";
-                if (isset($_REQUEST["checkbox_subtitles"]))
+  -i \"{$dirname}/{$filename}.{$extension}\" \\";
+                if (isset($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and isset($_REQUEST["checkbox_subtitles"]))
                 {
+                    // copy one video, one audio and one subtitle stream
+                    // NOTE: could not find a way, in one processing step without transcoding, to include video, all audio files and additionally one subtitle stream.
+                    // In other words, the option to include subtitles will reduce the number of audio streams to one.
                     $remuxCommand = $remuxCommand . "
+  -c copy \
   -c:s mov_text \\";
+                }
+                else{
+                    // copy all video, all audio and no subtitle stream
+                    $remuxCommand = $remuxCommand . "
+  -map \"v\" \
+  -c:v copy \
+  -map \"a\" \
+  -c:a copy \\";
                 }
                 $remuxCommand = $remuxCommand . "
 {$hls_path}/{$filename}/video.mp4 && \
@@ -555,7 +568,7 @@ done";
                 $read_rate = "-re";
                 $create_live_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$live_path."/".$filename.";";
                 $option_live  = "[select=\'";
-                $option_live .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
+                $option_live .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $audiolanguagefound);
                 $option_live  .= "\': \
           f=hls: \
           hls_time=2: \
@@ -563,9 +576,11 @@ done";
           hls_flags=+independent_segments+iframes_only+delete_segments: \
           hls_segment_type=fmp4: \
           var_stream_map=\'";
-                $option_live .= Common::generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
+                $option_live .= Common::generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $audiolanguagefound);
                 $option_live .= "\\': \\\n          master_pl_name=master_live.m3u8: \
           hls_segment_filename=../$livedir/$filename/stream_live_%v_data%02d.m4s]../$livedir/$filename/stream_live_%v.m3u8";
+                $master_file = "$live_path/$filename/master_live.m3u8";
+                $linenumber = 0;
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -580,32 +595,46 @@ done";
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
           hls_segment_filename=\'/dev/null\']../$livedir/$filename/sub_%v.m3u8";
-                    $master_file = "$live_path/$filename/master_live.m3u8";
                     // This command is delayed until master_live.m3u8 is created by FFmpeg!!!
                     // NOTE: Add subtitles
+
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$live_path."/".$filename.";
+    /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\"  ".$live_path."/".$filename.";
  done;
+   for i in {1..2}; do
     /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
-                } else
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$master_file.";");
+                    $linenumber = 4;
+                }
+                else
                 {
-                    $master_file = "$live_path/$filename/master_live.m3u8";
                     // This command is delayed until master_live.m3u8 is created by FFmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$live_path."/".$filename.";
+    /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$hls_path."/".$filename.";
  done;
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,.*)/\\1,CLOSED-CAPTIONS=NONE/' ".$master_file.";) & \n");
-
+   for i in {1..2}; do
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,.*)/\\1,CLOSED-CAPTIONS=NONE/' ".$master_file.";");
+                    $linenumber = 3;
                 }
+                // Take care of audio streams in master_live.m3u8
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    $new_audio_rendition = Common::isNewAudioRendition($settings, $_REQUEST["quality"], $i);
+                    if ($new_audio_rendition)
+                    {
+                        Common::addLanguageToAudioRendition($fp, $master_file, $linenumber, $audiolanguagefound, $settings[$_REQUEST["quality"][$i]]["abitrate"], $i);
+                    }
+                }
+                fwrite($fp, "
+    /usr/bin/inotifywait -e modify --include \"master_".$hls_playlist_type.".m3u8\"  ".$hls_path."/".$filename.";
+ done) & \n");
             }
             if ($hls_playlist_type === "event")
             {
                 $option_hls  = "[select=\'";
-                $option_hls .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
+                $option_hls .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $audiolanguagefound);
                 $option_hls  .= "\': \
           f=hls: \
           hls_time=2: \
@@ -613,10 +642,12 @@ done";
           hls_flags=+independent_segments+iframes_only: \
           hls_segment_type=fmp4: \
           var_stream_map=\'";
-                $option_hls .= Common::generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $language);
+                $option_hls .= Common::generateMediaStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $audiolanguagefound);
                 $option_hls .= "\\': \
           master_pl_name=master_event.m3u8: \
           hls_segment_filename=$filename/stream_event_%v_data%02d.m4s]$filename/stream_event_%v.m3u8";
+                $linenumber = 0;
+                $master_file = "$hls_path/$filename/master_event.m3u8";
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls_segment_filename is written to /dev/null since the m4s output is not required, video is just used to sync the subtitle segments
@@ -631,38 +662,48 @@ done";
           hls_segment_type=fmp4: \
           var_stream_map=\'v:0,s:0,sgroup:subtitle\': \
           hls_segment_filename=\'/dev/null\']$filename/sub_%v.m3u8";
-                    $master_file = "$hls_path/$filename/master_event.m3u8";
                     // This command is delayed until master_event.m3u8 is created by FFmpeg!!!
                     // NOTE: Start playing the video at the beginning.
                     // NOTE: Add subtitles
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\"  ".$hls_path."/".$filename.";
+    /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\"  ".$hls_path."/".$filename.";
  done;
+   for i in {1..2}; do
     /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -r '/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,CODECS)/{N;d;}' -i ".$master_file.";) & \n");
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/'  ".$master_file.";");
+                    $linenumber = 4;
                 }
                 else
                 {
-                    $master_file = "$hls_path/$filename/master_event.m3u8";
                     // This command is delayed until master_event.m3u8 is created by FFmpeg!!!
                     // NOTE: Start playing the video at the beginning.
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$hls_path."/".$filename.";
+    /usr/bin/inotifywait -e close_write --include \"master_".$hls_playlist_type.".m3u8\" ".$hls_path."/".$filename.";
  done;
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,.*)/\\1,CLOSED-CAPTIONS=NONE/' ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";) & \n");
-
+   for i in {1..2}; do
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,.*)/\\1,CLOSED-CAPTIONS=NONE/' ".$master_file.";");
+                    $linenumber = 3;
                 }
+                // Take care of audio streams in master_event.m3u8
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    $new_audio_rendition = Common::isNewAudioRendition($settings, $_REQUEST["quality"], $i);
+                    if ($new_audio_rendition)
+                    {
+                        Common::addLanguageToAudioRendition($fp, $master_file, $linenumber, $audiolanguagefound, $settings[$_REQUEST["quality"][$i]]["abitrate"], $i);
+                    }
+                }
+                fwrite($fp, "
+    /usr/bin/inotifywait -e modify --include \"master_".$hls_playlist_type.".m3u8\"  ".$hls_path."/".$filename.";
+ done) & \n");
             }
             if (isset($_REQUEST["vod"]))
             {
                 $create_vod_dir = "/usr/bin/sudo -u".$webuser." /usr/bin/mkdir -p ".$vod_path."/".$filename.";";
                 $option_vod  = "[select=\'";
-                $option_vod .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, true);
+                $option_vod .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions , $audiolanguagefound);
                 $option_vod  .= "\': \
           f=dash: \
           seg_duration=2: \
@@ -672,6 +713,7 @@ done";
           media_seg_name=\'stream_vod_\$RepresentationID\$-\$Number%05d\$.\$ext\$\': \
           hls_master_name=master_vod.m3u8]../".$voddir."/".$filename."/manifest_vod.mpd";
                 $master_file = "".$vod_path."/".$filename."/master_vod.m3u8";
+                $linenumber = 0;
                 if (isset($_REQUEST["checkbox_subtitles"]))
                 {
                     // hls event is used here to segment the subtitles, adding subtitle "streams" to dash is not implemented in FFmpeg
@@ -692,33 +734,12 @@ done";
                     // NOTE: The execution of this command is delayed, till the master file is created later in time by FFmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
+    /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
  done;
+   for i in {1..2}; do
     /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"subtitles\",NAME=\"".$languagename."\",DEFAULT=YES,FORCED=NO,AUTOSELECT=YES,URI=\"sub_0_vtt.m3u8\",LANGUAGE=\"".$language."\"/' ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";
     /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM.*)/\\1,SUBTITLES=\"subtitles\"/' ".$master_file.";");
-                    $audio_stream_number= 0;
-                    $offset = 5;
-                    for ($i=0; $i < $nb_renditions; $i++)
-                    {
-                        $bool_new_audio = true;
-                        $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
-                        for ($j=0; $j < $i; $j++)
-                        {
-                            if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
-                            {
-                                // seen abitrate before
-                                $bool_new_audio = false;
-                            }
-                        }
-                        if ($bool_new_audio)
-                        {
-                            $linenumber = $offset + $audio_stream_number;
-                            fwrite($fp, " \
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E '".$linenumber."s/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."-".$audio_stream_number++."_".$current_abitrate."\"/' ".$master_file.";");
-                        }
-                    }
-                    fwrite($fp, ") & \n");
+                    $linenumber = 4;
                 }
                 else
                 {
@@ -728,37 +749,30 @@ done";
                     // NOTE: The execution of this command is delayed, till the master file is created later in time by FFmpeg!!!
                     fwrite($fp, "(while [ ! -f \"".$master_file."\" ] ;
  do
-        /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
+    /usr/bin/inotifywait -e close_write --include \"master_vod.m3u8\" ".$vod_path."/".$filename.";
  done;
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,.*)/\\1,CLOSED-CAPTIONS=NONE/' ".$master_file.";
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-VERSION:7)/\\1\\n#EXT-X-START:TIME-OFFSET=0/' ".$master_file.";");
-                    $audio_stream_number= 0;
-                    $offset = 4;
-                    for ($i=0; $i < $nb_renditions; $i++)
-                    {
-                        $bool_new_audio = true;
-                        $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
-                        for ($j=0; $j < $i; $j++)
-                        {
-                            if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
-                            {
-                                // seen abitrate before
-                                $bool_new_audio = false;
-                            }
-                        }
-                        if ($bool_new_audio)
-                        {
-                            $linenumber = $offset + $audio_stream_number;
-                            fwrite($fp, " \
-    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E '".$linenumber."s/(#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_A1\")/\\1,LANGUAGE=\"".$language."-".$audio_stream_number++."_".$current_abitrate."\"/' ".$master_file.";");
-                        }
-                    }
-                    fwrite($fp, ") & \n");
+   for i in {1..2}; do
+    /usr/bin/sudo -u".$webuser." /usr/bin/sed -i -E 's/(#EXT-X-STREAM-INF:BANDWIDTH=[0-9]+\,.*)/\\1,CLOSED-CAPTIONS=NONE/' ".$master_file.";");
+                    $linenumber = 3;
                 }
+                // Take care of audio streams in master_vod.m3u8
+                for ($i=0; $i < $nb_renditions; $i++)
+                {
+                    $new_audio_rendition = Common::isNewAudioRendition($settings, $_REQUEST["quality"], $i);
+                    if ($new_audio_rendition)
+                    {
+                        Common::addLanguageToAudioRendition($fp, $master_file, $linenumber, $audiolanguagefound, $settings[$_REQUEST["quality"][$i]]["abitrate"], $i);
+                    }
+                }
+                fwrite($fp, "
+    /usr/bin/inotifywait -e modify --include \"master_vod.m3u8\"  ".$vod_path."/".$filename.";
+ done) & \n");
             }
             if(isset($_REQUEST["mp4"]))
             {
-                $option_mp4 = "[select=\'v:0,a:0\': \
+                $option_mp4  = "[select=\'";
+                $option_mp4 .= Common::generateStreamOptions($settings, $_REQUEST["quality"], $nb_renditions, $audiolanguagefound);
+                $option_mp4 .= "\': \
           f=mp4: \
           movflags=+faststart]".$filename."/".$filename." - ".$title_subtitle.".mp4";
                 if (isset($_REQUEST["checkbox_subtitles"]))
@@ -828,22 +842,22 @@ done";
         $audio_stream_number = 0;
         for ($i=0; $i < $nb_renditions; $i++)
         {
-            $bool_new_abitrate = true;
-            $current_abitrate = $settings[$_REQUEST["quality"][$i]]["abitrate"];
-            for ($j=0; $j < $i; $j++)
+            if (Common::isNewAudioRendition($settings, $_REQUEST["quality"], $i))
             {
-                if ($settings[$_REQUEST["quality"][$j]]["abitrate"] === $current_abitrate)
+                for ($k=0; $k < sizeOf($audiolanguagefound[0]); $k++)
                 {
-                    // seen abitrate before
-                    $bool_new_abitrate = false;
+                    $mapping .= "    -map a:".$audiolanguagefound[0][$k][2]." -c:a:".$audio_stream_number." aac -b:a:".$audio_stream_number." ".$settings[$_REQUEST["quality"][$i]]["abitrate"]."k \
+              -metadata:s:a:".$audio_stream_number." language=".$audiolanguagefound[0][$k][1]." -metadata:s:a:".$audio_stream_number++." name=".$audiolanguagefound[0][$k][0]["name"]." \\\n";
+                    if (isset($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and isset($_REQUEST["checkbox_subtitles"]))
+                    {
+                        // NOTE: could not find a way, in one processing step without transcoding, to include video, all audio files and additionally one subtitle stream.
+                        // In other words, the option to include subtitles will reduce the number of audio streams to one.
+                        break;
+                    }
                 }
             }
-            if ($bool_new_abitrate)
-            {
-                $mapping .= "    -map a:0 -c:a:".$audio_stream_number." aac -b:a:".$audio_stream_number." ".$current_abitrate."k -ac 2 \
-        -metadata:s:a:".$audio_stream_number++." language=".$language." \\\n";
-            }
         }
+        $mapping .= "    -ac 2  \\\n";
         fwrite($fp, "/usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: encode start >> ".$hls_path."/".$filename."/status.txt';
 ".$create_vod_dir."
 ".$create_live_dir."
@@ -884,9 +898,11 @@ cd ".$hls_path."/".$filename.";
 /usr/bin/sudo -u".$webuser." ".$ffmpeg." \
     -i \"".$filename." - ".$title_subtitle.".mp4\" \
     -i subtitles.vtt \
-    -c:s mov_text -metadata:s:s:0 language=".$language." -disposition:s:0 default \
     -c:v copy \
     -c:a copy \
+    -map 0 \
+    -c:s mov_text -metadata:s:s:0 language=".$language." -disposition:s:0 default \
+    -map 1 \
     \"".$filename." - ".$title_subtitle.".tmp.mp4\" \
 2>>/tmp/ffmpeg-subtitle-merge-".$hlsdir."-".$filename.".log && \
 /usr/bin/sudo -u".$webuser." /usr/bin/bash -c '/usr/bin/echo `date`: subtitle_merge success >> ".$hls_path."/".$filename."/status.txt' || \
@@ -1331,8 +1347,8 @@ done\n");
                       message = message + pad(Math.floor(secs));
 
                       message = message + " available";
-                      // NOTE: 24 seconds is equal to 6x segment size is just an empirical guess
-                      if (!playerInitDone && Math.ceil(status["available"] > 24)) {
+                      // NOTE: 15 seconds just an empirical guess
+                      if (!playerInitDone && Math.ceil(status["available"] > 15)) {
                           playerInitDone = initPlayer();
                       }
                   } else if (status['available'] == '100') {
@@ -1499,7 +1515,7 @@ done\n");
               const controls = ui.getControls();
               const player = controls.getPlayer();
 
-              player.configure('streaming.preferNativeHls', true);
+              player.configure('streaming.preferNativeHls', false);
 
               // Attach player and ui to the window to make it easy to access in the JS console.
               window.player = player;
@@ -1660,6 +1676,7 @@ done\n");
                 // Get mediainfo
                 $mediainfo = shell_exec("/usr/bin/sudo -uapache /usr/bin/mediainfo \"--Output=General; Duration : %Duration/String%\r
 Video; Width : %Width% pixels\r Height : %Height% pixels\r Frame rate : %FrameRate/String%\r
+Audio; Audio : %Language/String%\r
 Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename.".$extension"."\"");
                 preg_match_all('/Duration[ ]*:( (\d*) h)?( (\d*) min)?( (\d*) s)?/',$mediainfo,$durationdetails);
                 if ($durationdetails[1][0])
@@ -1679,10 +1696,16 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                 preg_match_all('/Frame rate[ ]*: (\d*\.?\d*) (.*?)FPS/',$mediainfo,$ratedetails);
                 if(isset($ratedetails[1][0])) {
                     if ($ratedetails[1][0] == "") {
-                        $framerate = (float)25.0;
-                    } else {
+                        $framerate = (double)25.0;
+                    }
+                    else {
                         $framerate = ((double) $ratedetails[1][0]);
                     }
+                }
+                else
+                {
+                    // no value defined assume a value
+                    $framerate = (double)25.0;
                 }
                 $language = "";
                 $languagename = "";
@@ -1709,6 +1732,27 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                     $language = array_key_first($sublangpref);
                     $languagename = $sublangpref[array_key_first($sublangpref)]["name"];
                 }
+                $audiolanguagename = "";
+                $audiostream = "-1";
+                preg_match_all('/Audio[ ]*:[ ]+([a-zA-Z]+)/',$mediainfo,$audiolanguagesfound);
+                $audiolang = array();
+                $audiolangfound = array();
+                foreach ($audiolanguagesfound[1] as $key => $value){
+                    $audiolang[] = array_merge((array)$audiolanguagesfound[1][$key], (array)$value);
+                }
+                foreach ($sublangpref as $prefkey => $prefvalue) {
+                    foreach ($audiolang as $key => $value) {
+                        if ($prefvalue['name'] == $value[0])
+                        {
+                            $audiolangfound[] = array(array("name" => $prefvalue['name']), $prefkey, $key);
+                        }
+                    }
+                }
+                if (sizeOf($audiolangfound) < 1)
+                {
+                    // if no language is found assume the first preferred language
+                    $audiolangfound[] = array($sublangpref[array_key_first($sublangpref)], $sublangpref[array_key_first($sublangpref)]["name"], 0);
+                }
                 $state = [
                     "framerate" => $framerate,
                     "length" => $length,
@@ -1718,6 +1762,7 @@ Text; Format : %Format% Sub : %Language/String%\r\n\" \"".$dirname."/".$filename
                     "stream" => $stream,
                     "title" => $title,
                     "subtitle" => $subtitle,
+                    "audiolanguagefound" => $audiolangfound,
                 ];
 
                 // Fetch any cut marks

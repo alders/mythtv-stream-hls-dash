@@ -62,21 +62,27 @@ class Common {
         return $storagegroup_dirs;
     }
 
-    public static function generateStreamOptions($settings, $qualities, $nb_renditions, $isAudio = true)
+    public static function generateStreamOptions($settings, $qualities, $nb_renditions, $audiolanguagefound)
     {
         $stream_number = 0;
         $seen_abitrates = [];
         $options = '';
 
-        if ($isAudio) {
-            // Build audio options
-            foreach ($qualities as $i => $quality) {
-                $current_abitrate = $settings[$quality]["abitrate"];
-                if (!in_array($current_abitrate, $seen_abitrates)) {
+        // Build audio options
+        foreach ($qualities as $i => $quality) {
+            $current_abitrate = $settings[$quality]["abitrate"];
+            if (!in_array($current_abitrate, $seen_abitrates)) {
+                foreach ($audiolanguagefound[0] as $language) {
                     $options .= "a:".$stream_number++.",";
                     $seen_abitrates[] = $current_abitrate; // Track seen bitrates
+                    if (isset($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and isset($_REQUEST["checkbox_subtitles"]))
+                    {
+                        // NOTE: could not find a way, in one processing step without transcoding, to include video, all audio files and additionally one subtitle stream.
+                        // In other words, the option to include subtitles will reduce the number of audio streams to one.
+                        break;
+                    }
                 }
-        }
+            }
         }
 
         // Build video options
@@ -87,7 +93,7 @@ class Common {
         return rtrim($options, ','); // Remove trailing comma
     }
 
-    public static function generateMediaStreamOptions($settings, $qualities, $nb_renditions, $language)
+    public static function generateMediaStreamOptions($settings, $qualities, $nb_renditions, $audiolanguagefound)
     {
         $audio_stream_number = 0;
         $default = "yes";
@@ -97,10 +103,19 @@ class Common {
         $seen_abitrates = [];
         foreach ($qualities as $i => $quality) {
             $current_abitrate = $settings[$quality]["abitrate"];
+
             if (!in_array($current_abitrate, $seen_abitrates)) {
-                $options .= "a:".$audio_stream_number.",agroup:aac,language:".$language."-".$audio_stream_number."_".$current_abitrate.",name:aac_".$audio_stream_number++."_".$current_abitrate."k,default:".$default." ";
-                $default = "no"; // Set default to "no" after the first audio stream
-                $seen_abitrates[] = $current_abitrate; // Track seen bitrates
+                foreach ($audiolanguagefound[0] as $language) {
+                    $options .= "a:".$audio_stream_number.",agroup:aac,language:".$language[1]."-".$audio_stream_number.",name:".$language[0]['name']."-aac-".$audio_stream_number++."-".$current_abitrate."k,default:".$default." ";
+                    $default = "no"; // Set default to "no" after the first audio stream
+                    $seen_abitrates[] = $current_abitrate; // Track seen bitrates
+                    if (isset($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and isset($_REQUEST["checkbox_subtitles"]))
+                    {
+                        // NOTE: could not find a way, in one processing step without transcoding, to include video, all audio files and additionally one subtitle stream.
+                        // In other words, the option to include subtitles will reduce the number of audio streams to one.
+                        break;
+                    }
+                }
             }
         }
 
@@ -364,6 +379,34 @@ class Common {
             'subtitleInfo' => $subtitleInfo,
             'audioInfo' => $audioInfo
         ];
+    }
+
+    public static function isNewAudioRendition($settings, $qualities, $i) {
+        $current_abitrate = $settings[$qualities[$i]]["abitrate"];
+        for ($j = 0; $j < $i; $j++) {
+            if ($settings[$qualities[$j]]["abitrate"] === $current_abitrate) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static function addLanguageToAudioRendition($fp, $master_file, &$linenumber, $audiolanguagefound, $abitrate, $rendition) {
+	    for ($k = 0; $k < sizeOf($audiolanguagefound[0]); $k++) {
+            fwrite($fp, " \
+    /usr/bin/sudo -u{$GLOBALS['webuser']} /usr/bin/sed -i -E '".$linenumber."s/$/,ROLE=\"{$rendition}\",LANGUAGE=\"{$audiolanguagefound[0][$k][1]}-{$abitrate}k_{$rendition}\"/' ".$master_file.";");
+            fwrite($fp, " \
+    /usr/bin/sudo -u{$GLOBALS['webuser']} /usr/bin/sed -i -E '".$linenumber."s/NAME=[^,]*/NAME=\"{$audiolanguagefound[0][$k][0]['name']} $rendition \({$abitrate}k\)\"/' ".$master_file.";");
+            fwrite($fp, " \
+    /usr/bin/sudo -u{$GLOBALS['webuser']} /usr/bin/sed -i -E '".$linenumber."s/LANGUAGE=[^,]*,//' ".$master_file.";");
+            $linenumber++;
+            if (isset($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and isset($_REQUEST["checkbox_subtitles"]))
+            {
+                // NOTE: could not find a way, in one processing step without transcoding, to include video, all audio files and additionally one subtitle stream.
+                // In other words, the option to use a cutlist and subtitles will reduce the number of audio streams to one.
+                break;
+            }
+        }
     }
 }
 ?>
