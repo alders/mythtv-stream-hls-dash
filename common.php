@@ -391,15 +391,16 @@ class Common {
         return true;
     }
 
-    public static function addLanguageToAudioRendition($fp, $master_file, &$linenumber, $audiolanguagefound, $abitrate, $rendition) {
+    public static function addLanguageToAudioRendition($fp, $master_file, &$linenumber, $audiolanguagefound, $abitrate, &$audio_stream_number) {
 	    for ($k = 0; $k < sizeOf($audiolanguagefound[0]); $k++) {
             fwrite($fp, " \
-    /usr/bin/sudo -u{$GLOBALS['webuser']} /usr/bin/sed -i -E '".$linenumber."s/$/,ROLE=\"{$rendition}\",LANGUAGE=\"{$audiolanguagefound[0][$k][1]}-{$abitrate}k_{$rendition}\"/' ".$master_file.";");
+    /usr/bin/sudo -u{$GLOBALS['webuser']} /usr/bin/sed -i -E '".$linenumber."s/$/,ROLE=\"{$audio_stream_number}\",LANGUAGE=\"{$audiolanguagefound[0][$k][1]}-{$abitrate}k_{$audio_stream_number}\"/' ".$master_file.";");
             fwrite($fp, " \
-    /usr/bin/sudo -u{$GLOBALS['webuser']} /usr/bin/sed -i -E '".$linenumber."s/NAME=[^,]*/NAME=\"{$audiolanguagefound[0][$k][0]['name']} $rendition \({$abitrate}k\)\"/' ".$master_file.";");
+    /usr/bin/sudo -u{$GLOBALS['webuser']} /usr/bin/sed -i -E '".$linenumber."s/NAME=[^,]*/NAME=\"{$audiolanguagefound[0][$k][0]['name']} $audio_stream_number \({$abitrate}k\)\"/' ".$master_file.";");
             fwrite($fp, " \
     /usr/bin/sudo -u{$GLOBALS['webuser']} /usr/bin/sed -i -E '".$linenumber."s/LANGUAGE=[^,]*,//' ".$master_file.";");
             $linenumber++;
+            $audio_stream_number++;
             if (isset($_REQUEST["removecut"]) and $_REQUEST["removecut"]==="on" and isset($_REQUEST["checkbox_subtitles"]))
             {
                 // NOTE: could not find a way, in one processing step without transcoding, to include video, all audio files and additionally one subtitle stream.

@@ -619,12 +619,13 @@ done";
                     $linenumber = 3;
                 }
                 // Take care of audio streams in master_live.m3u8
+                $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $new_audio_rendition = Common::isNewAudioRendition($settings, $_REQUEST["quality"], $i);
                     if ($new_audio_rendition)
                     {
-                        Common::addLanguageToAudioRendition($fp, $master_file, $linenumber, $audiolanguagefound, $settings[$_REQUEST["quality"][$i]]["abitrate"], $i);
+                        Common::addLanguageToAudioRendition($fp, $master_file, $linenumber, $audiolanguagefound, $settings[$_REQUEST["quality"][$i]]["abitrate"], $audio_stream_number);
                     }
                 }
                 fwrite($fp, "
@@ -687,12 +688,13 @@ done";
                     $linenumber = 3;
                 }
                 // Take care of audio streams in master_event.m3u8
+                $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $new_audio_rendition = Common::isNewAudioRendition($settings, $_REQUEST["quality"], $i);
                     if ($new_audio_rendition)
                     {
-                        Common::addLanguageToAudioRendition($fp, $master_file, $linenumber, $audiolanguagefound, $settings[$_REQUEST["quality"][$i]]["abitrate"], $i);
+                        Common::addLanguageToAudioRendition($fp, $master_file, $linenumber, $audiolanguagefound, $settings[$_REQUEST["quality"][$i]]["abitrate"], $audio_stream_number);
                     }
                 }
                 fwrite($fp, "
@@ -756,12 +758,13 @@ done";
                     $linenumber = 3;
                 }
                 // Take care of audio streams in master_vod.m3u8
+                $audio_stream_number = 0;
                 for ($i=0; $i < $nb_renditions; $i++)
                 {
                     $new_audio_rendition = Common::isNewAudioRendition($settings, $_REQUEST["quality"], $i);
                     if ($new_audio_rendition)
                     {
-                        Common::addLanguageToAudioRendition($fp, $master_file, $linenumber, $audiolanguagefound, $settings[$_REQUEST["quality"][$i]]["abitrate"], $i);
+                        Common::addLanguageToAudioRendition($fp, $master_file, $linenumber, $audiolanguagefound, $settings[$_REQUEST["quality"][$i]]["abitrate"], $audio_stream_number);
                     }
                 }
                 fwrite($fp, "
